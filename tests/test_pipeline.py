@@ -109,3 +109,5 @@ def test_forward_vs_es_diagnostic(synth_env):
     assert v["1_scan_best_time"] == "16:00" and v["1_scan_configured"] == "17:00"
     assert v["1_scan_16:00_within_5pt_share"] == 1.0
     assert set(gex.show(g, [str(g["date"].iloc[3])])["date"]) == {g["date"].iloc[3]}
+    ts = gex.top_strikes(store.load_derived("gex_strikes", cfg), g["date"].iloc[3], n=5)
+    assert len(ts) == 5 and ts["net_bn"].abs().is_monotonic_decreasing

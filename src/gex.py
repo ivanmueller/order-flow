@@ -524,6 +524,15 @@ SHOW_COLS = ["date", "s0", "em", "net_gex_bn", "net_gex_0dte_bn", "gex_pct", "fl
              "top1", "top2", "top3", "basis"]
 
 
+def top_strikes(strikes: pd.DataFrame, day, n: int = 12) -> pd.DataFrame:
+    """Largest |G(K)| strikes for one day, in $bn per 1% move, for an eyeball check of the aggregation."""
+    g = strikes[strikes["date"] == store.as_date(day)].copy()
+    for c in ("call_gex", "put_gex", "total"):
+        g[c] = g[c] / 1e9
+    return g.reindex(g["total"].abs().sort_values(ascending=False).index).head(n)[
+        ["strike", "call_gex", "put_gex", "total"]].rename(columns={"call_gex": "call_bn", "put_gex": "put_bn", "total": "net_bn"})
+
+
 def show(gex_daily: pd.DataFrame, dates) -> pd.DataFrame:
     """Rows for check 3 (compare sign, walls and flip with a public GEX chart for those dates)."""
     g = gex_daily[gex_daily["date"].isin({store.as_date(d) for d in dates})].copy()
@@ -545,6 +554,7 @@ def main(argv=None):
     ap.add_argument("--validate-only", action="store_true", help="re-run the checks on the saved table")
     ap.add_argument("--diagnose", action="store_true", help="print the per-day forward-vs-ES table")
     ap.add_argument("--show", help="comma-separated dates: print levels for the check-3 chart comparison")
+    ap.add_argument("--strikes", help="one date: print the top strikes by |GEX| with the call/put split")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
@@ -568,6 +578,9 @@ def main(argv=None):
             print(forward_vs_es(g, bars, cal, cfg).to_string(index=False))
         if a.show:
             print(show(g, a.show.split(",")).to_string(index=False))
+        if a.strikes:
+            st = store.load_derived("gex_strikes", cfg, a.include_holdout)
+            print(top_strikes(st, a.strikes).to_string(index=False))
 
 
 if __name__ == "__main__":
