@@ -53,3 +53,20 @@ Append with `from src.runlog import log_run`.
   Checks 2 and 4 pass (put>call vol 100%; corr EM vs VIX 0.95). Net GEX negative 78% of days, median -$21bn.
   Proposed: market.quote_time 16:15 -> 17:00 (awaiting approval); check 1 now reads S0 against ES at
   quote_time minus basis (cash-close version kept as information). Check 3 (public chart) pending.
+
+## 2026-10-05 | pilot: levels, touches, Stage 2 and Stage 1 reports (pipeline check, not gate calls)
+- commit: 3d193f2  config: config.pilot.yaml (quote_time still 16:15; 17:00 proposal awaiting approval)
+- change: first real-data run of levels -> touches -> analysis stage2 / stage1 on the 63-day pilot.
+- config diff: none.
+- levels: 708 (gamma_only 105, both 63, structural_only 225, placebo 315). touches: 1357, success 54% in
+  every group (both 54.1, gamma_only 53.7, structural 53.8, placebo 55.4), timeouts 0%.
+- Stage 2 (930 touches on the 43 days with a GEX percentile): no coefficient significant; G -0.20 (p .79),
+  G:gex_pct +0.33 (p .72). No real level group's 90% CI beats the placebo rate. keep_gamma_tags=false,
+  carry structural_only + both. Direction of the interaction (gamma levels hold more in high-GEX terciles:
+  gamma_only 61% high vs 50% low) matches the hypothesis but is far from significant on this sample.
+- Stage 1 (43 days, Mar 31-May 30): RR beta -0.76 (p 3e-5, R2 .37), Q1 vs Q5 gap 35%; ER beta -0.038
+  (p .02); VR beta +0.07 (p .59, wrong sign) -> "KILL" by the literal rule. Rule-6 caveat: the sample is a
+  single crash-and-recovery regime; the GEX percentile (20-48 days of history) is nearly a time trend and
+  is confounded with April's realised-vs-implied blowout, so the RR p-value is not credible. Checked: no
+  lookahead (percentile, EM, GEX from prior sessions; RR from D's bars), no roll day in the Stage 1 window,
+  no holdout dates. Decision deferred to the full in-sample run.
