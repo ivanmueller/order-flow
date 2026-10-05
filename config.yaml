@@ -1,0 +1,126 @@
+# Gamma + Order Flow Edge Test -- frozen parameter registry (SPEC.md, "Parameter registry").
+# Every tunable number lives here. Do not edit after Stage 1 starts without logging it in RUNLOG.md.
+# `nudges` lists the one-notch-up / one-notch-down values used ONLY by the robustness check.
+
+status:
+  frozen: false            # set true (and log in RUNLOG.md) once you've signed off on every value below
+
+# ---------------------------------------------------------------------------
+# Sample and holdout
+# ---------------------------------------------------------------------------
+sample:
+  start: "2023-06-01"      # first date with free ThetaData EOD quotes
+  # Holdout = most recent 9 months at the time of first pull (first pull: Oct 2026).
+  # in_sample(date) excludes every date >= holdout_start. PROPOSED -- confirm before Stage 1.
+  holdout_start: "2026-01-01"
+  end: "2026-09-30"        # last date ingested (holdout period runs holdout_start .. end)
+
+# ---------------------------------------------------------------------------
+# Market conventions (structural, not tuned)
+# ---------------------------------------------------------------------------
+market:
+  tz: "America/New_York"
+  tick: 0.25               # ES tick in points
+  point_value: 50.0        # $ per point: 50 for ES, 5 for MES
+  globex_open: "18:00"     # session D opens 18:00 ET on D-1
+  globex_close: "17:00"
+  rth_open: "09:30"
+  rth_close: "16:00"
+  half_day_close: "13:00"
+  quote_time: "16:15"      # SPX/SPXW option close on D-1 (start of T_q clock)
+  spxw_expiry_time: "16:00"
+  spx_expiry_time: "09:30" # AM-settled monthlies settle at the open
+  touch_start: "09:31"
+  touch_end: "15:50"
+  flat_time: "15:55"       # hard time exit for simulated trades
+  tod_breaks: ["10:30", "14:00"]   # Stage 2 time-of-day buckets: open / midday / close
+  minutes_per_year: 525600
+
+# ---------------------------------------------------------------------------
+# Data sources
+# ---------------------------------------------------------------------------
+data:
+  root: "data"
+  thetadata_url: "http://127.0.0.1:25503/v3"
+  thetadata_symbols: ["SPXW", "SPX"]
+  thetadata_pause_s: 1.0   # pacing between free-tier requests
+  opra_dataset: "OPRA.PILLAR"
+  opra_parents: ["SPX.OPT", "SPXW.OPT"]
+  es_dataset: "GLBX.MDP3"
+  es_symbol: "ES.v.0"
+  fred_url: "https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}"
+  # Stage 3 trade windows: SPEC says t0-10m .. t0+30m, but the confirmed trade can run to
+  # t_r + 30m with t_r up to t0 + 10m, so t0+30m would truncate exits. 45m covers it.
+  trades_pre_min: 10
+  trades_post_min: 45
+
+# ---------------------------------------------------------------------------
+# Spending guard (CLAUDE.md rule 7)
+# ---------------------------------------------------------------------------
+budget:
+  free_credit_usd: 125.0
+  ask_above_single_pull_usd: 5.0
+  ask_above_total_usd: 100.0
+
+# ---------------------------------------------------------------------------
+# Parameter registry (SPEC.md)
+# ---------------------------------------------------------------------------
+params:
+  max_dte:            {value: 45}
+  max_rel_spread:     {value: 0.5,   nudges: [0.3, 0.7]}
+  parity_band:        {value: 0.02}
+  flip_half_width:    {value: 0.05}          # grid from (1-w) S0 to (1+w) S0
+  flip_step:          {value: 5.0}           # SPX points
+  gex_pct_lookback:   {value: 252,   nudges: [126, 504]}
+  # Sessions of history required before gex_pct is defined. 252 = SPEC-literal (no value until
+  # a full year of GEX exists, i.e. Stage 1 effectively starts ~June 2024). PROPOSED -- confirm.
+  gex_pct_min_periods: {value: 252}
+  round_step:         {value: 50,    nudges: [25, 100]}
+  level_window:       {value: 1.0,   nudges: [0.75, 1.25]}   # EM units
+  merge_tol:          {value: 2,     nudges: [1, 4]}         # ticks
+  approach_a:         {value: 0.10,  nudges: [0.075, 0.15]}  # EM units
+  proximity_b:        {value: 2,     nudges: [1, 3]}         # ticks
+  approach_lookback:  {value: 30,    nudges: [20, 45]}       # bars
+  debounce:           {value: 10,    nudges: [5, 15]}        # bars
+  success_R:          {value: 0.10,  nudges: [0.075, 0.15]}  # EM units
+  fail_F:             {value: 0.05,  nudges: [0.04, 0.075]}  # EM units (also the naive-baseline stop)
+  label_horizon:      {value: 60,    nudges: [45, 90]}       # bars
+  mfe_horizon:        {value: 30}                            # bars
+  placebo_per_day:    {value: 5}
+  placebo_min_gap:    {value: 4}                             # ticks from any real level
+  placebo_seed:       {value: 20230601}
+  abs_window:         {value: 3,     nudges: [2, 5]}         # minutes
+  abs_threshold:      {value: 2.0,   nudges: [1.5, 3.0]}
+  baseline_sessions:  {value: 20,    nudges: [10, 40]}
+  reclaim_window:     {value: 10,    nudges: [5, 15]}        # minutes
+  reclaim_ticks:      {value: 2,     nudges: [1, 3]}
+  entry_slippage:     {value: 1,     nudges: [2]}            # ticks
+  stop_buffer:        {value: 2,     nudges: [1, 4]}         # ticks
+  max_risk:           {value: 0.15,  nudges: [0.10, 0.20]}   # EM units
+  min_risk:           {value: 4}                             # ticks
+  target_mult:        {value: 1.5,   nudges: [1.0, 2.0]}     # R
+  time_exit:          {value: 30,    nudges: [20, 45]}       # minutes
+  # All-in round trip per contract (commission + exchange + NFA). PLACEHOLDER -- set to your broker's number.
+  cost_rt_usd:        {value: 5.00,  nudges: [7.50]}
+  bootstrap_draws:    {value: 5000}
+  bootstrap_seed:     {value: 7}
+  ci_level:           {value: 0.90}
+  nw_lags:            {value: 5}
+
+# ---------------------------------------------------------------------------
+# Gate thresholds (SPEC.md, "Scope and stage gates") -- reported against, never tuned
+# ---------------------------------------------------------------------------
+gates:
+  stage1_p: 0.05
+  stage1_quintile_gap: 0.15
+  stage2_p: 0.10
+  stage3_min_trades: 200
+  stage3_min_expectancy_r: 0.10
+  holdout_min_fraction: 0.5
+  robustness_min_positive_share: 0.80
+  max_variants_before_nq: 20
+
+# Gate 0 (GEX validation) tolerances
+validation:
+  forward_tol_pts: 5.0     # nearest-expiry forward within this many points of SPX close ...
+  forward_share: 0.95      # ... on at least this share of days

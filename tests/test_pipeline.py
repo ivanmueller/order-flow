@@ -1,0 +1,92 @@
+"""End-to-end plumbing on synthetic data: GEX -> levels -> touches -> trades -> flow/sim -> reports."""
+import numpy as np
+import pandas as pd
+import pytest
+
+from src import analysis, calendar as calm, gex, levels, stage3, store, touches
+from src.config import load_config
+from tests import synth
+
+
+@pytest.fixture
+def synth_env(tmp_path, monkeypatch):
+    cfg_path, bars = synth.build(tmp_path)
+    monkeypatch.setenv("GAMMA_EDGE_CONFIG", str(cfg_path))
+    monkeypatch.delenv(calm.HOLDOUT_ENV, raising=False)
+    return load_config(), bars
+
+
+def test_end_to_end(synth_env):
+    cfg, bars = synth_env
+    g = gex.build(cfg=cfg)
+    hs = calm.holdout_start(cfg)
+    assert len(g) > 20 and (g["date"] < hs).all()            # holdout never built by default
+    assert g["basis"].notna().all()                          # roll day resolved from roll_basis file
+    assert g["gex_pct"].notna().sum() > 5
+    v = gex.validate(g, store.load_daily(cfg), store.load_derived("gex_vols", cfg), cfg)
+    assert v["1_forward_within_tol_share"] > 0.95
+    assert v["2_put_vol_above_call_vol_share"] > 0.95
+
+    lv = levels.build(cfg=cfg)
+    assert set(lv["group"]) >= {"placebo", "structural_only"}
+    assert (lv["dist_em"] <= cfg["params"]["level_window"]["value"] + 1e-9).all()
+
+    tc = touches.build(cfg=cfg)
+    assert len(tc) > 20
+    assert tc["touch_id"].is_unique
+
+    synth.write_trades_for_touches(cfg, bars, tc, np.random.default_rng(1))
+    F, T = stage3.run(cfg)
+    assert len(F) == len(tc)
+    assert set(T["mode"]) >= {"naive"}
+    done = T[T["pnl_r"].notna()]
+    assert np.isfinite(done["pnl_r"]).all()
+    # Exits respect the fill rules: no exit ever better than target, R_k always positive
+    assert (done["R_k"] > 0).all()
+    assert (done["d"] * (done["X"] - done["T"]) <= 1e-9).all()
+
+    s1 = analysis.stage1(cfg)
+    assert s1["verdict_vs_rules"] in ("PASS", "KILL") and s1["n_days"] > 5
+    s2 = analysis.stage2(cfg)
+    assert "keep_gamma_tags" in s2
+    s3 = analysis.stage3(cfg, features=F)
+    assert s3["verdict_vs_rules"] in ("PASS", "KILL")
+    analysis.to_json(s3)
+
+
+def test_holdout_requires_flag(synth_env):
+    cfg, _ = synth_env
+    with pytest.raises(calm.HoldoutSealed):
+        gex.build(cfg=cfg, include_holdout=True)
+
+
+def test_robustness_and_holdout(synth_env, monkeypatch):
+    from src import robustness
+    cfg, bars = synth_env
+    gex.build(cfg=cfg)
+    levels.build(cfg=cfg)
+    tc = touches.build(cfg=cfg)
+    synth.write_trades_for_touches(cfg, bars, tc, np.random.default_rng(1))
+    stage3.run(cfg)
+    c = load_config()
+    for name, spec in c["params"].items():
+        if name not in ("abs_threshold", "round_step", "gex_pct_lookback"):
+            spec.pop("nudges", None)
+    df = robustness.nudges(cfg=c)
+    assert set(df["param"]) == {"BASE", "abs_threshold", "round_step", "gex_pct_lookback"}
+    assert "positive_share" in df.attrs
+    robustness.splits(cfg=c)
+
+    # Holdout is refused until the flag is set, then runs end to end on holdout dates only.
+    with pytest.raises(calm.HoldoutSealed):
+        robustness.holdout_prep()
+    monkeypatch.setenv(calm.HOLDOUT_ENV, "1")
+    out = robustness.holdout_prep()
+    assert out["touches"] > 0
+    th = store.load_derived("touches_holdout", cfg, include_holdout=True)
+    assert (th["date"] >= calm.holdout_start(cfg)).all()
+    synth.write_trades_for_touches(cfg, bars, th, np.random.default_rng(2))
+    res = robustness.holdout(0.2)
+    assert res["verdict_vs_rules"] in ("PASS", "FAIL")
+    # In-sample tables were not overwritten by the holdout run
+    assert (store.load_derived("touches", cfg)["date"] < calm.holdout_start(cfg)).all()
