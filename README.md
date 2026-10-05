@@ -19,7 +19,7 @@ Each report prints the numbers next to the frozen pass/kill rules (`verdict_vs_r
 
 ```bash
 pip install -r requirements.txt
-export DATABENTO_API_KEY=...          # never in code, config, or logs
+cp .env.example .env                   # then put your Databento key in .env (git-ignored, never committed)
 # Install and start the Theta Terminal (free account); it serves http://127.0.0.1:25503/v3
 pytest -q                              # 41 tests: hand-verified formulas + an end-to-end synthetic run
 ```

@@ -11,7 +11,7 @@ import os
 
 import pandas as pd
 
-from src.config import data_path
+from src.config import data_path, load_env_file
 
 
 class SpendRefused(RuntimeError):
@@ -20,9 +20,10 @@ class SpendRefused(RuntimeError):
 
 def client():
     import databento as db
+    load_env_file()
     key = os.environ.get("DATABENTO_API_KEY")
     if not key:
-        raise RuntimeError("Set DATABENTO_API_KEY in the environment (never in code or config).")
+        raise RuntimeError("Set DATABENTO_API_KEY in .env at the repo root (git-ignored) or in your shell.")
     return db.Historical(key)
 
 

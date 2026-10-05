@@ -44,6 +44,21 @@ def config_hash(cfg: dict) -> str:
     return hashlib.sha1(yaml.safe_dump(cfg, sort_keys=True).encode()).hexdigest()[:10]
 
 
+def load_env_file(path: str | os.PathLike | None = None) -> None:
+    """Read KEY=VALUE lines from the repo's .env (git-ignored) into os.environ.
+    Variables already set in the shell win. Keys are never logged or written anywhere."""
+    path = Path(path or ROOT / ".env")
+    if not path.exists():
+        return
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.removeprefix("export ").strip()
+        os.environ.setdefault(k, v.strip().strip("'\""))
+
+
 def data_path(cfg: dict, *parts: str) -> Path:
     root = Path(cfg["data"]["root"])
     if not root.is_absolute():

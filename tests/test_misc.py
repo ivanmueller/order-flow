@@ -118,3 +118,15 @@ def test_parse_osi_and_eod_normalize():
     assert list(n["right"]) == ["C", "P"] and n["expiration"].iloc[0] == dt.date(2023, 6, 2)
     v2 = raw.assign(strike=[4200000, 4200000], right=["C", "P"], expiration=[20230602, 20230602])
     assert normalize_eod(v2, "SPXW", dt.date(2023, 6, 1))["strike"].iloc[0] == 4200.0
+
+
+def test_load_env_file(tmp_path, monkeypatch):
+    from src.config import load_env_file
+    f = tmp_path / ".env"
+    f.write_text("# comment\nexport FOO_TEST_KEY='abc'\nBAR_TEST_KEY=keep\n")
+    monkeypatch.delenv("FOO_TEST_KEY", raising=False)
+    monkeypatch.setenv("BAR_TEST_KEY", "shell")
+    load_env_file(f)
+    import os
+    assert os.environ["FOO_TEST_KEY"] == "abc"
+    assert os.environ["BAR_TEST_KEY"] == "shell"     # shell value wins
