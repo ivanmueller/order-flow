@@ -12,7 +12,9 @@ Update this block at the end of every session.
 - Gates passed: none
 - Open issues: sign off the decisions listed in README.md ("Decisions that need your sign-off"),
   especially holdout_start, cost_rt_usd, gex_pct_min_periods; then set status.frozen in config.yaml.
-  Run `python -m src.ingest_options --probe 2023-06-01` and confirm the ThetaData v3 EOD columns map correctly.
+  ThetaData v3 EOD probe done 2026-10-04: columns map correctly (strike in dollars, right CALL/PUT, ISO dates).
+  Pilot pricing: ES bars $0.42, OPRA OI ~$0.0165/day (~$1.07 for the pilot). Still to confirm: OPRA parent
+  symbology returns OSI symbols (check row counts in the first OI pull).
 
 ## Non-negotiable rules
 
