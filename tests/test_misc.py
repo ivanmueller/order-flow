@@ -187,3 +187,18 @@ def test_with_retries_only_on_transient(monkeypatch):
         raise BentoServerError(http_status=504, http_body=None, message="timeout")
     with pytest.raises(BentoServerError):
         spend.with_retries(always, "x")
+
+
+def test_oi_chunking_and_pre_open_split(cfg):
+    from src.ingest_options import _chunks, split_pre_open
+    days = [dt.date(2025, 5, d) for d in (19, 20, 21, 22, 23, 27, 28)]   # 26th is a holiday
+    assert _chunks(days, 3) == [days[0:3], days[3:5], days[5:7]]
+    assert _chunks(days, 10) == [days]                                  # 23 -> 27 is a 4-day gap: same run
+    assert _chunks([dt.date(2025, 5, 23), dt.date(2025, 6, 2)], 10) == [[dt.date(2025, 5, 23)], [dt.date(2025, 6, 2)]]
+    ts = pd.to_datetime(["2025-05-19 06:00", "2025-05-19 11:00", "2025-05-20 06:10", "2025-05-20 09:29"]
+                        ).tz_localize("America/New_York").tz_convert("UTC")
+    stats = pd.DataFrame({"ts_event": ts, "symbol": ["a", "a", "a", "b"], "stat_type": 9, "quantity": [1, 2, 3, 4]})
+    by = split_pre_open(stats, cfg)
+    assert set(by) == {dt.date(2025, 5, 19), dt.date(2025, 5, 20)}
+    assert list(by[dt.date(2025, 5, 19)]["quantity"]) == [1]          # the 11:00 record is after the open
+    assert list(by[dt.date(2025, 5, 20)]["quantity"]) == [3, 4]

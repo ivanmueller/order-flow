@@ -111,11 +111,16 @@ def ingest_eod(cfg, days):
 # ---------------------------------------------------------------------------
 # Databento OPRA open interest
 # ---------------------------------------------------------------------------
-def oi_args(cfg, day: dt.date) -> dict:
+def oi_args(cfg, day: dt.date, last_day: dt.date | None = None) -> dict:
+    """Statistics from 00:00 ET on `day` to 09:30 ET on `last_day` (default: the same day).
+
+    A multi-day range returns the in-between hours too (more data, a little more cost) but needs
+    one server-side scan instead of one per day, which is what makes the per-day pull slow.
+    """
     return dict(dataset=cfg["data"]["opra_dataset"], symbols=list(cfg["data"]["opra_parents"]),
                 stype_in="parent", schema="statistics",
                 start=calm.et_time(day, "00:00").isoformat(),
-                end=calm.et_time(day, cfg["market"]["rth_open"]).isoformat())
+                end=calm.et_time(last_day or day, cfg["market"]["rth_open"]).isoformat())
 
 
 def parse_osi(symbols: pd.Series) -> pd.DataFrame:
@@ -128,6 +133,16 @@ def parse_osi(symbols: pd.Series) -> pd.DataFrame:
         "right": parts["right"],
         "strike": parts["strike"].astype(float) / 1000.0,
     }, index=symbols.index)
+
+
+def split_pre_open(stats: pd.DataFrame, cfg) -> dict:
+    """Records published before the open, keyed by ET date, for a multi-day statistics pull."""
+    if stats.empty or "ts_event" not in stats.columns:
+        return {}
+    ts = pd.to_datetime(stats["ts_event"], utc=True)
+    mod = calm.minutes_of_day_et(ts)
+    pre = stats[(mod < calm.hhmm_to_min(cfg["market"]["rth_open"])).to_numpy()]
+    return {d: g for d, g in pre.groupby(ts[pre.index].dt.tz_convert(calm.ET).dt.date)}
 
 
 def normalize_oi(stats: pd.DataFrame, day: dt.date, max_dte: int) -> pd.DataFrame:
@@ -144,10 +159,60 @@ def normalize_oi(stats: pd.DataFrame, day: dt.date, max_dte: int) -> pd.DataFram
     return oi[OI_COLS].reset_index(drop=True)
 
 
-def ingest_oi(cfg, days, budget: spend.Budget, price_only: bool, sample: int):
+def _chunks(days: list, n: int) -> list[list]:
+    """Consecutive runs of up to n days (a gap of more than 4 calendar days starts a new chunk)."""
+    out: list[list] = []
+    for d in days:
+        if out and len(out[-1]) < n and (d - out[-1][-1]).days <= 4:
+            out[-1].append(d)
+        else:
+            out.append([d])
+    return out
+
+
+def _write_day(cfg, roots, day, df, max_dte):
+    oi = normalize_oi(df, day, max_dte) if not df.empty else pd.DataFrame(columns=OI_COLS)
+    for r in roots:
+        store.write(oi[oi["root"] == r], store.oi_path(cfg, day, r))
+    return len(oi)
+
+
+def ingest_oi_chunked(cfg, todo, budget: spend.Budget, price_only: bool, chunk_days: int, roots):
+    cl = spend.client()
+    chunks = _chunks(todo, chunk_days)
+    if price_only:
+        pick = chunks[: min(3, len(chunks))]
+        costs = [budget.price(cl, oi_args(cfg, c[0], c[-1])) for c in pick]
+        per_day = sum(costs) / max(1, sum(len(c) for c in pick))
+        print(f"OPRA OI chunked ({chunk_days} days/request): priced {len(pick)} chunks, "
+              f"${per_day:.4f}/day -> est ${per_day * len(todo):.2f} for {len(todo)} days in {len(chunks)} requests "
+              f"(ledger so far ${spend.total_spent(cfg):.2f})")
+        return
+    for c in chunks:
+        try:
+            data, cost = budget.pull(cl, "oi", f"{c[0]}..{c[-1]}", oi_args(cfg, c[0], c[-1]))
+        except BentoClientError as e:
+            if not _no_symbols(e):
+                raise
+            log.warning("oi %s..%s: no OPRA symbols; writing empty files", c[0], c[-1])
+            for day in c:
+                _write_day(cfg, roots, day, pd.DataFrame(), param(cfg, "max_dte"))
+            continue
+        df = data.to_df()
+        if "ts_event" not in df.columns:
+            df = df.reset_index()
+        by_day = split_pre_open(df, cfg)
+        rows = {day: _write_day(cfg, roots, day, by_day.get(day, pd.DataFrame()), param(cfg, "max_dte")) for day in c}
+        log.info("oi %s..%s days=%d rows=%s cost=$%.4f run=$%.2f", c[0], c[-1], len(c),
+                 "/".join(str(v) for v in rows.values()), cost, budget.spent)
+
+
+def ingest_oi(cfg, days, budget: spend.Budget, price_only: bool, sample: int, chunk_days: int = 1):
     cl = spend.client()
     roots = [p.split(".")[0] for p in cfg["data"]["opra_parents"]]
     todo = [d for d in days if not all(store.oi_path(cfg, d, r).exists() for r in roots)]
+    if chunk_days > 1:
+        return ingest_oi_chunked(cfg, todo, budget, price_only, chunk_days, roots)
     if price_only:
         pick = todo if sample <= 0 else [todo[i] for i in np.linspace(0, len(todo) - 1, min(sample, len(todo))).astype(int)]
         costs = [c for d in pick if (c := _price_day(budget, cl, cfg, d)) is not None]
@@ -169,10 +234,8 @@ def ingest_oi(cfg, days, budget: spend.Budget, price_only: bool, sample: int):
         df = data.to_df()
         if "ts_event" not in df.columns:
             df = df.reset_index()
-        oi = normalize_oi(df, day, param(cfg, "max_dte")) if not df.empty else pd.DataFrame(columns=OI_COLS)
-        for r in roots:
-            store.write(oi[oi["root"] == r], store.oi_path(cfg, day, r))
-        log.info("oi %s rows=%d cost=$%.4f run=$%.2f", day, len(oi), cost, budget.spent)
+        n = _write_day(cfg, roots, day, df, param(cfg, "max_dte"))
+        log.info("oi %s rows=%d cost=$%.4f run=$%.2f", day, n, cost, budget.spent)
 
 
 def _no_symbols(e: Exception) -> bool:
@@ -223,6 +286,8 @@ def main(argv=None):
     ap.add_argument("--what", choices=["eod", "oi", "both"], default="both")
     ap.add_argument("--price-only", action="store_true")
     ap.add_argument("--sample", type=int, default=10, help="days to price in --price-only (0 = all)")
+    ap.add_argument("--chunk-days", type=int, default=1,
+                    help="OI: days per Databento request (1 = one request per day; 5-10 is much faster)")
     ap.add_argument("--approve-usd", type=float, default=None)
     ap.add_argument("--allow-past-total", action="store_true")
     ap.add_argument("--include-holdout", action="store_true",
@@ -246,7 +311,8 @@ def main(argv=None):
         eod_days = prior + days
         ingest_eod(cfg, eod_days)
     if a.what in ("oi", "both"):
-        ingest_oi(cfg, days, spend.Budget(cfg, a.approve_usd, a.allow_past_total), a.price_only, a.sample)
+        ingest_oi(cfg, days, spend.Budget(cfg, a.approve_usd, a.allow_past_total), a.price_only, a.sample,
+                  a.chunk_days)
 
 
 if __name__ == "__main__":
