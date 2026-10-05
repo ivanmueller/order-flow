@@ -102,10 +102,10 @@ def test_forward_vs_es_diagnostic(synth_env):
     # Synthetic data: S0 == SPX close and basis == ES_16:00 - SPX, so r_1600 == 0 and
     # the residual at any later time is minus the ES move from 16:00 to that time.
     assert np.allclose(f["r_1600"], 0, atol=1e-6)
-    assert np.allclose(f["r_1615"], -(f["es_1615"] - f["es_1600"]), atol=1e-6)
-    assert np.allclose(f["resid"], f["r_1615"])            # configured quote_time is 16:15
+    assert np.allclose(f["r_1700"], -(f["es_1700"] - f["es_1600"]), atol=1e-6)
+    assert np.allclose(f["resid"], f["r_1700"])            # configured quote_time is 17:00
     v = gex.validate(g, store.load_daily(cfg), None, cfg, store.load_bars(cfg), cal)
     assert "1_forward_vs_es_within_5pt_share" in v and v["1_n_days"] == len(f)
-    assert v["1_scan_best_time"] == "16:00" and v["1_scan_configured"] == "16:15"
+    assert v["1_scan_best_time"] == "16:00" and v["1_scan_configured"] == "17:00"
     assert v["1_scan_16:00_within_5pt_share"] == 1.0
     assert set(gex.show(g, [str(g["date"].iloc[3])])["date"]) == {g["date"].iloc[3]}

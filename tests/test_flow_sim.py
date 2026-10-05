@@ -66,7 +66,7 @@ def test_confirmed_trade_target(cfg):
     r = sim.confirmed_trade(t, f, L, 1, EM, DAY, cfg)
     assert r["E"] == 101.25 and r["S"] == 99.25 and r["R_k"] == 2.0 and r["T"] == 104.25
     assert r["exit_reason"] == "target" and r["X"] == 104.25
-    assert r["pnl_r"] == pytest.approx(1.5 - 5.0 / (2.0 * 50))
+    assert r["pnl_r"] == pytest.approx(1.5 - 3.98 / (2.0 * 50))
 
 
 def test_confirmed_trade_stop_and_gap(cfg):
@@ -74,7 +74,7 @@ def test_confirmed_trade_stop_and_gap(cfg):
     f = flow.features(t, BAR_OPEN, L, 1, BASELINE, cfg)
     r = sim.confirmed_trade(t, f, L, 1, EM, DAY, cfg)
     assert r["exit_reason"] == "stop" and r["X"] == 99.0
-    assert r["pnl_r"] == pytest.approx((99.0 - 101.25) / 2.0 - 0.05)
+    assert r["pnl_r"] == pytest.approx((99.0 - 101.25) / 2.0 - 3.98 / 100)
     t = trades(tail=[("10:05:00", 98.0, 1, -1)])        # gap through the stop: fill at the print
     r = sim.confirmed_trade(t, flow.features(t, BAR_OPEN, L, 1, BASELINE, cfg), L, 1, EM, DAY, cfg)
     assert r["X"] == 98.0
@@ -110,7 +110,7 @@ def test_naive_trade(cfg):
     r = sim.naive_trade(t, f["t0_trade"], L, 1, EM, DAY, cfg)
     assert r["entry_ts"] == ts("10:01:00") and r["E"] == 100.0 and r["R_k"] == 2.5
     assert r["exit_reason"] == "target" and r["X"] == 103.75
-    assert r["pnl_r"] == pytest.approx(1.5 - 5.0 / (2.5 * 50))
+    assert r["pnl_r"] == pytest.approx(1.5 - 3.98 / (2.5 * 50))
 
 
 def test_resistance_mirror(cfg):
@@ -121,4 +121,4 @@ def test_resistance_mirror(cfg):
     f = flow.features(t, BAR_OPEN, L, -1, BASELINE, cfg)
     assert f["abs_ratio"] == pytest.approx(4.0) and f["confirmed"]
     r = sim.confirmed_trade(t, f, L, -1, EM, DAY, cfg)
-    assert r["pnl_r"] == pytest.approx(1.45)
+    assert r["pnl_r"] == pytest.approx(1.5 - 3.98 / 100)

@@ -28,7 +28,8 @@ market:
   rth_open: "09:30"
   rth_close: "16:00"
   half_day_close: "13:00"
-  quote_time: "16:15"      # SPX/SPXW option close on D-1 (start of T_q clock)
+  quote_time: "17:00"      # ThetaData EOD NBBO = Cboe curb-session close on D-1 (start of T_q clock);
+                           # was 16:15 per SPEC, changed 2026-10-05 after the pilot quote-time scan (RUNLOG)
   spxw_expiry_time: "16:00"
   spx_expiry_time: "09:30" # AM-settled monthlies settle at the open
   touch_start: "09:31"
@@ -74,9 +75,9 @@ params:
   flip_half_width:    {value: 0.05}          # grid from (1-w) S0 to (1+w) S0
   flip_step:          {value: 5.0}           # SPX points
   gex_pct_lookback:   {value: 252,   nudges: [126, 504]}
-  # Sessions of history required before gex_pct is defined. 252 = SPEC-literal (no value until
-  # a full year of GEX exists, i.e. Stage 1 effectively starts ~June 2024). PROPOSED -- confirm.
-  gex_pct_min_periods: {value: 252}
+  # Sessions of history required before gex_pct is defined. SPEC-literal would be 252 (a full year);
+  # set to 126 (six months) on 2026-10-05 so Stage 1 starts ~Dec 2023 instead of ~Jun 2024.
+  gex_pct_min_periods: {value: 126}
   round_step:         {value: 50,    nudges: [25, 100]}
   level_window:       {value: 1.0,   nudges: [0.75, 1.25]}   # EM units
   merge_tol:          {value: 2,     nudges: [1, 4]}         # ticks
@@ -102,8 +103,8 @@ params:
   min_risk:           {value: 4}                             # ticks
   target_mult:        {value: 1.5,   nudges: [1.0, 2.0]}     # R
   time_exit:          {value: 30,    nudges: [20, 45]}       # minutes
-  # All-in round trip per contract (commission + exchange + NFA). PLACEHOLDER -- set to your broker's number.
-  cost_rt_usd:        {value: 5.00,  nudges: [7.50]}
+  # All-in round trip per contract (commission + exchange + NFA), the user's broker, set 2026-10-05.
+  cost_rt_usd:        {value: 3.98,  nudges: [5.97]}   # nudge = +50%
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}

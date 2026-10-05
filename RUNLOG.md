@@ -70,3 +70,13 @@ Append with `from src.runlog import log_run`.
   is confounded with April's realised-vs-implied blowout, so the RR p-value is not credible. Checked: no
   lookahead (percentile, EM, GEX from prior sessions; RR from D's bars), no roll day in the Stage 1 window,
   no holdout dates. Decision deferred to the full in-sample run.
+
+## 2026-10-05 | config: three values set with approval (not a run)
+- commit: caf6603 -> this commit. Approved by Matteo in chat.
+- config diff (config.yaml, inherited by the pilot overlay except where it overrides):
+  market.quote_time 16:15 -> 17:00 (EOD quotes are the Cboe curb close; pilot scan RUNLOG 2026-10-05);
+  params.cost_rt_usd 5.00 -> 3.98 (broker all-in round trip), nudge 7.50 -> 5.97;
+  params.gex_pct_min_periods 252 -> 126 (pilot overlay keeps 20).
+- Stage 3 pilot pricing: 1357 touches -> 103 merged spans, 21,562 minutes, est $32.86 ($0.0015/min).
+  The merged windows cover ~340 of 390 RTH minutes per day, so Stage 3 trades cost ~$0.52/day;
+  the full in-sample (~645 days) would be ~$340, beyond the $125 credit. Sampling decision pending.

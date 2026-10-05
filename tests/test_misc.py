@@ -156,7 +156,7 @@ def test_pilot_overlay(monkeypatch):
     monkeypatch.setenv("GAMMA_EDGE_CONFIG", "config.yaml")
     m = load_config()
     assert p["name"] == "pilot" and m["name"] == "main"
-    assert param(p, "gex_pct_min_periods") == 20 and param(m, "gex_pct_min_periods") == 252
+    assert param(p, "gex_pct_min_periods") == 20 and param(m, "gex_pct_min_periods") == 126
     # Everything not overridden is inherited unchanged
     assert p["params"]["abs_threshold"] == m["params"]["abs_threshold"]
     assert p["sample"]["holdout_start"] == m["sample"]["holdout_start"]
