@@ -192,8 +192,8 @@ def test_with_retries_only_on_transient(monkeypatch):
 def test_oi_chunking_and_pre_open_split(cfg):
     from src.ingest_options import _chunks, split_pre_open
     days = [dt.date(2025, 5, d) for d in (19, 20, 21, 22, 23, 27, 28)]   # 26th is a holiday
-    assert _chunks(days, 3) == [days[0:3], days[3:5], days[5:7]]
-    assert _chunks(days, 10) == [days]                                  # 23 -> 27 is a 4-day gap: same run
+    assert _chunks(days, 3) == [days[0:3], days[3:6], days[6:7]]   # 23 -> 27 is a 4-day gap: same run
+    assert _chunks(days, 10) == [days]
     assert _chunks([dt.date(2025, 5, 23), dt.date(2025, 6, 2)], 10) == [[dt.date(2025, 5, 23)], [dt.date(2025, 6, 2)]]
     ts = pd.to_datetime(["2025-05-19 06:00", "2025-05-19 11:00", "2025-05-20 06:10", "2025-05-20 09:29"]
                         ).tz_localize("America/New_York").tz_convert("UTC")
