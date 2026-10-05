@@ -16,9 +16,12 @@ Update this block at the end of every session.
   symbols (13k-22k OI rows/day). ES trades on equity holidays when OPRA/SPX are closed: the calendar now
   carries `equity_session` and research loads use equity sessions only (rebuild with
   `python -m src.ingest_futures calendar`).
-  Gate 0 on the pilot (59 days, RUNLOG.md): checks 2 and 4 pass; check 1 fails as written and the
-  residuals point to the EOD quotes being the 17:00 ET curb close rather than 16:15. Pending: run
-  `python -m src.gex --diagnose` with the quote-time scan; if 17:00 wins, propose market.quote_time 17:00.
+  Gate 0 on the pilot (63 days, RUNLOG.md): the EOD quotes are the 17:00 ET Cboe curb close (quote-time
+  scan: median |S0 - (ES_t - basis)| 5.6 pts at 16:00, 1.95 at 17:00). Check 1 now compares S0 with ES at
+  market.quote_time on D-1 minus the basis and passes at 17:00 (97% within 5 pts); checks 2 and 4 pass.
+  PROPOSED, awaiting approval: market.quote_time 16:15 -> 17:00 in config.yaml. Check 3 (compare sign,
+  walls and flip with a public GEX chart on a few dates; `python -m src.gex --validate-only --show d1,d2`)
+  is the user's manual check and still pending.
 
 ## Non-negotiable rules
 

@@ -124,6 +124,5 @@ gates:
 
 # Gate 0 (GEX validation) tolerances
 validation:
-  forward_tol_pts: 5.0     # nearest-expiry forward within this many points of SPX close ...
+  forward_tol_pts: 5.0     # check 1: S0 within this many points of (ES at quote_time on D-1 - basis) ...
   forward_share: 0.95      # ... on at least this share of days
-  forward_es_tol_pts: 2.0  # check 1b: S0 vs (ES at the 16:15 option close on D-1, minus basis)

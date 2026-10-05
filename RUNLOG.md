@@ -39,3 +39,17 @@ Append with `from src.runlog import log_run`.
   17:00 ET Cboe curb-session close, not 16:15. A quote-time scan (16:00/16:15/16:45/17:00) was added to
   --diagnose to test it. Net GEX negative on 81% of days, median -$24bn/1%, turning positive from
   May 12 (consistent with the post-tariff-pause regime); flip missing 27%. Not a gate decision.
+
+## 2026-10-05 | pilot: GEX build complete, 63 days (Gate 0 checks 1, 2, 4)
+- commit: c7ba2a7  config: config.pilot.yaml
+- change: calendar rebuilt with equity sessions (2 ES-only holidays excluded: 2025-02-17, 2025-05-26);
+  OI pull completed May 27-30 ($0.06). Total Databento spend so far ~$1.50.
+- config diff: none.
+- result (63 days, Mar 3-May 30 2025): quote-time scan of S0 vs ES-at-t minus basis, median |resid| in pts:
+  16:00 5.60 (19% within 2) | 16:15 4.25 (23%) | 16:45 2.84 (37%) | 17:00 1.95 (53%, 97% within 5).
+  The EOD quotes are the 17:00 ET Cboe curb close. Against that reference the forward fit passes the
+  SPEC's check 1 standard (within 5 pts on 97% of days); the after-hours news outliers vanish
+  (Apr 2 tariff day: -170 at 16:15 -> -1.2 at 17:00; May 16 Moody's: -25 -> -1.3).
+  Checks 2 and 4 pass (put>call vol 100%; corr EM vs VIX 0.95). Net GEX negative 78% of days, median -$21bn.
+  Proposed: market.quote_time 16:15 -> 17:00 (awaiting approval); check 1 now reads S0 against ES at
+  quote_time minus basis (cash-close version kept as information). Check 3 (public chart) pending.

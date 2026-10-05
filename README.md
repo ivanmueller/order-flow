@@ -113,7 +113,10 @@ config value or a documented rule you can change now; after Stage 1 starts, chan
 9. **Touch rules:** the debounce skips a touch if any of the previous 10 bars came within b of L;
    d comes from which side of L the previous close sits on.
 10. **Stage 1 excludes half days** (no full 09:30 to 16:00 session).
-11. **`static/events.csv` has FOMC days for 2023 to 2025 only.** Add CPI and NFP dates from the BLS
+11. **Option quotes are the 17:00 ET curb close, not 16:15.** The pilot showed the ThetaData EOD NBBO
+    tracks ES at 17:00 (Cboe's SPX curb session ends then), so `quote_time` should be 17:00: it sets the
+    implied-vol clock and the reference for Gate 0 check 1. Still before the open of D, so point-in-time holds.
+12. **`static/events.csv` has FOMC days for 2023 to 2025 only.** Add CPI and NFP dates from the BLS
     calendar before running the "drop event days" robustness check.
 
 ## Layout

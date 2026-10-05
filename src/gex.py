@@ -449,36 +449,45 @@ def forward_vs_es(gex_daily: pd.DataFrame, bars: pd.DataFrame, cal: pd.DataFrame
 
 def validate(gex_daily: pd.DataFrame, daily: pd.DataFrame, vols: pd.DataFrame | None, cfg,
              bars: pd.DataFrame | None = None, cal: pd.DataFrame | None = None) -> dict:
-    """The automatable Gate 0 checks. Check 3 (match public GEX charts) is manual."""
+    """The automatable Gate 0 checks. Check 3 (match public GEX charts) is manual.
+
+    Check 1 compares S0 with the ES print at market.quote_time on D-1 minus the basis: the EOD quotes
+    are stamped at the Cboe curb close (17:00 ET), after the 16:00 cash close, so the cash close is
+    the wrong reference (pilot diagnostic, RUNLOG 2026-10-05). The cash-close comparison is still
+    reported as information. Without bars/cal the cash-close version decides 1_pass.
+    """
     v = cfg["validation"]
+    tol, share_req = v["forward_tol_pts"], v["forward_share"]
     g = gex_daily.copy()
     out = {}
     dev = (g["s0"] - g["spx_prev_close"]).abs()
-    share = float((dev <= v["forward_tol_pts"]).mean())
-    out["1_forward_within_tol_share"] = share
-    out["1_forward_abs_dev_median"] = float(dev.median())
-    out["1_pass"] = share >= v["forward_share"]
-    if bars is not None and cal is not None:
-        f = forward_vs_es(g, bars, cal, cfg)
-        if not f.empty:
-            tol = v.get("forward_es_tol_pts", 2.0)
-            qt = cfg["market"]["quote_time"]
-            out["1b_quote_time_configured"] = qt
-            out["1b_resid_median_abs"] = float(f["resid"].abs().median())
-            out["1b_resid_median_signed"] = float(f["resid"].median())
-            out[f"1b_resid_within_{tol:g}pt_share"] = float((f["resid"].abs() <= tol).mean())
-            out["1b_n_days"] = len(f)
-            best, best_med = None, np.inf
-            for t in QUOTE_TIME_CANDIDATES:
-                k = t.replace(":", "")
-                if f"r_{k}" not in f:
-                    continue
-                med = float(f[f"r_{k}"].abs().median())
-                out[f"1b_scan_{t}_median_abs"] = med
-                out[f"1b_scan_{t}_within_{tol:g}pt_share"] = float((f[f"r_{k}"].abs() <= tol).mean())
-                if med < best_med:
-                    best, best_med = t, med
-            out["1b_scan_best_time"] = best
+    out["1_info_vs_spx_cash_close_median_abs"] = float(dev.median())
+    out[f"1_info_vs_spx_cash_close_within_{tol:g}pt_share"] = float((dev <= tol).mean())
+    f = forward_vs_es(g, bars, cal, cfg) if bars is not None and cal is not None else pd.DataFrame()
+    if f.empty:
+        out["1_reference"] = "SPX cash close (no bars given)"
+        out["1_pass"] = bool((dev <= tol).mean() >= share_req)
+    else:
+        qt = cfg["market"]["quote_time"]
+        out["1_reference"] = f"ES at {qt} on D-1 minus basis"
+        out["1_forward_vs_es_median_abs"] = float(f["resid"].abs().median())
+        out["1_forward_vs_es_median_signed"] = float(f["resid"].median())
+        share = float((f["resid"].abs() <= tol).mean())
+        out[f"1_forward_vs_es_within_{tol:g}pt_share"] = share
+        out["1_n_days"] = len(f)
+        out["1_pass"] = bool(share >= share_req)
+        best, best_med = None, np.inf
+        for t in QUOTE_TIME_CANDIDATES:
+            k = t.replace(":", "")
+            if f"r_{k}" not in f:
+                continue
+            med = float(f[f"r_{k}"].abs().median())
+            out[f"1_scan_{t}_median_abs"] = med
+            out[f"1_scan_{t}_within_{tol:g}pt_share"] = float((f[f"r_{k}"].abs() <= tol).mean())
+            if med < best_med:
+                best, best_med = t, med
+        out["1_scan_best_time"] = best
+        out["1_scan_configured"] = qt
     if vols is not None and not vols.empty:
         vv = vols.merge(g[["date", "nearest_root", "nearest_exp"]], on="date")
         vv = vv[(vv["root"] == vv["nearest_root"]) & (vv["expiration"] == vv["nearest_exp"])]
@@ -511,6 +520,18 @@ def validate(gex_daily: pd.DataFrame, daily: pd.DataFrame, vols: pd.DataFrame | 
     return out
 
 
+SHOW_COLS = ["date", "s0", "em", "net_gex_bn", "net_gex_0dte_bn", "gex_pct", "flip", "call_wall", "put_wall",
+             "top1", "top2", "top3", "basis"]
+
+
+def show(gex_daily: pd.DataFrame, dates) -> pd.DataFrame:
+    """Rows for check 3 (compare sign, walls and flip with a public GEX chart for those dates)."""
+    g = gex_daily[gex_daily["date"].isin({store.as_date(d) for d in dates})].copy()
+    g["net_gex_bn"] = g["net_gex"] / 1e9
+    g["net_gex_0dte_bn"] = g["net_gex_0dte"] / 1e9
+    return g[[c for c in SHOW_COLS if c in g]]
+
+
 def _prev_value(daily: pd.DataFrame, col: str) -> dict:
     d = daily.sort_values("date")
     return dict(zip(d["date"], d[col].shift(1)))
@@ -523,6 +544,7 @@ def main(argv=None):
     ap.add_argument("--include-holdout", action="store_true")
     ap.add_argument("--validate-only", action="store_true", help="re-run the checks on the saved table")
     ap.add_argument("--diagnose", action="store_true", help="print the per-day forward-vs-ES table")
+    ap.add_argument("--show", help="comma-separated dates: print levels for the check-3 chart comparison")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
@@ -541,10 +563,11 @@ def main(argv=None):
     cal = store.load_calendar(cfg, a.include_holdout)
     for k, v in validate(g, daily, vols, cfg, bars, cal).items():
         print(f"{k:40s} {v}")
-    if a.diagnose:
-        f = forward_vs_es(g, bars, cal, cfg)
-        with pd.option_context("display.width", 200, "display.max_rows", 500, "display.float_format", "{:.2f}".format):
-            print(f.to_string(index=False))
+    with pd.option_context("display.width", 220, "display.max_rows", 500, "display.float_format", "{:.2f}".format):
+        if a.diagnose:
+            print(forward_vs_es(g, bars, cal, cfg).to_string(index=False))
+        if a.show:
+            print(show(g, a.show.split(",")).to_string(index=False))
 
 
 if __name__ == "__main__":
