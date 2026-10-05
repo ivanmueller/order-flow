@@ -251,8 +251,9 @@ def main(argv=None):
     cfg = load_config()
     budget = spend.Budget(cfg, a.approve_usd, a.allow_past_total)
     if a.job == "bars":
-        # Start one month early so the first session has a prior day and a basis.
-        start = a.start or (pd.Timestamp(cfg["sample"]["start"]) - pd.offsets.MonthBegin(1)).date()
+        # Start two months early: the first session needs a prior day, a basis, and
+        # baseline_sessions of history for the Stage 3 volume baseline.
+        start = a.start or (pd.Timestamp(cfg["sample"]["start"]) - pd.offsets.MonthBegin(2)).date()
         ingest_bars(cfg, start, a.end or cfg["sample"]["end"], budget, a.price_only)
     elif a.job == "roll-basis":
         ingest_roll_basis(cfg, budget, a.price_only)

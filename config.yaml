@@ -2,6 +2,7 @@
 # Every tunable number lives here. Do not edit after Stage 1 starts without logging it in RUNLOG.md.
 # `nudges` lists the one-notch-up / one-notch-down values used ONLY by the robustness check.
 
+name: main
 status:
   frozen: false            # set true (and log in RUNLOG.md) once you've signed off on every value below
 
@@ -41,6 +42,7 @@ market:
 # ---------------------------------------------------------------------------
 data:
   root: "data"
+  derived_dir: "derived"   # raw/ is shared by every config; derived tables are per config
   thetadata_url: "http://127.0.0.1:25503/v3"
   thetadata_symbols: ["SPXW", "SPX"]
   thetadata_pause_s: 1.0   # pacing between free-tier requests

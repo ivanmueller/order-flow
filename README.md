@@ -24,6 +24,13 @@ cp .env.example .env                   # then put your Databento key in .env (gi
 pytest -q                              # 41 tests: hand-verified formulas + an end-to-end synthetic run
 ```
 
+## Pilot first (3 months, Mar-May 2025)
+
+`config.pilot.yaml` overlays `config.yaml` for a cheap first pass on real data. Turn it on by adding
+`GAMMA_EDGE_CONFIG=config.pilot.yaml` to `.env`; remove the line to switch back to the main config.
+Raw downloads are shared (the main run reuses them, nothing is bought twice); pilot results go to
+`data/derived_pilot/`. Every command below then defaults to the pilot dates.
+
 ## Runbook (Week 1 first: price everything before pulling anything at scale)
 
 ```bash

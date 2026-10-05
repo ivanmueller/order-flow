@@ -54,7 +54,8 @@ def daily_path(cfg) -> Path:
 
 
 def derived_path(cfg, name: str) -> Path:
-    return data_path(cfg, "derived", f"{name}.parquet")
+    # Raw downloads are shared across configs; derived tables are per config (pilot vs main).
+    return data_path(cfg, cfg["data"].get("derived_dir", "derived"), f"{name}.parquet")
 
 
 def load_options_eod(cfg, quote_date) -> pd.DataFrame:

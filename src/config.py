@@ -13,16 +13,45 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PATH = ROOT / "config.yaml"
 
 
-@lru_cache(maxsize=4)
+def _merge(base: dict, over: dict) -> dict:
+    out = copy.deepcopy(base)
+    for k, v in over.items():
+        out[k] = _merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else copy.deepcopy(v)
+    return out
+
+
+def _resolve(path) -> Path:
+    p = Path(path)
+    return p if p.is_absolute() else ROOT / p
+
+
+@lru_cache(maxsize=8)
 def _load(path: str) -> dict:
     with open(path) as f:
-        return yaml.safe_load(f)
+        cfg = yaml.safe_load(f)
+    base = cfg.pop("extends", None)
+    if base:  # overlay file: only the keys it lists differ from its base
+        cfg = _merge(_load(str(_resolve(base))), cfg)
+    return cfg
+
+
+_announced: set = set()
 
 
 def load_config(path: str | os.PathLike | None = None) -> dict:
-    """Return a deep copy of the config so callers can never mutate the cached file."""
-    path = os.environ.get("GAMMA_EDGE_CONFIG", path or DEFAULT_PATH)
-    return copy.deepcopy(_load(str(path)))
+    """Return a deep copy of the active config so callers can never mutate the cached file.
+
+    The active file is GAMMA_EDGE_CONFIG (shell or .env), else `path`, else config.yaml.
+    Put GAMMA_EDGE_CONFIG=config.pilot.yaml in .env for the pilot; delete that line to switch back.
+    """
+    load_env_file()
+    path = _resolve(os.environ.get("GAMMA_EDGE_CONFIG") or path or DEFAULT_PATH)
+    cfg = copy.deepcopy(_load(str(path)))
+    if path != DEFAULT_PATH and str(path) not in _announced:
+        _announced.add(str(path))
+        import sys
+        print(f"[config] using {path.name} ({cfg.get('name', '?')})", file=sys.stderr)
+    return cfg
 
 
 def param(cfg: dict, name: str):

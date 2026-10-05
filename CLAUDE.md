@@ -8,6 +8,7 @@ Update this block at the end of every session.
 
 - Stage: Week 1. Full pipeline code exists (ingestion, GEX, levels, touches, flow, sim, gate reports,
   robustness, holdout) and passes 41 tests, including a synthetic end-to-end run. No real data has been pulled yet.
+- Pilot: `config.pilot.yaml` (Mar-May 2025, gex_pct_min_periods 20) approved; activate via .env. Pilot output is not a gate decision.
 - Gates passed: none
 - Open issues: sign off the decisions listed in README.md ("Decisions that need your sign-off"),
   especially holdout_start, cost_rt_usd, gex_pct_min_periods; then set status.frozen in config.yaml.
