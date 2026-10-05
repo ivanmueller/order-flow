@@ -396,7 +396,42 @@ def _append(cfg, name, parts):
 # ---------------------------------------------------------------------------
 # Gate 0 validation
 # ---------------------------------------------------------------------------
-def validate(gex_daily: pd.DataFrame, daily: pd.DataFrame, vols: pd.DataFrame | None, cfg) -> dict:
+def forward_vs_es(gex_daily: pd.DataFrame, bars: pd.DataFrame, cal: pd.DataFrame, cfg) -> pd.DataFrame:
+    """Per-day diagnostic for check 1.
+
+    SPX cash closes at 16:00 but the option quotes are the 16:15 close, so S0 should track the ES
+    print at 16:15 on D-1 (the bar that closes at quote_time) minus the day's basis, not the 16:00
+    cash close. resid = S0 - (ES_16:15 - B_D) isolates the forward fit from that 15-minute move.
+    Roll days are skipped (D-1 bars are on the old contract).
+    """
+    q_min = calm.hhmm_to_min(cfg["market"]["quote_time"]) - 1   # bar that closes at quote_time
+    c_min = calm.hhmm_to_min(cfg["market"]["rth_close"]) - 1    # bar that closes at the cash close
+    by_day = {d: x for d, x in bars.groupby("date")}
+    c = cal.set_index("date")
+    rows = []
+    for r in gex_daily.itertuples():
+        if r.date not in c.index or pd.isna(c.loc[r.date, "prev_date"]):
+            continue
+        prev = c.loc[r.date, "prev_date"]
+        if prev not in by_day or not np.isfinite(r.basis):
+            continue
+        b = by_day[prev]
+        b = b[b["instrument_id"] == c.loc[r.date, "instrument_id"]]
+        mod = calm.minutes_of_day_et(b["ts_open_utc"])
+        at_q, at_c = b[mod == q_min], b[mod == c_min]
+        if at_q.empty or at_c.empty:
+            continue
+        es_q, es_c = float(at_q["close"].iloc[0]), float(at_c["close"].iloc[0])
+        rows.append({"date": r.date, "spx_prev_close": r.spx_prev_close, "s0": r.s0,
+                     "s0_minus_spx": r.s0 - r.spx_prev_close, "es_1600": es_c, "es_1615": es_q,
+                     "es_move_1600_1615": es_q - es_c, "basis": r.basis,
+                     "es_implied_f": es_q - r.basis, "resid": r.s0 - (es_q - r.basis),
+                     "nearest": f"{r.nearest_root} {r.nearest_exp}"})
+    return pd.DataFrame(rows)
+
+
+def validate(gex_daily: pd.DataFrame, daily: pd.DataFrame, vols: pd.DataFrame | None, cfg,
+             bars: pd.DataFrame | None = None, cal: pd.DataFrame | None = None) -> dict:
     """The automatable Gate 0 checks. Check 3 (match public GEX charts) is manual."""
     v = cfg["validation"]
     g = gex_daily.copy()
@@ -406,6 +441,16 @@ def validate(gex_daily: pd.DataFrame, daily: pd.DataFrame, vols: pd.DataFrame | 
     out["1_forward_within_tol_share"] = share
     out["1_forward_abs_dev_median"] = float(dev.median())
     out["1_pass"] = share >= v["forward_share"]
+    if bars is not None and cal is not None:
+        f = forward_vs_es(g, bars, cal, cfg)
+        if not f.empty:
+            tol = v.get("forward_es_tol_pts", 2.0)
+            out["1b_s0_minus_spx_median_signed"] = float(f["s0_minus_spx"].median())
+            out["1b_es_move_1600_1615_median_abs"] = float(f["es_move_1600_1615"].abs().median())
+            out["1b_resid_vs_es_median_abs"] = float(f["resid"].abs().median())
+            out["1b_resid_vs_es_median_signed"] = float(f["resid"].median())
+            out[f"1b_resid_within_{tol:g}pt_share"] = float((f["resid"].abs() <= tol).mean())
+            out["1b_n_days"] = len(f)
     if vols is not None and not vols.empty:
         vv = vols.merge(g[["date", "nearest_root", "nearest_exp"]], on="date")
         vv = vv[(vv["root"] == vv["nearest_root"]) & (vv["expiration"] == vv["nearest_exp"])]
@@ -427,6 +472,12 @@ def validate(gex_daily: pd.DataFrame, daily: pd.DataFrame, vols: pd.DataFrame | 
     out["4_corr_em_vs_vix"] = float(np.corrcoef(x[ok], y[ok])[0, 1]) if ok.sum() > 2 else np.nan
     out["4_median_ratio_em_over_vix_daily"] = float((x[ok] / y[ok]).median()) if ok.any() else np.nan
     out["n_days"] = len(g)
+    out["first_day"] = str(g["date"].min())
+    out["last_day"] = str(g["date"].max())
+    out["net_gex_negative_share"] = float((g["net_gex"] < 0).mean())
+    out["net_gex_median_bn"] = float(g["net_gex"].median() / 1e9)
+    out["n_contracts_median"] = float(g["n_contracts"].median()) if "n_contracts" in g else np.nan
+    out["oi_used_share_mean"] = float(g["oi_used_share"].mean()) if "oi_used_share" in g else np.nan
     out["flip_missing_share"] = float(g["flip"].isna().mean())
     out["basis_missing_share"] = float(g["basis"].isna().mean()) if "basis" in g else np.nan
     return out
@@ -442,17 +493,30 @@ def main(argv=None):
     ap.add_argument("--start")
     ap.add_argument("--end")
     ap.add_argument("--include-holdout", action="store_true")
+    ap.add_argument("--validate-only", action="store_true", help="re-run the checks on the saved table")
+    ap.add_argument("--diagnose", action="store_true", help="print the per-day forward-vs-ES table")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
-    g = build(a.start, a.end, cfg, a.include_holdout)
+    start = a.start or cfg["sample"]["start"]
+    end = a.end or cfg["sample"]["end"]
+    if a.validate_only:
+        g = store.date_range_filter(store.load_derived("gex_daily", cfg, a.include_holdout), start, end)
+    else:
+        g = build(start, end, cfg, a.include_holdout)
     if g.empty:
         print("No GEX rows built.")
         return
     daily = store.load_daily(cfg, a.include_holdout)
     vols = store.load_derived("gex_vols", cfg, a.include_holdout)
-    for k, v in validate(g, daily, vols, cfg).items():
+    bars = store.load_bars(cfg, a.include_holdout)
+    cal = store.load_calendar(cfg, a.include_holdout)
+    for k, v in validate(g, daily, vols, cfg, bars, cal).items():
         print(f"{k:40s} {v}")
+    if a.diagnose:
+        f = forward_vs_es(g, bars, cal, cfg)
+        with pd.option_context("display.width", 200, "display.max_rows", 500, "display.float_format", "{:.2f}".format):
+            print(f.to_string(index=False))
 
 
 if __name__ == "__main__":

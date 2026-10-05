@@ -7,15 +7,42 @@ push the ledger total past the $100 line without --allow-past-total.
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import os
+import time
 
 import pandas as pd
 
 from src.config import data_path, load_env_file
 
 
+log = logging.getLogger("spend")
+
+RETRY_WAITS_S = (2, 4, 8, 16, 32)
+
+
 class SpendRefused(RuntimeError):
     pass
+
+
+def _transient(e: Exception) -> bool:
+    """Gateway timeouts, 5xx, and dropped connections: retry. 4xx (bad request, auth): don't."""
+    import requests
+    from databento.common.error import BentoClientError, BentoServerError
+    if isinstance(e, BentoClientError):
+        return False
+    return isinstance(e, (BentoServerError, requests.ConnectionError, requests.Timeout))
+
+
+def with_retries(fn, what: str):
+    for i, wait in enumerate(RETRY_WAITS_S + (None,)):
+        try:
+            return fn()
+        except Exception as e:  # noqa: BLE001
+            if wait is None or not _transient(e):
+                raise
+            log.warning("%s: %s; retry %d/%d in %ds", what, str(e).splitlines()[0][:120], i + 1, len(RETRY_WAITS_S), wait)
+            time.sleep(wait)
 
 
 def client():
@@ -58,7 +85,7 @@ class Budget:
         self.spent = 0.0
 
     def price(self, cl, args: dict) -> float:
-        return float(cl.metadata.get_cost(**args))
+        return float(with_retries(lambda: cl.metadata.get_cost(**args), "get_cost"))
 
     def pull(self, cl, job: str, what: str, args: dict):
         cost = self.price(cl, args)
@@ -71,7 +98,7 @@ class Budget:
             raise SpendRefused(
                 f"{what}: ledger total would reach ${ledger + cost:.2f}, past the ${self.total_line:.0f} line. "
                 "Ask first; then pass --allow-past-total.")
-        data = cl.timeseries.get_range(**args)
+        data = with_retries(lambda: cl.timeseries.get_range(**args), what)
         self.spent += cost
         _record(self.cfg, job, what, cost)
         return data, cost

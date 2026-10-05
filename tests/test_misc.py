@@ -147,3 +147,27 @@ def test_pilot_overlay(monkeypatch):
     assert store.derived_path(p, "x").parent.name == "derived_pilot"
     assert store.derived_path(m, "x").parent.name == "derived"
     assert store.eod_path(p, "2025-03-03", "SPXW") == store.eod_path(m, "2025-03-03", "SPXW")
+
+
+def test_with_retries_only_on_transient(monkeypatch):
+    from databento.common.error import BentoClientError, BentoServerError
+    from src import spend
+    monkeypatch.setattr(spend.time, "sleep", lambda s: None)
+    calls = {"n": 0}
+
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise BentoServerError(http_status=504, http_body=None, message="The remote gateway timed out.")
+        return "ok"
+    assert spend.with_retries(flaky, "x") == "ok" and calls["n"] == 3
+
+    def bad():
+        raise BentoClientError(http_status=422, http_body=None, message="bad request")
+    with pytest.raises(BentoClientError):
+        spend.with_retries(bad, "x")
+
+    def always():
+        raise BentoServerError(http_status=504, http_body=None, message="timeout")
+    with pytest.raises(BentoServerError):
+        spend.with_retries(always, "x")

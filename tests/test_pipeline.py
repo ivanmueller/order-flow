@@ -90,3 +90,16 @@ def test_robustness_and_holdout(synth_env, monkeypatch):
     assert res["verdict_vs_rules"] in ("PASS", "FAIL")
     # In-sample tables were not overwritten by the holdout run
     assert (store.load_derived("touches", cfg)["date"] < calm.holdout_start(cfg)).all()
+
+
+def test_forward_vs_es_diagnostic(synth_env):
+    cfg, bars = synth_env
+    g = gex.build(cfg=cfg)
+    cal = store.load_calendar(cfg)
+    f = gex.forward_vs_es(g, store.load_bars(cfg), cal, cfg)
+    assert len(f) >= len(g) - 2                      # roll day (and first day) skipped
+    assert np.isfinite(f["resid"]).all()
+    # Synthetic data: S0 == SPX close and basis == ES_16:00 - SPX, so resid == -(ES move 16:00 -> 16:15)
+    assert np.allclose(f["resid"], -f["es_move_1600_1615"], atol=1e-6)
+    v = gex.validate(g, store.load_daily(cfg), None, cfg, store.load_bars(cfg), cal)
+    assert "1b_resid_within_2pt_share" in v and v["1b_n_days"] == len(f)

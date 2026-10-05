@@ -13,8 +13,10 @@ Update this block at the end of every session.
 - Open issues: sign off the decisions listed in README.md ("Decisions that need your sign-off"),
   especially holdout_start, cost_rt_usd, gex_pct_min_periods; then set status.frozen in config.yaml.
   ThetaData v3 EOD probe done 2026-10-04: columns map correctly (strike in dollars, right CALL/PUT, ISO dates).
-  Pilot pricing: ES bars $0.42, OPRA OI ~$0.0165/day (~$1.07 for the pilot). Still to confirm: OPRA parent
-  symbology returns OSI symbols (check row counts in the first OI pull).
+  Pilot pricing: ES bars $0.42, OPRA OI ~$0.0165/day (~$1.07 for the pilot). OPRA parent symbology confirmed
+  (13k-22k OI rows/day). First GEX build (33 days) in RUNLOG.md: checks 2 and 4 pass, check 1 fails as
+  written (median |S0 - SPX close| 5.8 pts) -- check 1b (S0 vs ES at 16:15 minus basis) added to decide
+  whether that is a timing artifact or a forward-fit bug. Pending: finish OI pull, roll-basis pull, rerun gex.
 
 ## Non-negotiable rules
 
