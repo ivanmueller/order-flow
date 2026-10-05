@@ -6,9 +6,11 @@ Batch research code that tests whether SPX gamma levels plus ES order flow confi
 
 Update this block at the end of every session.
 
-- Stage: Week 2. Pipeline validated end to end on real data (63-day pilot, Mar-May 2025): Gate 0 checks
-  1, 2, 4 pass (check 1 at quote_time 17:00), levels/touches/Stage 2/Stage 1 reports run. Stage 3 trade
-  pull not yet priced. 46 tests pass.
+- Stage: Week 2. Pilot (63 days, Mar-May 2025) complete end to end on real data: Gate 0 checks 1, 2, 4
+  pass; Stages 1-3 run (RUNLOG.md). Pilot Stage 3: confirmed expectancy -0.07R in carried groups,
+  real levels beat placebo after confirmation but none positive. Databento spend ~$35.60 of $125.
+  Next: full in-sample run (switch .env to main config), cheap parts first (bars, OI, EOD, GEX, Stages 1-2),
+  then decide the Stage 3 trade-data budget (~$0.54/day; full set exceeds the credit).
 - Pilot: `config.pilot.yaml` (Mar-May 2025, gex_pct_min_periods 20) approved; activate via .env. Pilot output is not a gate decision.
 - Gates passed: none
 - Open issues: sign off the decisions listed in README.md ("Decisions that need your sign-off"),
@@ -20,7 +22,7 @@ Update this block at the end of every session.
   Gate 0 on the pilot (63 days, RUNLOG.md): the EOD quotes are the 17:00 ET Cboe curb close (quote-time
   scan: median |S0 - (ES_t - basis)| 5.6 pts at 16:00, 1.95 at 17:00). Check 1 now compares S0 with ES at
   market.quote_time on D-1 minus the basis and passes at 17:00 (97% within 5 pts); checks 2 and 4 pass.
-  PROPOSED, awaiting approval: market.quote_time 16:15 -> 17:00 in config.yaml. Pilot Stage 1/2 numbers
+  Approved 2026-10-05: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126. Pilot Stage 1/2 numbers
   are in RUNLOG.md (Stage 2: no level group beats placebo on 930 touches; Stage 1 RR direction right but
   confounded with the single regime transition). Check 3 (compare sign,
   walls and flip with a public GEX chart on a few dates; `python -m src.gex --validate-only --show d1,d2`)

@@ -80,3 +80,25 @@ Append with `from src.runlog import log_run`.
 - Stage 3 pilot pricing: 1357 touches -> 103 merged spans, 21,562 minutes, est $32.86 ($0.0015/min).
   The merged windows cover ~340 of 390 RTH minutes per day, so Stage 3 trades cost ~$0.52/day;
   the full in-sample (~645 days) would be ~$340, beyond the $125 credit. Sampling decision pending.
+
+## 2026-10-05 | pilot: Stage 3 trades pulled and simulated (pipeline check, not a gate call)
+- commit: 517005b  config: config.pilot.yaml (quote_time 17:00, cost_rt_usd 3.98)
+- change: GEX rebuilt at quote_time 17:00 (Gate 0 check 1 now PASS: 96.8% within 5 pts); levels/touches
+  rebuilt (708 levels, 1357 touches, unchanged counts); ES trades pulled for all touch windows ($34.09,
+  103 spans; total Databento spend ~$35.60); flow features + tick simulator run.
+- config diff: none.
+- --strikes 2025-04-10: top |GEX| strikes are round numbers near spot (5600 +4.9bn, 5500 -3.5, 5450 -3.4,
+  5550, 5575) plus the crash-low puts (5175, 5200, 4850, 4700); calls positive, puts negative. Sane.
+- Stage 3, carried groups (structural_only + both), confirmed: n=218, win rate 39.9%, avg win 1.46R,
+  avg loss 1.09R, expectancy -0.07R (90% CI -0.22..+0.08), PF 0.89, max DD 29R, 77 trades/month.
+  Naive baseline same groups: -0.12R (CI -0.22..-0.03). Confirmed minus naive +0.045R (CI -0.11..+0.20).
+  Verdict vs rules: KILL on this sample (pilot only). By group, confirmed expectancy: gamma_only +0.00R
+  (n=88), structural_only -0.03R (162), both -0.19R (56), placebo -0.23R (243, CI -0.37..-0.11).
+  Real levels beat placebo after confirmation (ALL_REAL -0.05 vs placebo -0.23) but none is positive.
+  Confirmation rate 40% of touches (baseline volume lags the vol spike, so AbsRatio is easy to clear).
+  Skips: risk_too_wide 189, no_fill 94. Exits confirmed: 333 stop / 196 target / 20 time.
+- Secondary regression: tag_pd -0.76R (p 2e-8) is the only significant term; prior-day high/low trades
+  were much worse. Rule-6 note: plausible in a 63-day trend regime where prior-day extremes get run
+  through; not tuned on. To be re-checked on the full run's regime splits before believing it.
+- Cost finding: merged windows cover ~340 of 390 RTH minutes/day -> ~$0.54/day of ES trades. Full
+  in-sample (~582 remaining days) ~$315, holdout (~190 days) ~$103; credit remaining ~$89.
