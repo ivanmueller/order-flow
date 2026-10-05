@@ -99,7 +99,11 @@ def test_forward_vs_es_diagnostic(synth_env):
     f = gex.forward_vs_es(g, store.load_bars(cfg), cal, cfg)
     assert len(f) >= len(g) - 2                      # roll day (and first day) skipped
     assert np.isfinite(f["resid"]).all()
-    # Synthetic data: S0 == SPX close and basis == ES_16:00 - SPX, so resid == -(ES move 16:00 -> 16:15)
-    assert np.allclose(f["resid"], -f["es_move_1600_1615"], atol=1e-6)
+    # Synthetic data: S0 == SPX close and basis == ES_16:00 - SPX, so r_1600 == 0 and
+    # the residual at any later time is minus the ES move from 16:00 to that time.
+    assert np.allclose(f["r_1600"], 0, atol=1e-6)
+    assert np.allclose(f["r_1615"], -(f["es_1615"] - f["es_1600"]), atol=1e-6)
+    assert np.allclose(f["resid"], f["r_1615"])            # configured quote_time is 16:15
     v = gex.validate(g, store.load_daily(cfg), None, cfg, store.load_bars(cfg), cal)
     assert "1b_resid_within_2pt_share" in v and v["1b_n_days"] == len(f)
+    assert v["1b_scan_best_time"] == "16:00"

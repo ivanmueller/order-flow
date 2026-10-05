@@ -39,6 +39,22 @@ def test_build_calendar_flags_roll():
     assert list(c["roll"]) == [False, True, False]
     assert list(c["half_day"]) == [False, False, True]
     assert c.loc[1, "prev_date"] == dt.date(2024, 3, 13)
+    assert c["equity_session"].all()
+
+
+def test_calendar_skips_es_only_holidays():
+    """ES trades on Memorial Day (early close); SPX/options don't. prev_date and roll step over it."""
+    from tests.conftest import make_bars
+    fri, mon, tue, wed = (dt.date(2025, 5, d) for d in (23, 26, 27, 28))
+    b = pd.concat([make_bars(fri, [1.0] * 390, start="09:30", instrument_id=1),
+                   make_bars(mon, [1.0] * 210, start="09:30", instrument_id=2),   # holiday, 13:00 close
+                   make_bars(tue, [1.0] * 390, start="09:30", instrument_id=2),
+                   make_bars(wed, [1.0] * 390, start="09:30", instrument_id=2)])
+    c = calm.build_calendar(b, equity_dates={fri, tue, wed})
+    assert list(c["equity_session"]) == [True, False, True, True]
+    assert pd.isna(c.loc[1, "prev_date"]) and not c.loc[1, "roll"]
+    assert c.loc[2, "prev_date"] == fri and c.loc[2, "roll"]      # contract changed vs Friday
+    assert c.loc[3, "prev_date"] == tue and not c.loc[3, "roll"]
 
 
 def test_merge_levels_chain_and_tags():

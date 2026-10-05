@@ -104,11 +104,17 @@ def hhmm_to_min(hhmm: str) -> int:
 # ---------------------------------------------------------------------------
 # Trading calendar (built once from ES bars)
 # ---------------------------------------------------------------------------
-def build_calendar(bars: pd.DataFrame, cfg: dict | None = None) -> pd.DataFrame:
-    """One row per trading session that has RTH bars.
+def build_calendar(bars: pd.DataFrame, cfg: dict | None = None, equity_dates=None) -> pd.DataFrame:
+    """One row per ES session that has RTH bars.
 
     Columns: date, prev_date, instrument_id (RTH front contract), roll (instrument differs from
-    prev session), half_day (RTH ends before the normal close), n_rth_bars.
+    the previous equity session), half_day (RTH ends before the normal close), n_rth_bars,
+    equity_session (SPX cash and options traded that day).
+
+    ES trades on several equity holidays (MLK, Presidents', Memorial, Juneteenth, Labor Day,
+    Thanksgiving) with an early close, while SPX cash, SPX options and OPRA are closed. Those ES-only
+    sessions have no quotes, no OI and no SPX close, so they are not research sessions: `equity_dates`
+    (dates with an SPX close) marks them, and prev_date / roll step over them.
     """
     cfg = cfg or load_config()
     m = cfg["market"]
@@ -123,10 +129,15 @@ def build_calendar(bars: pd.DataFrame, cfg: dict | None = None) -> pd.DataFrame:
         "n_rth_bars": g.size(),
         "last_rth_min": g["mod"].max(),
     }).reset_index().sort_values("date").reset_index(drop=True)
-    cal["prev_date"] = cal["date"].shift(1)
-    cal["roll"] = cal["instrument_id"] != cal["instrument_id"].shift(1)
-    cal.loc[0, "roll"] = False
     cal["half_day"] = cal["last_rth_min"] < hhmm_to_min(m["rth_close"]) - 30
+    cal["equity_session"] = True if equity_dates is None else cal["date"].isin(set(equity_dates))
+    eq = cal.index[cal["equity_session"]]
+    cal["prev_date"] = None
+    cal.loc[eq, "prev_date"] = cal.loc[eq, "date"].shift(1)
+    cal["roll"] = False
+    cal.loc[eq, "roll"] = (cal.loc[eq, "instrument_id"] != cal.loc[eq, "instrument_id"].shift(1)).values
+    if len(eq):
+        cal.loc[eq[0], "roll"] = False
     return cal.drop(columns="last_rth_min")
 
 

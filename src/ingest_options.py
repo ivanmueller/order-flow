@@ -25,6 +25,8 @@ import numpy as np
 import pandas as pd
 import requests
 
+from databento.common.error import BentoClientError
+
 from src import calendar as calm
 from src import spend, store
 from src.config import load_config, param
@@ -148,14 +150,22 @@ def ingest_oi(cfg, days, budget: spend.Budget, price_only: bool, sample: int):
     todo = [d for d in days if not all(store.oi_path(cfg, d, r).exists() for r in roots)]
     if price_only:
         pick = todo if sample <= 0 else [todo[i] for i in np.linspace(0, len(todo) - 1, min(sample, len(todo))).astype(int)]
-        costs = [budget.price(cl, oi_args(cfg, d)) for d in pick]
+        costs = [c for d in pick if (c := _price_day(budget, cl, cfg, d)) is not None]
         per_day = float(np.mean(costs)) if costs else 0.0
         print(f"OPRA OI: priced {len(pick)} days, mean ${per_day:.4f}/day, "
               f"{len(todo)} days to pull -> est ${per_day * len(todo):.2f} "
               f"(ledger so far ${spend.total_spent(cfg):.2f})")
         return
     for day in todo:
-        data, cost = budget.pull(cl, "oi", day.isoformat(), oi_args(cfg, day))
+        try:
+            data, cost = budget.pull(cl, "oi", day.isoformat(), oi_args(cfg, day))
+        except BentoClientError as e:
+            if not _no_symbols(e):
+                raise
+            log.warning("oi %s: OPRA has no SPX/SPXW symbols that day (holiday?); writing empty files", day)
+            for r in roots:
+                store.write(pd.DataFrame(columns=OI_COLS), store.oi_path(cfg, day, r))
+            continue
         df = data.to_df()
         if "ts_event" not in df.columns:
             df = df.reset_index()
@@ -165,12 +175,28 @@ def ingest_oi(cfg, days, budget: spend.Budget, price_only: bool, sample: int):
         log.info("oi %s rows=%d cost=$%.4f run=$%.2f", day, len(oi), cost, budget.spent)
 
 
+def _no_symbols(e: Exception) -> bool:
+    return "symbology" in str(e).lower() or "could be resolved" in str(e).lower()
+
+
+def _price_day(budget, cl, cfg, day):
+    try:
+        return budget.price(cl, oi_args(cfg, day))
+    except BentoClientError as e:
+        if not _no_symbols(e):
+            raise
+        log.warning("oi %s: no OPRA symbols (holiday?), skipped in pricing", day)
+        return None
+
+
 # ---------------------------------------------------------------------------
 def trading_days(cfg, start, end) -> list[dt.date]:
     """ES calendar if it exists (run bars first, it's cheap), otherwise weekdays."""
     p = store.derived_path(cfg, "calendar")
     if p.exists():
         c = store.read(p)
+        if "equity_session" in c:
+            c = c[c["equity_session"]]
         days = pd.to_datetime(c["date"]).dt.date
         return [d for d in days if store.as_date(start) <= d <= store.as_date(end)]
     return calm.weekdays(start, end)

@@ -24,3 +24,18 @@ Append with `from src.runlog import log_run`.
   ratio 0.75); check 3 (public chart comparison) not yet done. Net GEX negative on 32 of 33 days
   (-$2bn to -$77bn per 1%), flip missing on 36% of days (no zero crossing on the +/-5% grid in a deeply
   negative-gamma regime). Not a gate decision: partial pilot sample.
+
+## 2026-10-05 | pilot: GEX build, 59 days (Gate 0, still partial)
+- commit: 4c454dd  config: config.pilot.yaml
+- change: OI pull resumed Apr 17-May 23 ($0.41), then crashed on 2025-05-26 (Memorial Day: ES traded,
+  OPRA closed -> Databento 422 "no symbols"). Root cause: the ES calendar included ES-only holiday sessions.
+  Fixed afterwards (equity_session flag from FRED SPX dates; prev_date and roll step over holidays).
+- config diff: none.
+- result (59 days, Mar 3-May 23 2025): checks 2 and 4 pass (put>call vol 100%, corr EM vs VIX 0.95).
+  Check 1 fails as written (44% within 5 pts, median 5.4). Check 1b vs ES at 16:15 minus basis also fails
+  (median |resid| 4.4, 22% within 2 pts), and the big residuals line up with known after-hours news
+  (Apr 2 tariff announcement 16:25 ET: resid -170; May 16 Moody's downgrade ~16:50 ET: resid -25;
+  Mar 4 Lutnick tariff-relief comments after the close: +17). Hypothesis: the ThetaData EOD quotes are the
+  17:00 ET Cboe curb-session close, not 16:15. A quote-time scan (16:00/16:15/16:45/17:00) was added to
+  --diagnose to test it. Net GEX negative on 81% of days, median -$24bn/1%, turning positive from
+  May 12 (consistent with the post-tariff-pause regime); flip missing 27%. Not a gate decision.

@@ -84,9 +84,18 @@ def rebuild_calendar(cfg):
     if not files:
         return
     bars = pd.concat([store.read(f) for f in files], ignore_index=True).drop_duplicates("ts_open_utc")
-    c = calm.build_calendar(bars, cfg)
+    equity = None
+    if store.daily_path(cfg).exists():
+        d = store.read(store.daily_path(cfg))
+        equity = set(pd.to_datetime(d.loc[d["spx_close"].notna(), "date"]).dt.date)
+    else:
+        log.warning("no FRED daily file: ES-only holiday sessions will NOT be excluded. "
+                    "Run `python -m src.ingest_daily`, then `python -m src.ingest_futures calendar`.")
+    c = calm.build_calendar(bars, cfg, equity)
+    log.info("calendar: %d ES sessions, %d equity sessions, %d roll days, %d half days, %d ES-only holidays: %s",
+             len(c), c["equity_session"].sum(), c["roll"].sum(), c["half_day"].sum(),
+             (~c["equity_session"]).sum(), ", ".join(str(x) for x in c.loc[~c["equity_session"], "date"]))
     store.save_derived(c, "calendar", cfg)
-    log.info("calendar: %d sessions, %d roll days, %d half days", len(c), c["roll"].sum(), c["half_day"].sum())
 
 
 # ---------------------------------------------------------------------------
@@ -94,9 +103,7 @@ def rebuild_calendar(cfg):
 # ---------------------------------------------------------------------------
 def ingest_roll_basis(cfg, budget: spend.Budget, price_only: bool):
     cl = spend.client()
-    cal = store.read(store.derived_path(cfg, "calendar"))
-    cal["date"] = pd.to_datetime(cal["date"]).dt.date
-    cal["prev_date"] = pd.to_datetime(cal["prev_date"]).dt.date
+    cal = store.load_calendar(cfg, include_holdout=True) if calm.holdout_unsealed() else store.load_calendar(cfg)
     rolls = cal[cal["roll"] & cal["prev_date"].notna()]
     total = 0.0
     for r in rolls.itertuples():

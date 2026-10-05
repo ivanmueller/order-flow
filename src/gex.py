@@ -396,16 +396,30 @@ def _append(cfg, name, parts):
 # ---------------------------------------------------------------------------
 # Gate 0 validation
 # ---------------------------------------------------------------------------
+# Diagnostic only (not a tunable): which ES print does the option-implied forward S0 track?
+# 16:00 = SPX cash close, 16:15 = SPX regular-session close, 17:00 = Cboe curb-session close.
+# ES halts 16:15-16:30 ET, so 16:30 would read the same bar as 16:15.
+QUOTE_TIME_CANDIDATES = ("16:00", "16:15", "16:45", "17:00")
+
+
+def _es_at(b: pd.DataFrame, mod: pd.Series, hhmm: str) -> float:
+    """Close of the last bar that ends at or before hhmm ET (bars are keyed by open time)."""
+    x = b[mod < calm.hhmm_to_min(hhmm)]
+    return float(x["close"].iloc[-1]) if not x.empty else np.nan
+
+
 def forward_vs_es(gex_daily: pd.DataFrame, bars: pd.DataFrame, cal: pd.DataFrame, cfg) -> pd.DataFrame:
     """Per-day diagnostic for check 1.
 
-    SPX cash closes at 16:00 but the option quotes are the 16:15 close, so S0 should track the ES
-    print at 16:15 on D-1 (the bar that closes at quote_time) minus the day's basis, not the 16:00
-    cash close. resid = S0 - (ES_16:15 - B_D) isolates the forward fit from that 15-minute move.
-    Roll days are skipped (D-1 bars are on the old contract).
+    SPX cash closes at 16:00 but the EOD option quotes are stamped later, so S0 should track the ES
+    print at the quote time on D-1 minus the day's basis, not the 16:00 cash close. For each
+    candidate time t: es_<t> is that ES print and r_<t> = S0 - (es_<t> - B_D). `resid` is r at the
+    configured quote_time. Roll days are skipped (D-1 bars are on the old contract).
     """
-    q_min = calm.hhmm_to_min(cfg["market"]["quote_time"]) - 1   # bar that closes at quote_time
-    c_min = calm.hhmm_to_min(cfg["market"]["rth_close"]) - 1    # bar that closes at the cash close
+    times = list(QUOTE_TIME_CANDIDATES)
+    qt = cfg["market"]["quote_time"]
+    if qt not in times:
+        times.append(qt)
     by_day = {d: x for d, x in bars.groupby("date")}
     c = cal.set_index("date")
     rows = []
@@ -416,17 +430,20 @@ def forward_vs_es(gex_daily: pd.DataFrame, bars: pd.DataFrame, cal: pd.DataFrame
         if prev not in by_day or not np.isfinite(r.basis):
             continue
         b = by_day[prev]
-        b = b[b["instrument_id"] == c.loc[r.date, "instrument_id"]]
-        mod = calm.minutes_of_day_et(b["ts_open_utc"])
-        at_q, at_c = b[mod == q_min], b[mod == c_min]
-        if at_q.empty or at_c.empty:
+        b = b[b["instrument_id"] == c.loc[r.date, "instrument_id"]].sort_values("ts_open_utc")
+        if b.empty:
             continue
-        es_q, es_c = float(at_q["close"].iloc[0]), float(at_c["close"].iloc[0])
-        rows.append({"date": r.date, "spx_prev_close": r.spx_prev_close, "s0": r.s0,
-                     "s0_minus_spx": r.s0 - r.spx_prev_close, "es_1600": es_c, "es_1615": es_q,
-                     "es_move_1600_1615": es_q - es_c, "basis": r.basis,
-                     "es_implied_f": es_q - r.basis, "resid": r.s0 - (es_q - r.basis),
-                     "nearest": f"{r.nearest_root} {r.nearest_exp}"})
+        mod = calm.minutes_of_day_et(b["ts_open_utc"])
+        row = {"date": r.date, "spx_prev_close": r.spx_prev_close, "s0": r.s0,
+               "s0_minus_spx": r.s0 - r.spx_prev_close, "basis": r.basis}
+        for t in times:
+            es = _es_at(b, mod, t)
+            k = t.replace(":", "")
+            row[f"es_{k}"] = es
+            row[f"r_{k}"] = r.s0 - (es - r.basis)
+        row["resid"] = row[f"r_{qt.replace(':', '')}"]
+        row["nearest"] = f"{r.nearest_root} {r.nearest_exp}"
+        rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -445,12 +462,23 @@ def validate(gex_daily: pd.DataFrame, daily: pd.DataFrame, vols: pd.DataFrame | 
         f = forward_vs_es(g, bars, cal, cfg)
         if not f.empty:
             tol = v.get("forward_es_tol_pts", 2.0)
-            out["1b_s0_minus_spx_median_signed"] = float(f["s0_minus_spx"].median())
-            out["1b_es_move_1600_1615_median_abs"] = float(f["es_move_1600_1615"].abs().median())
-            out["1b_resid_vs_es_median_abs"] = float(f["resid"].abs().median())
-            out["1b_resid_vs_es_median_signed"] = float(f["resid"].median())
+            qt = cfg["market"]["quote_time"]
+            out["1b_quote_time_configured"] = qt
+            out["1b_resid_median_abs"] = float(f["resid"].abs().median())
+            out["1b_resid_median_signed"] = float(f["resid"].median())
             out[f"1b_resid_within_{tol:g}pt_share"] = float((f["resid"].abs() <= tol).mean())
             out["1b_n_days"] = len(f)
+            best, best_med = None, np.inf
+            for t in QUOTE_TIME_CANDIDATES:
+                k = t.replace(":", "")
+                if f"r_{k}" not in f:
+                    continue
+                med = float(f[f"r_{k}"].abs().median())
+                out[f"1b_scan_{t}_median_abs"] = med
+                out[f"1b_scan_{t}_within_{tol:g}pt_share"] = float((f[f"r_{k}"].abs() <= tol).mean())
+                if med < best_med:
+                    best, best_med = t, med
+            out["1b_scan_best_time"] = best
     if vols is not None and not vols.empty:
         vv = vols.merge(g[["date", "nearest_root", "nearest_exp"]], on="date")
         vv = vv[(vv["root"] == vv["nearest_root"]) & (vv["expiration"] == vv["nearest_exp"])]
