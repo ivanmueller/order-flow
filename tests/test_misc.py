@@ -202,3 +202,48 @@ def test_oi_chunking_and_pre_open_split(cfg):
     assert set(by) == {dt.date(2025, 5, 19), dt.date(2025, 5, 20)}
     assert list(by[dt.date(2025, 5, 19)]["quantity"]) == [1]          # the 11:00 record is after the open
     assert list(by[dt.date(2025, 5, 20)]["quantity"]) == [3, 4]
+
+
+def test_budget_is_thread_safe_and_caps_in_flight(tmp_path, monkeypatch):
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+    from src import spend
+    from src.config import load_config
+    cfg = load_config()
+    cfg["data"]["root"] = str(tmp_path)
+    monkeypatch.setattr(spend.time, "sleep", lambda s: None)
+    gate = threading.Barrier(3, timeout=5)   # the 4th pull is refused before it reaches the barrier
+
+    class FakeMeta:
+        def get_cost(self, **a):
+            return 1.0
+
+    class FakeTS:
+        def get_range(self, **a):
+            gate.wait()          # the three admitted requests are in flight at once
+            return "data"
+
+    class FakeClient:
+        metadata, timeseries = FakeMeta(), FakeTS()
+
+    b = spend.Budget(cfg, approve_usd=3.0)
+    with ThreadPoolExecutor(4) as ex:
+        futs = [ex.submit(b.pull, FakeClient(), "t", f"d{i}", {}) for i in range(4)]
+        results = []
+        for f in futs:
+            try:
+                results.append(f.result())
+            except spend.SpendRefused:
+                results.append("refused")
+            except threading.BrokenBarrierError:
+                results.append("refused")
+    # Only three fit under the $3 cap; the fourth was refused before its request went out.
+    assert results.count("refused") == 1 and b.spent == pytest.approx(3.0) and b.reserved == 0
+    assert spend.total_spent(cfg) == pytest.approx(3.0)
+
+
+def test_429_is_transient():
+    from databento.common.error import BentoClientError
+    from src import spend
+    assert spend._transient(BentoClientError(http_status=429, http_body=None, message="rate limited"))
+    assert not spend._transient(BentoClientError(http_status=422, http_body=None, message="bad"))

@@ -19,6 +19,7 @@ import argparse
 import datetime as dt
 import io
 import logging
+import threading
 import time
 
 import numpy as np
@@ -207,12 +208,52 @@ def ingest_oi_chunked(cfg, todo, budget: spend.Budget, price_only: bool, chunk_d
                  "/".join(str(v) for v in rows.values()), cost, budget.spent)
 
 
-def ingest_oi(cfg, days, budget: spend.Budget, price_only: bool, sample: int, chunk_days: int = 1):
+def _pull_one_day(cfg, roots, budget, day, client_factory):
+    """One day's OI: price, pull, normalise, write. Returns (day, rows, cost). Thread-safe."""
+    cl = client_factory()
+    try:
+        data, cost = budget.pull(cl, "oi", day.isoformat(), oi_args(cfg, day))
+    except BentoClientError as e:
+        if not _no_symbols(e):
+            raise
+        log.warning("oi %s: OPRA has no SPX/SPXW symbols that day (holiday?); writing empty files", day)
+        _write_day(cfg, roots, day, pd.DataFrame(), param(cfg, "max_dte"))
+        return day, 0, 0.0
+    df = data.to_df()
+    if "ts_event" not in df.columns:
+        df = df.reset_index()
+    return day, _write_day(cfg, roots, day, df, param(cfg, "max_dte")), cost
+
+
+def ingest_oi_parallel(cfg, todo, budget: spend.Budget, roots, workers: int):
+    """Per-day requests, `workers` at a time. Same cost as sequential; the server-side scan per
+    request (~30 s) is what makes the pull slow, and the scans overlap. A 429 retries with backoff."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    local = threading.local()
+
+    def client_factory():
+        if not hasattr(local, "cl"):
+            local.cl = spend.client()
+        return local.cl
+
+    done = 0
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futures = {ex.submit(_pull_one_day, cfg, roots, budget, d, client_factory): d for d in todo}
+        for fut in as_completed(futures):
+            day, rows, cost = fut.result()   # a SpendRefused or non-transient error propagates and stops the run
+            done += 1
+            log.info("oi %s rows=%d cost=$%.4f run=$%.2f (%d/%d)", day, rows, cost, budget.spent, done, len(todo))
+
+
+def ingest_oi(cfg, days, budget: spend.Budget, price_only: bool, sample: int, chunk_days: int = 1,
+              workers: int = 1):
     cl = spend.client()
     roots = [p.split(".")[0] for p in cfg["data"]["opra_parents"]]
     todo = [d for d in days if not all(store.oi_path(cfg, d, r).exists() for r in roots)]
     if chunk_days > 1:
         return ingest_oi_chunked(cfg, todo, budget, price_only, chunk_days, roots)
+    if workers > 1 and not price_only:
+        return ingest_oi_parallel(cfg, todo, budget, roots, workers)
     if price_only:
         pick = todo if sample <= 0 else [todo[i] for i in np.linspace(0, len(todo) - 1, min(sample, len(todo))).astype(int)]
         costs = [c for d in pick if (c := _price_day(budget, cl, cfg, d)) is not None]
@@ -287,7 +328,9 @@ def main(argv=None):
     ap.add_argument("--price-only", action="store_true")
     ap.add_argument("--sample", type=int, default=10, help="days to price in --price-only (0 = all)")
     ap.add_argument("--chunk-days", type=int, default=1,
-                    help="OI: days per Databento request (1 = one request per day; 5-10 is much faster)")
+                    help="OI: days per Databento request (1 = one per day; multi-day costs ~16x more per day)")
+    ap.add_argument("--workers", type=int, default=1,
+                    help="OI: concurrent per-day requests (same cost; 4 is a sensible start)")
     ap.add_argument("--approve-usd", type=float, default=None)
     ap.add_argument("--allow-past-total", action="store_true")
     ap.add_argument("--include-holdout", action="store_true",
@@ -312,7 +355,7 @@ def main(argv=None):
         ingest_eod(cfg, eod_days)
     if a.what in ("oi", "both"):
         ingest_oi(cfg, days, spend.Budget(cfg, a.approve_usd, a.allow_past_total), a.price_only, a.sample,
-                  a.chunk_days)
+                  a.chunk_days, a.workers)
 
 
 if __name__ == "__main__":
