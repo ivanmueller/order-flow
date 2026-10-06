@@ -382,7 +382,27 @@ def audit(cfg, delete_empty: bool = False) -> pd.DataFrame:
         for f in empty_eod["file"]:
             f.unlink()
         print(f"deleted {len(empty_eod)} empty EOD files; re-run `python -m src.ingest_options --what eod`")
+    missing = missing_days(cfg)
+    for kind, days in missing.items():
+        if days:
+            print(f"{kind}: {len(days)} in-sample session(s) without files: {days[0]} .. {days[-1]}"
+                  + (f" ({', '.join(map(str, days[:8]))}{', ...' if len(days) > 8 else ''})"))
+        else:
+            print(f"{kind}: every in-sample session has files")
     return summary
+
+
+def missing_days(cfg) -> dict[str, list[dt.date]]:
+    """In-sample equity sessions with no file on disk for at least one root, per dataset.
+    EOD is checked on the quote dates sessions use (D-1), OI on the session dates."""
+    days = [d for d in trading_days(cfg, cfg["sample"]["start"], cfg["sample"]["end"]) if calm.in_sample(d, cfg)]
+    roots = [p.split(".")[0] for p in cfg["data"]["opra_parents"]]
+    quote_dates = days[:-1]            # each session's D-1 is the previous session; the last day's report is unused
+    return {
+        "eod": [d for d in quote_dates
+                if not all(store.eod_path(cfg, d, s).exists() for s in cfg["data"]["thetadata_symbols"])],
+        "oi": [d for d in days if not all(store.oi_path(cfg, d, r).exists() for r in roots)],
+    }
 
 
 def probe(cfg, day: dt.date):

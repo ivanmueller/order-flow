@@ -117,3 +117,27 @@ def test_forward_vs_es_diagnostic(synth_env):
     assert set(gex.show(g, [str(g["date"].iloc[3])])["date"]) == {g["date"].iloc[3]}
     ts = gex.top_strikes(store.load_derived("gex_strikes", cfg), g["date"].iloc[3], n=5)
     assert len(ts) == 5 and ts["net_bn"].abs().is_monotonic_decreasing
+
+
+def test_audit_missing_days(synth_env, capsys):
+    """missing_days compares in-sample sessions with files on disk: synthetic data writes SPXW only,
+    so every session is missing SPX; restricting the roots to SPXW shows the complete set, and
+    deleting one file surfaces exactly that date."""
+    from src import ingest_options as io_
+    cfg, _ = synth_env
+    m = io_.missing_days(cfg)
+    assert len(m["eod"]) > 20 and len(m["oi"]) > 20          # SPX files never written by synth
+    cfg["data"]["thetadata_symbols"] = ["SPXW"]
+    cfg["data"]["opra_parents"] = ["SPXW.OPT"]
+    cal = store.load_calendar(cfg)
+    first = cal["date"].iloc[0]
+    m = io_.missing_days(cfg)
+    assert m == {"eod": [], "oi": [first]}                   # synth writes no OI for the first session
+    d = cal["date"].iloc[10]
+    store.oi_path(cfg, d, "SPXW").unlink()
+    store.eod_path(cfg, cal["prev_date"].iloc[10], "SPXW").unlink()
+    m = io_.missing_days(cfg)
+    assert m["oi"] == [first, d] and m["eod"] == [cal["prev_date"].iloc[10]]
+    io_.audit(cfg)
+    out = capsys.readouterr().out
+    assert "oi: 2 in-sample session(s) without files" in out and "eod: 1 in-sample" in out
