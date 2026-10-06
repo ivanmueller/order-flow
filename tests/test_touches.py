@@ -76,3 +76,23 @@ def test_label_stops_at_rth_close(cfg):
     lab = touches.label(bars, 42, L, 1, EM, cfg)
     assert lab["horizon_bars"] == 28 and lab["timeout"]
     assert np.isfinite(lab["mae"])
+
+
+def test_touch_bar_approach_does_not_count_as_reversal(cfg):
+    """The touch bar's own high is the approach before the touch, not a reversal after it. With the
+    bar opening at 106 (>= L + R) and closing on the level, the old inclusive scan called this a
+    success on bar 0; the favourable move must be counted from the next bar onward."""
+    c = [110.0] * 40 + [106, 104, 102, 101, 100.25] + [101.0] * 70
+    bars = make_bars(DAY, c)
+    bars.loc[44, "high"] = 106.0
+    lab = touches.label(bars, 44, L, 1, EM, cfg)
+    assert not lab["success"] and lab["timeout"]
+    # The adverse side still counts on the touch bar itself (conservative).
+    bars.loc[44, "low"] = 97.0
+    lab = touches.label(bars, 44, L, 1, EM, cfg)
+    assert not lab["success"] and not lab["timeout"] and lab["bars_to_outcome"] == 0
+    # A genuine reversal on the next bar is still a success with bars_to_outcome 1.
+    bars.loc[44, "low"] = 100.0
+    bars.loc[45, "high"] = 105.5
+    lab = touches.label(bars, 44, L, 1, EM, cfg)
+    assert lab["success"] and lab["bars_to_outcome"] == 1

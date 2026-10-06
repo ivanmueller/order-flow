@@ -353,7 +353,7 @@ Ignore a touch if the same level was touched in the previous 10 bars. Record tou
 
 ### Outcome label
 
-With R = 0.10 EM and F = 0.05 EM, scan forward from bar t (inclusive) for up to 60 bars. Success means price reaches L + dR before L - dF. If both happen in the same bar, or neither happens within 60 bars, label it a failure; report timeouts separately.
+With R = 0.10 EM and F = 0.05 EM, scan forward for up to 60 bars from bar t. The adverse test (L - dF) starts on bar t itself; the favourable test (L + dR) starts on bar t+1, because the touch bar's favourable extreme is the approach before the touch, not a reversal after it (changed 2026-10-06, approved; the original inclusive scan labelled fast approaches as held on bar 0). Success means price reaches L + dR before L - dF. If both happen in the same bar, or neither happens within 60 bars, label it a failure; report timeouts separately.
 
 Also record excursions over the next 30 bars, in expected-move units:
 

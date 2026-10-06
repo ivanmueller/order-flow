@@ -247,3 +247,10 @@ Variant count so far: 5 of 20.
 - Added, diagnostics only (not variants): `mirror` trades (opposite side of every naive fill, same
   barriers/fills/costs) and a `fairness` block in the Stage 3 report (observed vs driftless win rate
   and expectancy per mode; naive+mirror sum vs twice the drag). Requires `python -m src.stage3` re-run.
+
+## 2026-10-06 Stage 2 labeler fix (approved by Matteo, SPEC rule changed)
+- touches.label: favourable excursion counted from bar t+1, adverse from bar t. SPEC.md "Labels"
+  paragraph updated with the reason. Test written first (test_touch_bar_approach_does_not_count_as_reversal).
+- Touches and Stage 2 must be rebuilt (`python -m src.touches`, `python -m src.analysis stage2`);
+  Stage 3 trades do not use labels, but `python -m src.stage3` is re-run anyway for the mirror /
+  fairness diagnostics. All free.
