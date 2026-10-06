@@ -275,3 +275,22 @@ def test_stage_reports_refuse_tiny_samples(cfg):
                       "tag_pd": [False], "tag_on": [False], "first": [True], "dist_em": [0.3], "gex_pct": [0.5],
                       "group": ["gamma_only"], "timeout": [False], "tod": ["open"], "d": [1]})
     assert "error" in analysis.stage2(cfg, t)
+
+
+def test_earliest_eod_bisect():
+    import datetime as dt
+    from src import ingest_options as io_
+    cfg = {"data": {"thetadata_symbols": ["SPXW"]}}
+    cutoff = dt.date(2024, 3, 12)
+    calls = []
+
+    def fetch(d):
+        calls.append(d)
+        if d < cutoff:
+            raise io_.ThetaForbidden("403")
+        return pd.DataFrame()
+
+    assert io_.earliest_eod(cfg, dt.date(2023, 6, 1), dt.date(2025, 12, 31), fetch) == cutoff
+    assert len(calls) < 15                                   # bisection, not a linear scan
+    assert io_.earliest_eod(cfg, dt.date(2023, 6, 1), dt.date(2024, 3, 8), fetch) is None
+    assert io_.earliest_eod(cfg, dt.date(2024, 6, 3), dt.date(2024, 6, 7), fetch) == dt.date(2024, 6, 3)

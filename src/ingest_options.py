@@ -12,6 +12,7 @@ Idempotent: existing files are skipped. Empty days (holidays) are written as emp
   python -m src.ingest_options --start 2023-06-01 --end 2025-12-31 --what oi --price-only
   python -m src.ingest_options --start 2023-06-01 --end 2023-06-30 --what oi --approve-usd 3
   python -m src.ingest_options --probe 2023-06-01      # day-one check: raw columns from both sources
+  python -m src.ingest_options --earliest              # first date the ThetaData account serves (403 before)
 """
 from __future__ import annotations
 
@@ -82,11 +83,17 @@ def normalize_eod(raw: pd.DataFrame, symbol: str, quote_date: dt.date) -> pd.Dat
     return out[out["right"].isin(["C", "P"])][EOD_COLS].reset_index(drop=True)
 
 
+class ThetaForbidden(RuntimeError):
+    """ThetaData 403: the date is outside what the account's subscription can serve."""
+
+
 def fetch_eod(cfg, symbol: str, day: dt.date) -> pd.DataFrame:
     url = f"{cfg['data']['thetadata_url']}/option/history/eod"
     params = {"symbol": symbol, "expiration": "*", "start_date": day.strftime("%Y%m%d"),
               "end_date": day.strftime("%Y%m%d"), "max_dte": param(cfg, "max_dte"), "format": "csv"}
     r = requests.get(url, params=params, timeout=300)
+    if r.status_code == 403:
+        raise ThetaForbidden(f"ThetaData refused {symbol} {day} (403): outside the subscription's history")
     if r.status_code in (204, 472) or not r.text.strip():  # 472 = ThetaData "no data"
         return pd.DataFrame(columns=EOD_COLS)
     r.raise_for_status()
@@ -96,17 +103,57 @@ def fetch_eod(cfg, symbol: str, day: dt.date) -> pd.DataFrame:
     return normalize_eod(raw, symbol, day)
 
 
-def ingest_eod(cfg, days):
+def ingest_eod(cfg, days) -> list[dt.date]:
+    """Fetch and store the EOD report for each day. Days the subscription refuses (403) are skipped,
+    nothing is written for them, and they are returned so the caller can report the gap."""
     pause = cfg["data"]["thetadata_pause_s"]
+    forbidden: list[dt.date] = []
     for day in days:
         for sym in cfg["data"]["thetadata_symbols"]:
             p = store.eod_path(cfg, day, sym)
             if p.exists():
                 continue
-            df = fetch_eod(cfg, sym, day)
+            try:
+                df = fetch_eod(cfg, sym, day)
+            except ThetaForbidden as e:
+                log.warning("%s; skipping the day", e)
+                forbidden.append(day)
+                break
             store.write(df, p)
             log.info("eod %s %s rows=%d", day, sym, len(df))
             time.sleep(pause)
+    if forbidden:
+        log.warning("ThetaData refused %d day(s): %s .. %s. Run --earliest to find the first date the "
+                    "account serves; the sample start may need to move (config change, needs approval).",
+                    len(forbidden), min(forbidden), max(forbidden))
+    return forbidden
+
+
+def earliest_eod(cfg, lo: dt.date, hi: dt.date, fetch=None) -> dt.date | None:
+    """Bisect weekdays in [lo, hi] for the first date ThetaData serves without a 403.
+
+    Assumes the subscription covers a trailing window (refused before some date, served after).
+    Returns None if even `hi` is refused."""
+    fetch = fetch or (lambda d: fetch_eod(cfg, cfg["data"]["thetadata_symbols"][0], d))
+    days = list(calm.weekdays(pd.Timestamp(lo), pd.Timestamp(hi)))
+
+    def served(d):
+        try:
+            fetch(d)
+            return True
+        except ThetaForbidden:
+            return False
+
+    if not days or not served(days[-1]):
+        return None
+    a, b = 0, len(days) - 1        # days[b] is served; find the lowest served index
+    while a < b:
+        m = (a + b) // 2
+        if served(days[m]):
+            b = m
+        else:
+            a = m + 1
+    return days[a]
 
 
 # ---------------------------------------------------------------------------
@@ -368,6 +415,8 @@ def main(argv=None):
     ap.add_argument("--include-holdout", action="store_true",
                     help="also download holdout dates (raw files only; research loads stay sealed)")
     ap.add_argument("--probe")
+    ap.add_argument("--earliest", action="store_true",
+                    help="bisect for the first date ThetaData serves EOD quotes (no Databento calls)")
     ap.add_argument("--audit", action="store_true", help="count option files and empty files by year")
     ap.add_argument("--delete-empty", action="store_true", help="with --audit: remove empty EOD files")
     a = ap.parse_args(argv)
@@ -381,6 +430,10 @@ def main(argv=None):
         return
     start = a.start or cfg["sample"]["start"]
     end = a.end or cfg["sample"]["end"]
+    if a.earliest:
+        first = earliest_eod(cfg, store.as_date(start), store.as_date(end))
+        print("ThetaData EOD: earliest served date =", first or f"none in [{start}, {end}]")
+        return
     days = trading_days(cfg, start, end)
     if not a.include_holdout:
         days = [d for d in days if calm.in_sample(d, cfg)]
