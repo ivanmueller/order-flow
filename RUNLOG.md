@@ -222,3 +222,28 @@ Variant count so far: 5 of 20.
 - `analysis variants` (carry all three real groups): V1 -0.27R (n=171, CI -0.39..-0.14), V2 -0.24R
   (75), V3 -0.35R (253, KILL), V4 -0.32R (66), V5 -0.36R (124); complements V1c -0.32R (175),
   V5c -0.32R (61). Win rates 31-35%. No variant or contrast is positive; regime split shows no gap.
+
+## 2026-10-06 Stage 3 full report and scrutiny before any Stage 3 decision (commit after 7e0a3f4)
+- `analysis stage3 --carry structural_only gamma_only both` (file stage3_all.json): confirmed n=446,
+  win 31.8%, avg win 1.41R, avg loss 1.13R, expectancy -0.33R (CI -0.42..-0.23), profit factor 0.58;
+  naive ALL_REAL n=1048 -0.29R; placebo naive -0.29R, confirmed -0.30R. conf-minus-naive -0.04R
+  (CI -0.14..+0.07). Verdict vs rules: KILL (n ok; expectancy, CI and conf-naive all fail).
+  Exit reasons: confirmed stop 375 / target 166 / time 26; naive 889/475/4. Skips: risk_too_wide 506,
+  no_fill 205, too_late 16. Secondary regression: nothing significant (abs_ratio p=0.50).
+- Scrutiny (rule 6 applied to a negative result as well): 
+  (a) Simulator arithmetic is consistent: avg win 1.41R = 1.5R target minus costs; avg loss 1.13R =
+      1R plus one tick beyond, slippage and costs, implying a typical R_k near 10 ticks.
+  (b) Driftless-walk baseline for these barriers (stop at touch of S, target one tick beyond T) is
+      about 38% wins -> about -0.15R from fills and costs alone. Observed 32-35% wins, -0.29/-0.33R:
+      roughly half the loss is drag, half is a win-rate deficit that hits placebo levels too.
+  (c) LABEL FLAW FOUND in Stage 2: SPEC scans "from bar t (inclusive)", so the touch bar's own
+      high/low counts toward the R=0.10 EM reversal. That bar's extreme is mostly the approach before
+      the touch (approach_a is also 0.10 EM), so fast approaches are labelled "held" on bar 0. Stage 2
+      hold rates of 57-61% sit far above the driftless baseline F/(R+F)=33%, while the trades (which
+      use tick data after the touch) win 32-35%. Stage 2's placebo comparison is unaffected (all groups
+      inflated alike); its absolute hold rates and possibly the gex_pct term are. Diagnostic added to
+      `analysis stage2` (label_check). Proposed fix, pending Matteo's sign-off because it changes a
+      SPEC rule: favourable excursion counted from bar t+1, adverse from bar t.
+- Added, diagnostics only (not variants): `mirror` trades (opposite side of every naive fill, same
+  barriers/fills/costs) and a `fairness` block in the Stage 3 report (observed vs driftless win rate
+  and expectancy per mode; naive+mirror sum vs twice the drag). Requires `python -m src.stage3` re-run.

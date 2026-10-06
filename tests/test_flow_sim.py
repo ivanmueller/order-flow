@@ -164,3 +164,31 @@ def test_continuation_stop_fills_inside_level(cfg):
     r = sim.continuation_trade(t, f, L, 1, EM, DAY, cfg)
     assert r["exit_reason"] == "stop" and r["X"] == 100.75     # one tick through the 100.5 stop
     assert r["pnl_r"] == pytest.approx((98.25 - 100.75) / 2.25 - 3.98 / (2.25 * 50))
+
+
+def test_mirror_trade_is_the_naive_opposite(cfg):
+    """Naive fills long at 10:01:00 on the 99.75 print (one tick through L=100). The mirror sells
+    that print with one tick of slippage: E = 99.5, stop at L + fail_F*EM = 102.5, R_k = 3.0,
+    target 95.0. The bounce to 103.0 at 10:05 trips the stop; the print gapped past the one-tick-beyond
+    fill (102.75), so the exit is the print itself, 103.0."""
+    t = trades()
+    f = flow.features(t, BAR_OPEN, L, 1, BASELINE, cfg)
+    r = sim.mirror_trade(t, f["t0_trade"], L, 1, EM, DAY, cfg)
+    assert r["entry_ts"] == ts("10:01:00") and r["E"] == 99.5 and r["S"] == 102.5 and r["R_k"] == 3.0
+    assert r["T"] == 95.0 and r["exit_reason"] == "stop" and r["X"] == 103.0
+    assert r["pnl_r"] == pytest.approx(-(103.0 - 99.5) / 3.0 - 3.98 / (3.0 * 50))
+    # Mirror of the mirror: flip every price around L and the numbers come back identical.
+    t2 = trades(); t2["price"] = 2 * L - t2["price"]; t2["side"] = -t2["side"]
+    f2 = flow.features(t2, BAR_OPEN, L, -1, BASELINE, cfg)
+    r2 = sim.mirror_trade(t2, f2["t0_trade"], L, -1, EM, DAY, cfg)
+    assert r2["pnl_r"] == pytest.approx(r["pnl_r"]) and r2["R_k"] == 3.0
+
+
+def test_fairness_block(cfg):
+    from src import analysis
+    done = pd.DataFrame({"mode": ["naive"] * 4 + ["mirror"] * 4, "R_k": 2.5, "pnl_r": [1.4, -1.1, -1.1, -1.1, 1.4, -1.1, 1.4, -1.1],
+                         "exit_reason": ["target", "stop", "stop", "stop", "target", "stop", "target", "stop"]})
+    fb = analysis.fairness(done, cfg)
+    assert fb["naive"]["rw_win_rate"] == pytest.approx(2.5 / (2.5 * 2.5 + 0.25))
+    assert fb["naive"]["R_k_ticks_median"] == 10 and fb["naive"]["win_rate"] == 0.25
+    assert "naive_plus_mirror" in fb and fb["naive_plus_mirror"]["sum_expectancy_r"] == pytest.approx(0.25 * 1.4 - 0.75 * 1.1 + 0.5 * 1.4 - 0.5 * 1.1)

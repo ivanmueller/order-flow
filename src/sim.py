@@ -134,3 +134,32 @@ def naive_trade(trades: pd.DataFrame, t0: pd.Timestamp, L: float, d: int, em: fl
         return {"skip": why}
     return {"entry_ts": ts.iat[i], "E": E, "S": S, "T": T, "R_k": dist, "X": X, "exit_reason": why,
             "exit_ts": t_x, "pnl_r": pnl_r(X, E, dist, d, cfg)}
+
+
+def mirror_trade(trades: pd.DataFrame, t0: pd.Timestamp, L: float, d: int, em: float, day, cfg) -> dict | None:
+    """Diagnostic only (not a strategy): the opposite side of the naive fill. Enter at the print that
+    fills the naive limit (one tick through L), direction -d, one tick of slippage against; stop
+    fail_F EM back on the other side of L; target target_mult R. Same walk, fills and costs."""
+    tick = cfg["market"]["tick"]
+    trades = trades.reset_index(drop=True)
+    ts = trades["ts_event_utc"]
+    px = trades["price"].to_numpy(float)
+    live = (ts >= t0) & (ts < t0 + pd.Timedelta(minutes=param(cfg, "reclaim_window")))
+    fills = np.where(live.to_numpy() & (d * (L - px) >= tick - 1e-9))[0]
+    if len(fills) == 0:
+        return {"skip": "no_fill"}
+    i = int(fills[0])
+    if ts.iat[i] >= _flat(day, cfg):
+        return {"skip": "too_late"}
+    dm = -d
+    dist = max(tick, round_tick(param(cfg, "fail_F") * em, tick))
+    E = px[i] + dm * param(cfg, "entry_slippage") * tick
+    S = L + d * dist
+    R_k = dm * (E - S)
+    T = E + dm * param(cfg, "target_mult") * R_k
+    t_exit = min(ts.iat[i] + pd.Timedelta(minutes=param(cfg, "time_exit")), _flat(day, cfg))
+    X, why, t_x = walk(trades, i + 1, E, S, T, dm, t_exit, tick)
+    if not np.isfinite(X):
+        return {"skip": why}
+    return {"entry_ts": ts.iat[i], "E": E, "S": S, "T": T, "R_k": R_k, "X": X, "exit_reason": why,
+            "exit_ts": t_x, "pnl_r": pnl_r(X, E, R_k, dm, cfg)}

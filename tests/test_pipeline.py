@@ -38,12 +38,12 @@ def test_end_to_end(synth_env):
     synth.write_trades_for_touches(cfg, bars, tc, np.random.default_rng(1))
     F, T = stage3.run(cfg)
     assert len(F) == len(tc)
-    assert set(T["mode"]) >= {"naive"}
+    assert set(T["mode"]) >= {"naive", "mirror"}
     done = T[T["pnl_r"].notna()]
     assert np.isfinite(done["pnl_r"]).all()
     # Exits respect the fill rules: no exit ever better than target, R_k always positive
     assert (done["R_k"] > 0).all()
-    trade_dir = np.where(done["mode"] == "continuation", -done["d"], done["d"])   # V5 trades with the break
+    trade_dir = np.where(done["mode"].isin(["continuation", "mirror"]), -done["d"], done["d"])   # V5 and the mirror diagnostic trade against d
     assert (trade_dir * (done["X"] - done["T"]) <= 1e-9).all()
 
     s1 = analysis.stage1(cfg)

@@ -60,6 +60,8 @@ def run(cfg=None, include_holdout: bool = False, touches: pd.DataFrame | None = 
         if f.get("has_t0"):
             n = sim.naive_trade(tr, f["t0_trade"], tc.level_es, tc.d, tc.em, tc.date, cfg)
             trades_out.append({**common, "mode": "naive", **n})
+            m = sim.mirror_trade(tr, f["t0_trade"], tc.level_es, tc.d, tc.em, tc.date, cfg)   # fairness diagnostic
+            trades_out.append({**common, "mode": "mirror", **m})
     if missing:
         log.warning("%d of %d touches have no downloaded trades", missing, len(touches))
     F = pd.DataFrame(feats)
