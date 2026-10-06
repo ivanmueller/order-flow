@@ -140,3 +140,16 @@ is negative; direction does not change with the regime, eligibility does.
 Sample-size note: V1/V3 roughly halve the trade count, V2/V4 cut further; a variant under 200 trades
 is reported against the gate as INDICATIVE. `python -m src.analysis variants`.
 Variant count so far: 5 of 20.
+
+## 2026-10-06 full in-sample data pull complete (main config)
+- Commit: 2ea126d. Config: config.yaml (main), no changes.
+- OPRA open interest: every in-sample session 2023-06-01..2025-12-31 has files (294/504/500 per year,
+  none empty). Pulled with --workers 4 over several resumed runs (504 timeouts retried, none skipped).
+  Databento flagged 2024-06-03 and 2025-10-22 as "degraded" days; kept, noted here for Stage 3 checks.
+- ThetaData EOD quotes: the first `--what eod` run on the main config had written nothing (Theta
+  Terminal was not up); re-run 2026-10-05 22:25-23:41 ET wrote 294/504/502 files per year, none empty,
+  plus the 130 pilot files already on disk. ThetaData returns 403 before 2023-06-01 (free-tier history
+  starts exactly at the SPEC start), so session 2023-06-01 has no D-1 report and the GEX table starts
+  2023-06-02. No config change needed. Audit: "every in-sample session has files" for both datasets.
+- Spend: ledger ~$48 of $125. ThetaData free.
+- Next: `python -m src.gex` (Gate 0 block re-checked on ~645 days), levels, touches, Stage 1, Stage 2.
