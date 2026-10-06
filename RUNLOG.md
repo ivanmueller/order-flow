@@ -180,3 +180,15 @@ Variant count so far: 5 of 20.
 - Gate decisions: Matteo's. Next if Stage 3 proceeds: trades pull on the 120 sampled days (~$52,
   needs approval), then `python -m src.stage3`, `analysis stage3 --carry structural_only both`,
   then the pre-registered variants (exploratory given the Stage 1 verdict).
+
+## 2026-10-06 data-quality findings on the full GEX table (gex --why, --validate-only)
+- Six post-half-day sessions (2024-07-05, 2024-12-02, 2024-12-26, 2025-07-07, 2025-12-01, 2025-12-26)
+  have no GEX row: the ThetaData EOD report for a half day is all zero bids (snapshot taken after the
+  13:00 close), so no surface fits. Not recoverable from the free EOD endpoint; <1% of sessions, dropped.
+- 2024-12-03: the D-1 report (2024-12-02) has zero bids on every SPXW daily Dec 3-18, so S0/EM came
+  from the Dec 20 expiry (em 112.9 = an 18-day straddle). `--validate-only` now counts such days
+  (nearest_exp_beyond_3d_n): 1 of 642. Levels now skip sessions whose nearest expiry is more than
+  MAX_NEAREST_DTE_DAYS (3) out (src/levels.py, data-quality constant, not a tunable). Levels, touches
+  and Stage 2 to be re-run; the change touches one session.
+- 2025-01-27 "no levels": price opened ~2% below every level (gap day), nothing inside the window.
+  Correct behaviour. 2025-10-13 em 107 and S0 40 pts below the cash close: real post-crash 0DTE.

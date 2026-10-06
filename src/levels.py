@@ -160,6 +160,18 @@ def level_group(df: pd.DataFrame) -> pd.Series:
                      ["placebo", "both", "gamma_only", "structural_only"], "other")
 
 
+MAX_NEAREST_DTE_DAYS = 3   # data-quality guard: S0/EM must come from an expiry within this many days
+
+
+def stale_nearest_expiry(row) -> bool:
+    """True when the GEX row's S0 and EM came from an expiry more than MAX_NEAREST_DTE_DAYS out,
+    which only happens when the near-dated quotes were unusable (e.g. all bids zero)."""
+    exp = row.get("nearest_exp") if hasattr(row, "get") else None
+    if exp is None or pd.isna(exp):
+        return False
+    return (pd.Timestamp(exp) - pd.Timestamp(row["date"] if "date" in row else row.name)).days > MAX_NEAREST_DTE_DAYS
+
+
 def build(start=None, end=None, cfg=None, include_holdout: bool = False, save: bool = True,
           bars: pd.DataFrame | None = None, cal: pd.DataFrame | None = None,
           gex: pd.DataFrame | None = None) -> pd.DataFrame:
@@ -177,6 +189,10 @@ def build(start=None, end=None, cfg=None, include_holdout: bool = False, save: b
     out = []
     for r in cal.itertuples():
         if r.date not in gex.index or pd.isna(r.prev_date):
+            continue
+        if stale_nearest_expiry(gex.loc[r.date]):
+            log.warning("%s: nearest expiry %s is stale (zero-bid dailies in the D-1 report); "
+                        "S0/EM unreliable, skipping the session", r.date, gex.loc[r.date].get("nearest_exp"))
             continue
         sess = session_bars(by_day, r.date, r.instrument_id)
         prev = session_bars(by_day, r.prev_date, inst.get(r.prev_date, -1))

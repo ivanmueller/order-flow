@@ -157,3 +157,15 @@ def test_gex_why(synth_env):
     assert "quote_rows" not in gx.why(cfg, first)              # no D-1: stops after prev_date
     with pytest.raises(calm.HoldoutSealed):
         gx.why(cfg, calm.holdout_start(cfg))
+
+
+def test_levels_skip_stale_nearest_expiry(synth_env):
+    from src import levels as lv
+    cfg, _ = synth_env
+    g = gex.build(cfg=cfg)
+    n_all = levels.build(cfg=cfg)["date"].nunique()
+    d = g["date"].iloc[7]
+    g.loc[g["date"] == d, "nearest_exp"] = d + pd.Timedelta(days=10)
+    assert lv.stale_nearest_expiry(g.set_index("date").loc[d]) and not lv.stale_nearest_expiry(g.set_index("date").loc[g["date"].iloc[8]])
+    out = levels.build(cfg=cfg, gex=g)
+    assert out["date"].nunique() == n_all - 1 and d not in set(out["date"])
