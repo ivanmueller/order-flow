@@ -546,6 +546,39 @@ def _prev_value(daily: pd.DataFrame, col: str) -> dict:
     return dict(zip(d["date"], d[col].shift(1)))
 
 
+def expiry_diagnostics(day, prev, quotes: pd.DataFrame, ref_close: float, cfg) -> pd.DataFrame:
+    """Per (root, expiration) in the max_dte window: quote rows, valid share, parity pairs inside the
+    band, fitted F and D, and why the surface was rejected (if it was)."""
+    if quotes.empty or not np.isfinite(ref_close):
+        return pd.DataFrame()
+    max_dte = param(cfg, "max_dte")
+    t_quote = calm.et_time(prev, cfg["market"]["quote_time"])
+    q = quotes.copy()
+    q["expiration"] = pd.to_datetime(q["expiration"]).dt.date
+    q = q[(q["expiration"] >= day) & (q["expiration"] <= day + dt.timedelta(days=max_dte))]
+    q = q[~((q["symbol"] == "SPX") & (q["expiration"] == day))]
+    q["valid"] = valid_quote_mask(q, param(cfg, "max_rel_spread"))
+    band = param(cfg, "parity_band") * ref_close
+    rows = []
+    for (root, exp), g in q.groupby(["symbol", "expiration"]):
+        Tq = year_frac(t_quote, expiry_ts(root, exp, cfg), cfg)
+        w = _wide_chain(g)
+        par = w[w["valid_C"] & w["valid_P"] & (np.abs(w.index - ref_close) <= band)]
+        F, D = fit_forward(par.index.values, par["mid_C"].values, par["mid_P"].values) if Tq > 0 else (np.nan, np.nan)
+        if Tq <= 0:
+            why_ = "expired at quote time"
+        elif len(par) < MIN_PARITY_STRIKES:
+            why_ = "too few valid put-call pairs in band"
+        elif not np.isfinite(F):
+            why_ = "discount factor outside sane range"
+        else:
+            why_ = "ok"
+        rows.append({"root": root, "expiration": exp, "rows": len(g), "valid_share": round(float(g["valid"].mean()), 3),
+                     "bid0_share": round(float((g["bid"] <= 0).mean()), 3), "parity_pairs": len(par),
+                     "F": F, "D": D, "status": why_})
+    return pd.DataFrame(rows).sort_values(["expiration", "root"]).reset_index(drop=True)
+
+
 def why(cfg, day, include_holdout: bool = False) -> dict:
     """Inputs behind one session's GEX row (or its absence): D-1, quote/OI rows per root, SPX close,
     the nearest expiry used for S0 and the expected move, and the ATM straddle legs."""
@@ -565,6 +598,7 @@ def why(cfg, day, include_holdout: bool = False) -> dict:
     out["oi_rows"] = {} if o.empty else o.groupby("root").size().to_dict()
     spx = store.load_daily(cfg, include_holdout).set_index("date")["spx_close"]
     out["spx_prev_close"] = float(spx.get(prev, np.nan))
+    out["expiries"] = expiry_diagnostics(day, prev, q, out["spx_prev_close"], cfg)
     res = compute_day(day, q, o, out["spx_prev_close"], cfg, prev)
     if res is None:
         out["result"] = "no usable GEX"
@@ -593,10 +627,14 @@ def main(argv=None):
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
     if a.why:
-        for d in a.why.split(","):
-            for k, v in why(cfg, d.strip(), a.include_holdout).items():
-                print(f"{k:20s} {v}")
-            print()
+        with pd.option_context("display.width", 220, "display.max_rows", 500, "display.float_format", "{:.4f}".format):
+            for d in a.why.split(","):
+                for k, v in why(cfg, d.strip(), a.include_holdout).items():
+                    if isinstance(v, pd.DataFrame):
+                        print(f"{k}:\n{v.head(12).to_string(index=False)}")
+                    else:
+                        print(f"{k:20s} {v}")
+                print()
         return
     start = a.start or cfg["sample"]["start"]
     end = a.end or cfg["sample"]["end"]
