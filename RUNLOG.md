@@ -130,11 +130,13 @@ is negative; direction does not change with the regime, eligibility does.
   with no flip excluded. (An earlier draft had resistance trades below the flip; that was backwards.)
 - V4 wall alignment: shorts only at levels tagged gamma_call_wall, longs only at levels tagged
   gamma_put_wall (gamma_top and structural tags do not qualify).
-- V5 (conditional, not yet built) negative-gamma continuation: on days with gex_pct < 0.5, or below the
-  flip, trade WITH the break when absorption fails (aggressive volume through the level, penetration
-  >= 4 ticks, no reclaim within reclaim_window); entry at the first trade after the reclaim window
-  expires plus 1 tick, stop 2 ticks back inside the level, target 1.5R, same time exit. Built and run
-  only if the main Stage 3's gex-tercile split shows fades losing in the low tercile. Rules fixed here.
+- V5 negative-gamma continuation (made unconditional 2026-10-06 at Matteo's request; built, new param
+  break_ticks 4 [nudges 3, 6]): on days with gex_pct < 0.5, or with the 09:30 price below the flip, trade
+  WITH the break when absorption fails: no reclaim within reclaim_window, penetration >= break_ticks
+  through the level inside that window, and net aggressive flow since t0 pointing through the level.
+  Entry: first trade after t0 + reclaim_window, plus 1 tick against; stop stop_buffer (2) ticks back
+  inside the level; target target_mult (1.5) R; max/min risk and time exit as the confirmed trade.
+  Its complement (continuation in positive gamma) is reported as a contrast, not gate-scored.
 Sample-size note: V1/V3 roughly halve the trade count, V2/V4 cut further; a variant under 200 trades
-is reported against the gate but treated as indicative.
-Variant count so far: 5 of 20 (V5 counts only if run).
+is reported against the gate as INDICATIVE. `python -m src.analysis variants`.
+Variant count so far: 5 of 20.

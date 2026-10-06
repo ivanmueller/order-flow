@@ -47,10 +47,16 @@ def run(cfg=None, include_holdout: bool = False, touches: pd.DataFrame | None = 
         f = flow.features(tr, t0, tc.level_es, tc.d, bl, cfg)
         feats.append({"touch_id": tc.touch_id, **f})
         common = {"touch_id": tc.touch_id, "date": tc.date, "group": tc.group, "d": tc.d,
-                  "level_es": tc.level_es, "em": tc.em, "gex_pct": tc.gex_pct, "tod": tc.tod}
+                  "level_es": tc.level_es, "em": tc.em, "gex_pct": tc.gex_pct, "tod": tc.tod,
+                  "is_gamma": bool(tc.is_gamma), "tag_call_wall": bool(tc.tag_gamma_call_wall),
+                  "tag_put_wall": bool(tc.tag_gamma_put_wall),
+                  "above_flip": (None if pd.isna(tc.above_flip) else bool(tc.above_flip))}
         c = sim.confirmed_trade(tr, f, tc.level_es, tc.d, tc.em, tc.date, cfg)
         if c is not None:
             trades_out.append({**common, "mode": "confirmed", **c})
+        k = sim.continuation_trade(tr, f, tc.level_es, tc.d, tc.em, tc.date, cfg)
+        if k is not None:
+            trades_out.append({**common, "mode": "continuation", **k})
         if f.get("has_t0"):
             n = sim.naive_trade(tr, f["t0_trade"], tc.level_es, tc.d, tc.em, tc.date, cfg)
             trades_out.append({**common, "mode": "naive", **n})

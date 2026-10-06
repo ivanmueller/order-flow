@@ -43,7 +43,8 @@ def test_end_to_end(synth_env):
     assert np.isfinite(done["pnl_r"]).all()
     # Exits respect the fill rules: no exit ever better than target, R_k always positive
     assert (done["R_k"] > 0).all()
-    assert (done["d"] * (done["X"] - done["T"]) <= 1e-9).all()
+    trade_dir = np.where(done["mode"] == "continuation", -done["d"], done["d"])   # V5 trades with the break
+    assert (trade_dir * (done["X"] - done["T"]) <= 1e-9).all()
 
     s1 = analysis.stage1(cfg)
     assert s1["verdict_vs_rules"] in ("PASS", "KILL") and s1["n_days"] > 5
@@ -52,6 +53,11 @@ def test_end_to_end(synth_env):
     s3 = analysis.stage3(cfg, features=F)
     assert s3["verdict_vs_rules"] in ("PASS", "KILL")
     analysis.to_json(s3)
+    v = analysis.variants(cfg, T, F)
+    assert set(v["variants"]) == set(analysis.VARIANTS) and set(v["contrasts"]) == set(analysis.CONTRASTS)
+    assert all(x["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") for x in v["variants"].values())
+    assert "continuation" in set(T["mode"])
+    analysis.to_json(v)
 
 
 def test_holdout_requires_flag(synth_env):

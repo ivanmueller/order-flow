@@ -186,6 +186,47 @@ def stage3(cfg=None, sim_trades: pd.DataFrame | None = None, features: pd.DataFr
             "exit_reasons": {f"{k[0]}:{k[1]}": v for k, v in exits.items()}}
 
 
+VARIANTS = {
+    "V1_regime_gex_pct_ge_0.5": ("confirmed", lambda t: t["gex_pct"] >= 0.5),
+    "V2_V1_gamma_levels_only": ("confirmed", lambda t: (t["gex_pct"] >= 0.5) & t["is_gamma"]),
+    "V3_above_flip_only": ("confirmed", lambda t: t["above_flip"] == True),  # noqa: E712 (None -> excluded)
+    "V4_wall_aligned": ("confirmed", lambda t: ((t["d"] == -1) & t["tag_call_wall"]) | ((t["d"] == 1) & t["tag_put_wall"])),
+    "V5_continuation_neg_gamma": ("continuation", lambda t: (t["gex_pct"] < 0.5) | (t["above_flip"] == False)),  # noqa: E712
+}
+CONTRASTS = {  # the complement of each filter, for context (not gate-scored)
+    "V1_complement_gex_pct_lt_0.5": ("confirmed", lambda t: t["gex_pct"] < 0.5),
+    "V5_complement_continuation_pos_gamma": ("continuation", lambda t: (t["gex_pct"] >= 0.5) & (t["above_flip"] != False)),  # noqa: E712
+}
+
+
+def variants(cfg=None, sim_trades: pd.DataFrame | None = None, features: pd.DataFrame | None = None,
+             carry: list[str] | None = None) -> dict:
+    """Pre-registered variants V1-V5 (RUNLOG 2026-10-06), scored against the Stage 3 rules."""
+    cfg = cfg or load_config()
+    if sim_trades is None:
+        sim_trades = store.load_derived("sim_trades", cfg)
+    draws, seed, lvl = _boot(cfg)
+    g = cfg["gates"]
+    carry = carry or ["gamma_only", "both", "structural_only"]
+    done = sim_trades[sim_trades["pnl_r"].notna() & sim_trades["group"].isin(carry)].copy()
+    done["above_flip"] = done["above_flip"].astype(object)
+    sampled_days = int(features["date"].nunique()) if features is not None and not features.empty else None
+    out = {"carry_groups": carry, "variants": {}, "contrasts": {}}
+    for name, (mode, rule) in {**VARIANTS, **CONTRASTS}.items():
+        sub = done[(done["mode"] == mode) & rule(done).fillna(False).astype(bool)]
+        s = stats.trade_summary(sub, draws, seed, lvl, sampled_days)
+        if name in VARIANTS:
+            checks = {f"n>={g['stage3_min_trades']}": s.get("n", 0) >= g["stage3_min_trades"],
+                      f"expectancy>={g['stage3_min_expectancy_r']}R": s.get("expectancy_r", -1) >= g["stage3_min_expectancy_r"],
+                      "ci_lower>0": s.get("ci_lo", -1) > 0}
+            s["checks"] = checks
+            s["verdict_vs_rules"] = "PASS" if all(checks.values()) else ("INDICATIVE" if s.get("n", 0) < g["stage3_min_trades"] else "KILL")
+            out["variants"][name] = s
+        else:
+            out["contrasts"][name] = s
+    return out
+
+
 def holdout(in_sample_expectancy: float, cfg=None, sim_trades: pd.DataFrame | None = None,
             carry: list[str] | None = None) -> dict:
     cfg = cfg or load_config()
@@ -212,7 +253,7 @@ def to_json(x) -> str:
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["stage1", "stage2", "stage3"])
+    ap.add_argument("stage", choices=["stage1", "stage2", "stage3", "variants"])
     ap.add_argument("--carry", help="comma-separated level groups carried from Stage 2")
     a = ap.parse_args(argv)
     cfg = load_config()
@@ -220,9 +261,12 @@ def main(argv=None):
         out = stage1(cfg)
     elif a.stage == "stage2":
         out = stage2(cfg)
-    else:
+    elif a.stage == "stage3":
         feats = store.load_derived("features", cfg)
         out = stage3(cfg, features=feats, carry=a.carry.split(",") if a.carry else None)
+    else:
+        feats = store.load_derived("features", cfg)
+        out = variants(cfg, features=feats, carry=a.carry.split(",") if a.carry else None)
     print(to_json(out))
 
 

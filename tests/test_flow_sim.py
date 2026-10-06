@@ -122,3 +122,45 @@ def test_resistance_mirror(cfg):
     assert f["abs_ratio"] == pytest.approx(4.0) and f["confirmed"]
     r = sim.confirmed_trade(t, f, L, -1, EM, DAY, cfg)
     assert r["pnl_r"] == pytest.approx(1.5 - 3.98 / 100)
+
+
+def break_trades(tail=None):
+    """Touch at 10:00:05, price pushes 6 ticks through, never reclaims; net flow keeps selling."""
+    rows = [("09:55:00", 101.0, 10, -1), ("09:58:00", 101.0, 10, -1),
+            ("10:00:05", 100.5, 20, -1), ("10:00:30", 100.0, 30, -1), ("10:01:00", 99.5, 50, -1),
+            ("10:02:00", 98.5, 40, -1), ("10:04:00", 99.0, 10, 1), ("10:07:00", 98.75, 30, -1),
+            ("10:10:10", 98.5, 5, -1)]   # first trade after t0 + 10 min -> entry
+    rows += tail if tail is not None else [("10:12:00", 97.0, 1, -1), ("10:13:00", 96.5, 1, -1), ("10:14:00", 96.0, 1, -1)]
+    return make_trades(rows, DAY)
+
+
+def test_break_detected_and_continuation_trade(cfg):
+    t = break_trades()
+    f = flow.features(t, BAR_OPEN, L, 1, BASELINE, cfg)
+    assert not f["reclaim"] and f["broke"]
+    assert f["break_pen"] == pytest.approx(6.0) and f["break_flow"] > 0
+    assert f["t_break"] == ts("10:10:05")
+    r = sim.continuation_trade(t, f, L, 1, EM, DAY, cfg)
+    # short: entry 98.5 - 0.25 = 98.25; stop 2 ticks back inside the level = 100.5; R = 2.25; target 94.875
+    assert r["E"] == 98.25 and r["S"] == 100.5 and r["R_k"] == pytest.approx(2.25)
+    assert r["T"] == pytest.approx(98.25 - 1.5 * 2.25)
+    assert r["exit_reason"] == "data_end"          # target 94.875 never printed one tick beyond
+
+
+def test_no_break_when_reclaimed_or_shallow(cfg):
+    t = trades()                                    # the reclaim fixture
+    f = flow.features(t, BAR_OPEN, L, 1, BASELINE, cfg)
+    assert f["reclaim"] and not f["broke"]
+    assert sim.continuation_trade(t, f, L, 1, EM, DAY, cfg) is None
+    t2 = break_trades()
+    t2.loc[t2["price"] < 99.5, "price"] = 99.5      # only 2 ticks through: not a break
+    f2 = flow.features(t2, BAR_OPEN, L, 1, BASELINE, cfg)
+    assert not f2["broke"]
+
+
+def test_continuation_stop_fills_inside_level(cfg):
+    t = break_trades(tail=[("10:11:00", 100.5, 1, 1), ("10:12:00", 101.0, 1, 1)])
+    f = flow.features(t, BAR_OPEN, L, 1, BASELINE, cfg)
+    r = sim.continuation_trade(t, f, L, 1, EM, DAY, cfg)
+    assert r["exit_reason"] == "stop" and r["X"] == 100.75     # one tick through the 100.5 stop
+    assert r["pnl_r"] == pytest.approx((98.25 - 100.75) / 2.25 - 3.98 / (2.25 * 50))
