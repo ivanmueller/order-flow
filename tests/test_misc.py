@@ -294,3 +294,26 @@ def test_earliest_eod_bisect():
     assert len(calls) < 15                                   # bisection, not a linear scan
     assert io_.earliest_eod(cfg, dt.date(2023, 6, 1), dt.date(2024, 3, 8), fetch) is None
     assert io_.earliest_eod(cfg, dt.date(2024, 6, 3), dt.date(2024, 6, 7), fetch) == dt.date(2024, 6, 3)
+
+
+def test_stage3_secondary_regression_merge():
+    """sim_trades and features share columns (is_gamma); the secondary regression must merge on
+    touch_id without suffix collisions. Synthetic frames with >30 confirmed trades."""
+    from src import analysis
+    from src.config import load_config
+    cfg = load_config()
+    rng = np.random.default_rng(0)
+    n = 60
+    ids = [f"t{i}" for i in range(n)]
+    dates = [dt.date(2024, 1, 2) + dt.timedelta(days=int(i // 3)) for i in range(n)]
+    trades = pd.DataFrame({"touch_id": ids, "date": dates, "group": ["structural_only"] * n, "mode": "confirmed",
+                           "pnl_r": rng.normal(0, 1, n), "is_gamma": False, "d": 1, "R_k": 2.0,
+                           "exit_reason": "stop",
+                           "entry_ts": pd.to_datetime([f"{d} 15:00" for d in dates], utc=True)})
+    feats = pd.DataFrame({"touch_id": ids, "date": dates, "abs_ratio": rng.uniform(0.5, 3, n),
+                          "approach_delta": rng.normal(0, 1, n), "exhaustion": rng.uniform(0, 1, n),
+                          "is_gamma": rng.integers(0, 2, n).astype(bool), "tag_round": False, "tag_pd": True,
+                          "tag_on": False})
+    out = analysis.stage3(cfg, sim_trades=trades, features=feats, carry=["structural_only"])
+    assert out["secondary_regression"] is not None
+    assert {r["term"] for r in out["secondary_regression"]} >= {"abs_ratio", "is_gamma"}

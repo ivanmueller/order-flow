@@ -208,3 +208,17 @@ Variant count so far: 5 of 20.
 - Stage 3 trades pull approved: 110 sampled days, 1,573 touches, 201 spans, est $30.09, cap $34.
 - Variants V1-V5 run after the main Stage 3, labelled exploratory given the Stage 1 verdict.
 - Stage 1 call: pending (verdict vs rules KILL on the 15% size bar; sign and significance hold).
+
+## 2026-10-06 Stage 3 trades pull and first Stage 3 run (main config)
+- Pull: 110 sampled days, 201 spans, actual $32.57 (est $30.09, cap $34). Ledger ~$81 of $125.
+  Databento flagged 2025-09-17 and 2025-11-28 as degraded days (kept).
+- `src.stage3` run summary (mean pnl_r by group and mode): confirmed structural_only -0.25 (223),
+  gamma_only -0.42 (146), both -0.36 (77), placebo -0.30 (121); naive -0.27/-0.35/-0.23/-0.29;
+  continuation -0.40/-0.54/+0.02/-0.22.
+- `analysis stage3` crashed (KeyError is_gamma): the secondary regression merged sim_trades with
+  features, both carrying is_gamma, giving _x/_y suffixes. Fixed; --carry now accepts space- or
+  comma-separated groups. The synthetic test env yields no confirmed trades, so a unit test with
+  fabricated frames now covers that path. Full report to be re-run.
+- `analysis variants` (carry all three real groups): V1 -0.27R (n=171, CI -0.39..-0.14), V2 -0.24R
+  (75), V3 -0.35R (253, KILL), V4 -0.32R (66), V5 -0.36R (124); complements V1c -0.32R (175),
+  V5c -0.32R (61). Win rates 31-35%. No variant or contrast is positive; regime split shows no gap.

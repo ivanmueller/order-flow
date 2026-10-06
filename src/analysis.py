@@ -182,8 +182,10 @@ def stage3(cfg=None, sim_trades: pd.DataFrame | None = None, features: pd.DataFr
     }
     secondary = None
     if features is not None and not features.empty and len(conf) > 30:
-        m = conf.merge(features[["touch_id", "abs_ratio", "approach_delta", "exhaustion", "is_gamma",
-                                 "tag_round", "tag_pd", "tag_on"]], on="touch_id")
+        fcols = ["abs_ratio", "approach_delta", "exhaustion", "is_gamma", "tag_round", "tag_pd", "tag_on"]
+        # sim_trades already carries some of these (is_gamma); take them from features only, so the
+        # merge never produces _x/_y suffixes.
+        m = conf.drop(columns=[c for c in fcols if c in conf]).merge(features[["touch_id", *fcols]], on="touch_id")
         m = m.replace([np.inf, -np.inf], np.nan).dropna(subset=["abs_ratio", "approach_delta", "exhaustion"])
         for c in ("is_gamma", "tag_round", "tag_pd", "tag_on"):
             m[c] = m[c].astype(int)
@@ -266,19 +268,20 @@ def to_json(x) -> str:
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("stage", choices=["stage1", "stage2", "stage3", "variants"])
-    ap.add_argument("--carry", help="comma-separated level groups carried from Stage 2")
+    ap.add_argument("--carry", nargs="+", help="level groups carried from Stage 2 (space- or comma-separated)")
     a = ap.parse_args(argv)
     cfg = load_config()
+    carry = [g for item in (a.carry or []) for g in item.split(",") if g] or None
     if a.stage == "stage1":
         out = stage1(cfg)
     elif a.stage == "stage2":
         out = stage2(cfg)
     elif a.stage == "stage3":
         feats = store.load_derived("features", cfg)
-        out = stage3(cfg, features=feats, carry=a.carry.split(",") if a.carry else None)
+        out = stage3(cfg, features=feats, carry=carry)
     else:
         feats = store.load_derived("features", cfg)
-        out = variants(cfg, features=feats, carry=a.carry.split(",") if a.carry else None)
+        out = variants(cfg, features=feats, carry=carry)
     print(to_json(out))
 
 
