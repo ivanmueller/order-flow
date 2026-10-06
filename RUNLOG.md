@@ -192,3 +192,9 @@ Variant count so far: 5 of 20.
   and Stage 2 to be re-run; the change touches one session.
 - 2025-01-27 "no levels": price opened ~2% below every level (gap day), nothing inside the window.
   Correct behaviour. 2025-10-13 em 107 and S0 40 pts below the cash close: real post-crash 0DTE.
+
+## 2026-10-06 Stage 2 re-run after the stale-expiry guard (commit 7e0a3f4 code)
+- Levels: 2024-12-03 skipped (13 levels fewer: 579/1303/1280/1831 by group). Touches and Stage 2
+  identical to the first run (7,284 touches, 511 days, same coefficients): that session had produced
+  no touches because its inflated EM made the approach distance unreachable on a 20-pt day.
+  Stage 2 verdict unchanged: G -0.104 p=0.28, no real group beats placebo, carry structural_only + both.
