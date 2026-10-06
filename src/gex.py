@@ -546,6 +546,39 @@ def _prev_value(daily: pd.DataFrame, col: str) -> dict:
     return dict(zip(d["date"], d[col].shift(1)))
 
 
+def why(cfg, day, include_holdout: bool = False) -> dict:
+    """Inputs behind one session's GEX row (or its absence): D-1, quote/OI rows per root, SPX close,
+    the nearest expiry used for S0 and the expected move, and the ATM straddle legs."""
+    day = store.as_date(day)
+    if not include_holdout and not calm.in_sample(day, cfg):
+        raise calm.HoldoutSealed(f"{day} is a holdout date")
+    cal = store.load_calendar(cfg, include_holdout).set_index("date")
+    if day not in cal.index:
+        return {"date": day, "error": "not an equity session in the calendar"}
+    prev = cal.loc[day, "prev_date"]
+    out = {"date": day, "prev_date": prev}
+    if pd.isna(prev):
+        return out
+    q = store.load_options_eod(cfg, prev)
+    o = store.load_oi(cfg, day)
+    out["quote_rows"] = {} if q.empty else q.groupby("symbol").size().to_dict()
+    out["oi_rows"] = {} if o.empty else o.groupby("root").size().to_dict()
+    spx = store.load_daily(cfg, include_holdout).set_index("date")["spx_close"]
+    out["spx_prev_close"] = float(spx.get(prev, np.nan))
+    res = compute_day(day, q, o, out["spx_prev_close"], cfg, prev)
+    if res is None:
+        out["result"] = "no usable GEX"
+        return out
+    row = res["row"]
+    out.update({k: row[k] for k in ("s0", "em", "net_gex", "flip") if k in row})
+    v = res["vols"]
+    if not v.empty:
+        first = v.sort_values(["expiration", "root"]).iloc[0]
+        out["nearest_expiry"] = f"{first['root']} {first['expiration']}"
+        out["vol_rows_nearest"] = int(((v["root"] == first["root"]) & (v["expiration"] == first["expiration"])).sum())
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--start")
@@ -555,9 +588,16 @@ def main(argv=None):
     ap.add_argument("--diagnose", action="store_true", help="print the per-day forward-vs-ES table")
     ap.add_argument("--show", help="comma-separated dates: print levels for the check-3 chart comparison")
     ap.add_argument("--strikes", help="one date: print the top strikes by |GEX| with the call/put split")
+    ap.add_argument("--why", help="comma-separated dates: print the inputs behind each session's GEX row")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
+    if a.why:
+        for d in a.why.split(","):
+            for k, v in why(cfg, d.strip(), a.include_holdout).items():
+                print(f"{k:20s} {v}")
+            print()
+        return
     start = a.start or cfg["sample"]["start"]
     end = a.end or cfg["sample"]["end"]
     if a.validate_only:

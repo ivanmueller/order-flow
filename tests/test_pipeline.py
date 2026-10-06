@@ -141,3 +141,17 @@ def test_audit_missing_days(synth_env, capsys):
     io_.audit(cfg)
     out = capsys.readouterr().out
     assert "oi: 2 in-sample session(s) without files" in out and "eod: 1 in-sample" in out
+
+
+def test_gex_why(synth_env):
+    from src import gex as gx
+    cfg, _ = synth_env
+    g = gx.build(cfg=cfg)
+    d = g["date"].iloc[5]
+    w = gx.why(cfg, d)
+    assert w["quote_rows"]["SPXW"] > 0 and w["oi_rows"]["SPXW"] > 0
+    assert np.isfinite(w["s0"]) and np.isfinite(w["em"]) and "nearest_expiry" in w
+    first = store.load_calendar(cfg)["date"].iloc[0]
+    assert "quote_rows" not in gx.why(cfg, first)              # no D-1: stops after prev_date
+    with pytest.raises(calm.HoldoutSealed):
+        gx.why(cfg, calm.holdout_start(cfg))
