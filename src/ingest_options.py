@@ -30,7 +30,7 @@ from databento.common.error import BentoClientError
 
 from src import calendar as calm
 from src import spend, store
-from src.config import load_config, param
+from src.config import data_path, load_config, param
 
 log = logging.getLogger("ingest_options")
 
@@ -314,6 +314,30 @@ def trading_days(cfg, start, end) -> list[dt.date]:
     return calm.weekdays(start, end)
 
 
+def audit(cfg, delete_empty: bool = False) -> pd.DataFrame:
+    """Per-year count of EOD and OI files, and how many are empty. --delete-empty removes empty EOD
+    files so the next `--what eod` run fetches them again."""
+    rows = []
+    for kind in ("eod", "oi"):
+        d = data_path(cfg, "raw", "options", kind)
+        for f in sorted(d.glob("*.parquet")) if d.exists() else []:
+            n = len(store.read(f))
+            rows.append({"kind": kind, "year": f.name[:4], "file": f, "rows": n})
+    df = pd.DataFrame(rows)
+    if df.empty:
+        print("no option files")
+        return df
+    summary = df.groupby(["kind", "year"]).agg(files=("rows", "size"), empty=("rows", lambda x: int((x == 0).sum())),
+                                              median_rows=("rows", "median")).reset_index()
+    print(summary.to_string(index=False))
+    empty_eod = df[(df["kind"] == "eod") & (df["rows"] == 0)]
+    if delete_empty and not empty_eod.empty:
+        for f in empty_eod["file"]:
+            f.unlink()
+        print(f"deleted {len(empty_eod)} empty EOD files; re-run `python -m src.ingest_options --what eod`")
+    return summary
+
+
 def probe(cfg, day: dt.date):
     print("== ThetaData EOD ==")
     for sym in cfg["data"]["thetadata_symbols"]:
@@ -344,11 +368,16 @@ def main(argv=None):
     ap.add_argument("--include-holdout", action="store_true",
                     help="also download holdout dates (raw files only; research loads stay sealed)")
     ap.add_argument("--probe")
+    ap.add_argument("--audit", action="store_true", help="count option files and empty files by year")
+    ap.add_argument("--delete-empty", action="store_true", help="with --audit: remove empty EOD files")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
     if a.probe:
         probe(cfg, store.as_date(a.probe))
+        return
+    if a.audit:
+        audit(cfg, a.delete_empty)
         return
     start = a.start or cfg["sample"]["start"]
     end = a.end or cfg["sample"]["end"]
