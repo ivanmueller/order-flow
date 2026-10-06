@@ -6,12 +6,24 @@ Batch research code that tests whether SPX gamma levels plus ES order flow confi
 
 Update this block at the end of every session.
 
-- Stage: Week 1. Full pipeline code exists (ingestion, GEX, levels, touches, flow, sim, gate reports,
-  robustness, holdout) and passes 41 tests, including a synthetic end-to-end run. No real data has been pulled yet.
-- Gates passed: none
-- Open issues: sign off the decisions listed in README.md ("Decisions that need your sign-off"),
-  especially holdout_start, cost_rt_usd, gex_pct_min_periods; then set status.frozen in config.yaml.
-  Run `python -m src.ingest_options --probe 2023-06-01` and confirm the ThetaData v3 EOD columns map correctly.
+- Stage: Week 2. Full in-sample run done through Stage 2 on the main config (RUNLOG.md 2026-10-06):
+  GEX on 642 sessions, Gate 0 re-check passes (checks 1, 2, 4), Stage 1 verdict vs rules KILL
+  (RR beta right sign p=0.029 but quintile gap 7.5% < 15%), Stage 2 no real level group beats placebo
+  (carry structural_only + both). Awaiting Matteo's Stage 1/2 gate calls before the Stage 3 trades
+  pull (~$52 on the 120 sampled days, config stage3_sample, placebo_per_day 2). Databento spend ~$48
+  of $125.
+- Open data checks: six post-half-day sessions have no GEX row (`python -m src.gex --why DATE`),
+  2024-12-03 em=112.9 looks wrong, 2025-01-27 has no levels.
+- Pre-registered Stage 3 variants V1-V5 in RUNLOG.md; V5 unconditional. Run after the main Stage 3.
+- Pilot: `config.pilot.yaml` (Mar-May 2025, gex_pct_min_periods 20); activate via .env. Pilot output
+  is not a gate decision. Pilot numbers are in RUNLOG.md.
+- Gates passed: Gate 0 (accepted 2026-10-06 on the pilot; re-checked on the full run, passes).
+- Data facts: ThetaData free tier serves EOD from 2023-06-01 (403 before); EOD quotes are the 17:00 ET
+  Cboe curb close (quote_time 17:00); OPRA parent symbology returns OSI symbols; ES trades on equity
+  holidays, the calendar carries `equity_session` and research loads use equity sessions only.
+  Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126. Check 3 (public GEX chart
+  comparison) was accepted qualitatively.
+- Open issues: sign off the decisions listed in README.md, then set status.frozen in config.yaml.
 
 ## Non-negotiable rules
 

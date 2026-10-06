@@ -107,15 +107,23 @@ def longest_losing_streak(pnl: np.ndarray) -> int:
     return best
 
 
-def trade_summary(tr: pd.DataFrame, draws: int, seed: int, level: float = 0.90) -> dict:
-    """N, win rate, average win/loss, expectancy in R with day-bootstrap CI, PF, max DD, streak."""
+SESSIONS_PER_MONTH = 21
+
+
+def trade_summary(tr: pd.DataFrame, draws: int, seed: int, level: float = 0.90,
+                  sampled_days: int | None = None) -> dict:
+    """N, win rate, average win/loss, expectancy in R with day-bootstrap CI, PF, max DD, streak.
+    trades_per_month uses the number of sessions with trade data when given (Stage 3 day sample)."""
     if tr.empty:
         return {"n": 0}
     tr = tr.sort_values("entry_ts")
     p = tr["pnl_r"].to_numpy(float)
     wins, losses = p[p > 0], p[p <= 0]
     boot = day_bootstrap_mean(tr, "pnl_r", draws, seed, level)
-    months = max(1.0, (pd.Timestamp(max(tr["date"])) - pd.Timestamp(min(tr["date"]))).days / 30.44)
+    if sampled_days:
+        months = max(1.0, sampled_days / SESSIONS_PER_MONTH)
+    else:
+        months = max(1.0, (pd.Timestamp(max(tr["date"])) - pd.Timestamp(min(tr["date"]))).days / 30.44)
     return {
         "n": len(p), "win_rate": len(wins) / len(p),
         "avg_win_r": float(wins.mean()) if len(wins) else 0.0,

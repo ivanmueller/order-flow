@@ -32,3 +32,10 @@ def make_trades(rows, day: dt.date):
     out["sequence"] = np.arange(len(out))
     out["instrument_id"] = 1
     return out[["ts_event_utc", "price", "size", "side", "instrument_id", "sequence"]]
+
+
+@pytest.fixture(autouse=True)
+def _default_config(monkeypatch):
+    """Tests always start from config.yaml, even if a developer's .env selects the pilot."""
+    from src.config import DEFAULT_PATH
+    monkeypatch.setenv("GAMMA_EDGE_CONFIG", str(DEFAULT_PATH))

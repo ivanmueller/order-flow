@@ -54,7 +54,8 @@ def daily_path(cfg) -> Path:
 
 
 def derived_path(cfg, name: str) -> Path:
-    return data_path(cfg, "derived", f"{name}.parquet")
+    # Raw downloads are shared across configs; derived tables are per config (pilot vs main).
+    return data_path(cfg, cfg["data"].get("derived_dir", "derived"), f"{name}.parquet")
 
 
 def load_options_eod(cfg, quote_date) -> pd.DataFrame:
@@ -103,8 +104,14 @@ def save_derived(df: pd.DataFrame, name: str, cfg=None) -> Path:
     return write(df, derived_path(cfg, name))
 
 
-def load_calendar(cfg=None, include_holdout: bool = False) -> pd.DataFrame:
-    return load_derived("calendar", cfg, include_holdout)
+def load_calendar(cfg=None, include_holdout: bool = False, equity_only: bool = True) -> pd.DataFrame:
+    """Trading calendar. By default only equity sessions (days with SPX cash/options trading)."""
+    c = load_derived("calendar", cfg, include_holdout)
+    if "prev_date" in c:
+        c["prev_date"] = pd.to_datetime(c["prev_date"]).dt.date.where(c["prev_date"].notna(), None)
+    if equity_only and "equity_session" in c:
+        c = c[c["equity_session"]].reset_index(drop=True)
+    return c
 
 
 def date_range_filter(df: pd.DataFrame, start=None, end=None, col: str = "date") -> pd.DataFrame:

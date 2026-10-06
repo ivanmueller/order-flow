@@ -24,7 +24,7 @@ def test_end_to_end(synth_env):
     assert g["basis"].notna().all()                          # roll day resolved from roll_basis file
     assert g["gex_pct"].notna().sum() > 5
     v = gex.validate(g, store.load_daily(cfg), store.load_derived("gex_vols", cfg), cfg)
-    assert v["1_forward_within_tol_share"] > 0.95
+    assert v["1_pass"] and "cash close" in v["1_reference"]       # no bars given: cash-close fallback
     assert v["2_put_vol_above_call_vol_share"] > 0.95
 
     lv = levels.build(cfg=cfg)
@@ -38,12 +38,13 @@ def test_end_to_end(synth_env):
     synth.write_trades_for_touches(cfg, bars, tc, np.random.default_rng(1))
     F, T = stage3.run(cfg)
     assert len(F) == len(tc)
-    assert set(T["mode"]) >= {"naive"}
+    assert set(T["mode"]) >= {"naive", "mirror"}
     done = T[T["pnl_r"].notna()]
     assert np.isfinite(done["pnl_r"]).all()
     # Exits respect the fill rules: no exit ever better than target, R_k always positive
     assert (done["R_k"] > 0).all()
-    assert (done["d"] * (done["X"] - done["T"]) <= 1e-9).all()
+    trade_dir = np.where(done["mode"].isin(["continuation", "mirror"]), -done["d"], done["d"])   # V5 and the mirror diagnostic trade against d
+    assert (trade_dir * (done["X"] - done["T"]) <= 1e-9).all()
 
     s1 = analysis.stage1(cfg)
     assert s1["verdict_vs_rules"] in ("PASS", "KILL") and s1["n_days"] > 5
@@ -52,6 +53,11 @@ def test_end_to_end(synth_env):
     s3 = analysis.stage3(cfg, features=F)
     assert s3["verdict_vs_rules"] in ("PASS", "KILL")
     analysis.to_json(s3)
+    v = analysis.variants(cfg, T, F)
+    assert set(v["variants"]) == set(analysis.VARIANTS) and set(v["contrasts"]) == set(analysis.CONTRASTS)
+    assert all(x["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") for x in v["variants"].values())
+    assert "continuation" in set(T["mode"])
+    analysis.to_json(v)
 
 
 def test_holdout_requires_flag(synth_env):
@@ -90,3 +96,76 @@ def test_robustness_and_holdout(synth_env, monkeypatch):
     assert res["verdict_vs_rules"] in ("PASS", "FAIL")
     # In-sample tables were not overwritten by the holdout run
     assert (store.load_derived("touches", cfg)["date"] < calm.holdout_start(cfg)).all()
+
+
+def test_forward_vs_es_diagnostic(synth_env):
+    cfg, bars = synth_env
+    g = gex.build(cfg=cfg)
+    cal = store.load_calendar(cfg)
+    f = gex.forward_vs_es(g, store.load_bars(cfg), cal, cfg)
+    assert len(f) >= len(g) - 2                      # roll day (and first day) skipped
+    assert np.isfinite(f["resid"]).all()
+    # Synthetic data: S0 == SPX close and basis == ES_16:00 - SPX, so r_1600 == 0 and
+    # the residual at any later time is minus the ES move from 16:00 to that time.
+    assert np.allclose(f["r_1600"], 0, atol=1e-6)
+    assert np.allclose(f["r_1700"], -(f["es_1700"] - f["es_1600"]), atol=1e-6)
+    assert np.allclose(f["resid"], f["r_1700"])            # configured quote_time is 17:00
+    v = gex.validate(g, store.load_daily(cfg), None, cfg, store.load_bars(cfg), cal)
+    assert "1_forward_vs_es_within_5pt_share" in v and v["1_n_days"] == len(f)
+    assert v["nearest_exp_beyond_3d_n"] == 0                 # synth always has a 0/1-DTE expiry
+    assert v["1_scan_best_time"] == "16:00" and v["1_scan_configured"] == "17:00"
+    assert v["1_scan_16:00_within_5pt_share"] == 1.0
+    assert set(gex.show(g, [str(g["date"].iloc[3])])["date"]) == {g["date"].iloc[3]}
+    ts = gex.top_strikes(store.load_derived("gex_strikes", cfg), g["date"].iloc[3], n=5)
+    assert len(ts) == 5 and ts["net_bn"].abs().is_monotonic_decreasing
+
+
+def test_audit_missing_days(synth_env, capsys):
+    """missing_days compares in-sample sessions with files on disk: synthetic data writes SPXW only,
+    so every session is missing SPX; restricting the roots to SPXW shows the complete set, and
+    deleting one file surfaces exactly that date."""
+    from src import ingest_options as io_
+    cfg, _ = synth_env
+    m = io_.missing_days(cfg)
+    assert len(m["eod"]) > 20 and len(m["oi"]) > 20          # SPX files never written by synth
+    cfg["data"]["thetadata_symbols"] = ["SPXW"]
+    cfg["data"]["opra_parents"] = ["SPXW.OPT"]
+    cal = store.load_calendar(cfg)
+    first = cal["date"].iloc[0]
+    m = io_.missing_days(cfg)
+    assert m == {"eod": [], "oi": [first]}                   # synth writes no OI for the first session
+    d = cal["date"].iloc[10]
+    store.oi_path(cfg, d, "SPXW").unlink()
+    store.eod_path(cfg, cal["prev_date"].iloc[10], "SPXW").unlink()
+    m = io_.missing_days(cfg)
+    assert m["oi"] == [first, d] and m["eod"] == [cal["prev_date"].iloc[10]]
+    io_.audit(cfg)
+    out = capsys.readouterr().out
+    assert "oi: 2 in-sample session(s) without files" in out and "eod: 1 in-sample" in out
+
+
+def test_gex_why(synth_env):
+    from src import gex as gx
+    cfg, _ = synth_env
+    g = gx.build(cfg=cfg)
+    d = g["date"].iloc[5]
+    w = gx.why(cfg, d)
+    assert w["quote_rows"]["SPXW"] > 0 and w["oi_rows"]["SPXW"] > 0
+    assert np.isfinite(w["s0"]) and np.isfinite(w["em"]) and "nearest_expiry" in w
+    assert (w["expiries"]["status"] == "ok").all() and len(w["expiries"]) >= 1
+    first = store.load_calendar(cfg)["date"].iloc[0]
+    assert "quote_rows" not in gx.why(cfg, first)              # no D-1: stops after prev_date
+    with pytest.raises(calm.HoldoutSealed):
+        gx.why(cfg, calm.holdout_start(cfg))
+
+
+def test_levels_skip_stale_nearest_expiry(synth_env):
+    from src import levels as lv
+    cfg, _ = synth_env
+    g = gex.build(cfg=cfg)
+    n_all = levels.build(cfg=cfg)["date"].nunique()
+    d = g["date"].iloc[7]
+    g.loc[g["date"] == d, "nearest_exp"] = d + pd.Timedelta(days=10)
+    assert lv.stale_nearest_expiry(g.set_index("date").loc[d]) and not lv.stale_nearest_expiry(g.set_index("date").loc[g["date"].iloc[8]])
+    out = levels.build(cfg=cfg, gex=g)
+    assert out["date"].nunique() == n_all - 1 and d not in set(out["date"])

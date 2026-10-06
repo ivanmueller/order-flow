@@ -16,6 +16,10 @@ from src import regime, stats, store
 from src.config import ROOT, load_config, param
 
 
+MIN_STAGE1_DAYS = 30        # below this the regressions are meaningless; report instead of crashing
+MIN_STAGE2_TOUCHES = 100
+
+
 def _boot(cfg):
     return param(cfg, "bootstrap_draws"), param(cfg, "bootstrap_seed"), param(cfg, "ci_level")
 
@@ -45,6 +49,10 @@ def stage1(cfg=None, df: pd.DataFrame | None = None) -> dict:
     if df is None:
         df = stage1_frame(cfg)
     df = df[~df["half_day"]].dropna(subset=["gex_pct", "ln_vix", "rr"]).sort_values("date").reset_index(drop=True)
+    if len(df) < MIN_STAGE1_DAYS:
+        return {"error": f"only {len(df)} days with a GEX percentile (need >= {MIN_STAGE1_DAYS}); "
+                         "gex_pct needs gex_pct_min_periods prior sessions of GEX. Is gex_daily complete?",
+                "n_days": len(df)}
     draws, seed, lvl = _boot(cfg)
     lags = param(cfg, "nw_lags")
     main = _stage1_models(df, "gex_pct", "ln_vix", lags)
@@ -104,6 +112,10 @@ def stage2(cfg=None, touches: pd.DataFrame | None = None) -> dict:
     if touches is None:
         touches = store.load_derived("touches", cfg)
     t = stage2_frame(touches)
+    if len(t) < MIN_STAGE2_TOUCHES or t["date"].nunique() < MIN_STAGE1_DAYS:
+        return {"error": f"only {len(t)} touches on {t['date'].nunique()} days have a GEX percentile "
+                         f"(need >= {MIN_STAGE2_TOUCHES} touches on >= {MIN_STAGE1_DAYS} days). Is gex_daily complete?",
+                "n_touches": len(t)}
     res = stats.logit_clustered(t, STAGE2_FORMULA)
     ct = stats.coef_table(res)
     lvl = param(cfg, "ci_level")
@@ -126,8 +138,18 @@ def stage2(cfg=None, touches: pd.DataFrame | None = None) -> dict:
     allg = table[table["gex_tercile"] == "all"].set_index("group")
     placebo = allg["success"].get("placebo", np.nan)
     beats = {g: bool(allg.loc[g, "lo"] > placebo) for g in allg.index if g != "placebo"}
+    succ = t[t["success"] == 1]
+    on_bar = float((succ["bars_to_outcome"] == 0).mean()) if len(succ) else np.nan
+    label_check = {
+        "success_on_touch_bar_share": on_bar,
+        "success_rate_all": float(t["success"].mean()),
+        "success_rate_excluding_touch_bar_wins": float(((t["success"] == 1) & (t["bars_to_outcome"] > 0)).mean()),
+        "random_walk_baseline": float(param(cfg, "fail_F") / (param(cfg, "fail_F") + param(cfg, "success_R"))),
+        "note": "A win on bar 0 uses the touch bar's own high/low, which is mostly the approach before the "
+                "touch. Compare success_rate_all with the random-walk baseline F/(R+F).",
+    }
     return {"n_touches": len(t), "n_days": t["date"].nunique(), "coefs": ct.reset_index(names="term").to_dict("records"),
-            "success_table": table.to_dict("records"), "keep_gamma_tags": keep_gamma,
+            "success_table": table.to_dict("records"), "label_check": label_check, "keep_gamma_tags": keep_gamma,
             "carry_groups": ["gamma_only", "both", "structural_only"] if keep_gamma else ["structural_only", "both"],
             "groups_whose_90ci_beats_placebo_rate": beats,
             "note": None if any(beats.values()) else "No real level type beats placebo: Stage 3 tests pure order flow."}
@@ -136,6 +158,35 @@ def stage2(cfg=None, touches: pd.DataFrame | None = None) -> dict:
 # ---------------------------------------------------------------------------
 # Stage 3
 # ---------------------------------------------------------------------------
+def fairness(done: pd.DataFrame, cfg) -> dict:
+    """Simulator fairness check, per mode and over real + placebo levels alike.
+
+    rw_win_rate: the win rate a driftless walk would give these exact barriers (stop triggers at a
+    touch of S, target needs a print one tick beyond T): R_k / (R_k + target_mult R_k + tick).
+    rw_expectancy: that win rate applied to the observed average win and loss sizes, i.e. the drag
+    from fills and costs alone. The gap observed - rw is the market's contribution.
+    mirror trades take the opposite side of every naive fill with symmetric barriers: under a fair
+    simulator naive + mirror expectancy is about twice the drag, whatever the market does."""
+    if done.empty or "R_k" not in done:
+        return {}
+    tick, tm = cfg["market"]["tick"], param(cfg, "target_mult")
+    out = {}
+    for mode, g in done.groupby("mode"):
+        wins, losses = g[g["pnl_r"] > 0], g[g["pnl_r"] <= 0]
+        rw_p = float((g["R_k"] / (g["R_k"] * (1 + tm) + tick)).mean())
+        aw = float(wins["pnl_r"].mean()) if len(wins) else 0.0
+        al = float(-losses["pnl_r"].mean()) if len(losses) else 0.0
+        out[mode] = {"n": int(len(g)), "win_rate": float((g["pnl_r"] > 0).mean()), "rw_win_rate": rw_p,
+                     "expectancy_r": float(g["pnl_r"].mean()), "rw_expectancy_r": rw_p * aw - (1 - rw_p) * al,
+                     "R_k_ticks_median": float((g["R_k"] / tick).median()),
+                     "exit_target_share": float((g["exit_reason"] == "target").mean()) if "exit_reason" in g else np.nan}
+    if "naive" in out and "mirror" in out:
+        out["naive_plus_mirror"] = {"sum_expectancy_r": out["naive"]["expectancy_r"] + out["mirror"]["expectancy_r"],
+                                    "twice_drag_r": out["naive"]["rw_expectancy_r"] + out["mirror"]["rw_expectancy_r"],
+                                    "note": "sum close to twice_drag -> fair simulator; much lower -> a penalty hits both sides"}
+    return out
+
+
 def stage3(cfg=None, sim_trades: pd.DataFrame | None = None, features: pd.DataFrame | None = None,
            carry: list[str] | None = None) -> dict:
     cfg = cfg or load_config()
@@ -143,12 +194,13 @@ def stage3(cfg=None, sim_trades: pd.DataFrame | None = None, features: pd.DataFr
         sim_trades = store.load_derived("sim_trades", cfg)
     draws, seed, lvl = _boot(cfg)
     done = sim_trades[sim_trades["pnl_r"].notna()].copy() if "pnl_r" in sim_trades else sim_trades.iloc[0:0]
+    sampled_days = int(features["date"].nunique()) if features is not None and not features.empty else None
     table = []
     for grp in ["gamma_only", "structural_only", "both", "placebo", "ALL_REAL"]:
         sub = done[done["group"] != "placebo"] if grp == "ALL_REAL" else done[done["group"] == grp]
         row = {"group": grp}
         for mode in ("naive", "confirmed"):
-            s = stats.trade_summary(sub[sub["mode"] == mode], draws, seed, lvl)
+            s = stats.trade_summary(sub[sub["mode"] == mode], draws, seed, lvl, sampled_days)
             row.update({f"{mode}_{k}": v for k, v in s.items()})
         d = stats.day_bootstrap_diff(sub[sub["mode"] == "confirmed"], sub[sub["mode"] == "naive"],
                                      "pnl_r", draws, seed, lvl)
@@ -157,7 +209,8 @@ def stage3(cfg=None, sim_trades: pd.DataFrame | None = None, features: pd.DataFr
     carry = carry or ["gamma_only", "both", "structural_only"]
     cs = done[done["group"].isin(carry)]
     conf, naive = cs[cs["mode"] == "confirmed"], cs[cs["mode"] == "naive"]
-    s = stats.trade_summary(conf, draws, seed, lvl)
+    s = stats.trade_summary(conf, draws, seed, lvl, sampled_days)
+    s["sampled_days"] = sampled_days
     dd = stats.day_bootstrap_diff(conf, naive, "pnl_r", draws, seed, lvl)
     g = cfg["gates"]
     checks = {
@@ -168,8 +221,10 @@ def stage3(cfg=None, sim_trades: pd.DataFrame | None = None, features: pd.DataFr
     }
     secondary = None
     if features is not None and not features.empty and len(conf) > 30:
-        m = conf.merge(features[["touch_id", "abs_ratio", "approach_delta", "exhaustion", "is_gamma",
-                                 "tag_round", "tag_pd", "tag_on"]], on="touch_id")
+        fcols = ["abs_ratio", "approach_delta", "exhaustion", "is_gamma", "tag_round", "tag_pd", "tag_on"]
+        # sim_trades already carries some of these (is_gamma); take them from features only, so the
+        # merge never produces _x/_y suffixes.
+        m = conf.drop(columns=[c for c in fcols if c in conf]).merge(features[["touch_id", *fcols]], on="touch_id")
         m = m.replace([np.inf, -np.inf], np.nan).dropna(subset=["abs_ratio", "approach_delta", "exhaustion"])
         for c in ("is_gamma", "tag_round", "tag_pd", "tag_on"):
             m[c] = m[c].astype(int)
@@ -180,8 +235,50 @@ def stage3(cfg=None, sim_trades: pd.DataFrame | None = None, features: pd.DataFr
     exits = done.groupby(["mode", "exit_reason"]).size().to_dict() if not done.empty else {}
     return {"carry_groups": carry, "confirmed": s, "conf_minus_naive": dd, "checks": checks,
             "verdict_vs_rules": "PASS" if all(checks.values()) else "KILL", "table": table,
+            "fairness": fairness(done, cfg),
             "secondary_regression": secondary, "skips": skips,
             "exit_reasons": {f"{k[0]}:{k[1]}": v for k, v in exits.items()}}
+
+
+VARIANTS = {
+    "V1_regime_gex_pct_ge_0.5": ("confirmed", lambda t: t["gex_pct"] >= 0.5),
+    "V2_V1_gamma_levels_only": ("confirmed", lambda t: (t["gex_pct"] >= 0.5) & t["is_gamma"]),
+    "V3_above_flip_only": ("confirmed", lambda t: t["above_flip"] == True),  # noqa: E712 (None -> excluded)
+    "V4_wall_aligned": ("confirmed", lambda t: ((t["d"] == -1) & t["tag_call_wall"]) | ((t["d"] == 1) & t["tag_put_wall"])),
+    "V5_continuation_neg_gamma": ("continuation", lambda t: (t["gex_pct"] < 0.5) | (t["above_flip"] == False)),  # noqa: E712
+}
+CONTRASTS = {  # the complement of each filter, for context (not gate-scored)
+    "V1_complement_gex_pct_lt_0.5": ("confirmed", lambda t: t["gex_pct"] < 0.5),
+    "V5_complement_continuation_pos_gamma": ("continuation", lambda t: (t["gex_pct"] >= 0.5) & (t["above_flip"] != False)),  # noqa: E712
+}
+
+
+def variants(cfg=None, sim_trades: pd.DataFrame | None = None, features: pd.DataFrame | None = None,
+             carry: list[str] | None = None) -> dict:
+    """Pre-registered variants V1-V5 (RUNLOG 2026-10-06), scored against the Stage 3 rules."""
+    cfg = cfg or load_config()
+    if sim_trades is None:
+        sim_trades = store.load_derived("sim_trades", cfg)
+    draws, seed, lvl = _boot(cfg)
+    g = cfg["gates"]
+    carry = carry or ["gamma_only", "both", "structural_only"]
+    done = sim_trades[sim_trades["pnl_r"].notna() & sim_trades["group"].isin(carry)].copy()
+    done["above_flip"] = done["above_flip"].astype(object)
+    sampled_days = int(features["date"].nunique()) if features is not None and not features.empty else None
+    out = {"carry_groups": carry, "variants": {}, "contrasts": {}}
+    for name, (mode, rule) in {**VARIANTS, **CONTRASTS}.items():
+        sub = done[(done["mode"] == mode) & rule(done).fillna(False).astype(bool)]
+        s = stats.trade_summary(sub, draws, seed, lvl, sampled_days)
+        if name in VARIANTS:
+            checks = {f"n>={g['stage3_min_trades']}": s.get("n", 0) >= g["stage3_min_trades"],
+                      f"expectancy>={g['stage3_min_expectancy_r']}R": s.get("expectancy_r", -1) >= g["stage3_min_expectancy_r"],
+                      "ci_lower>0": s.get("ci_lo", -1) > 0}
+            s["checks"] = checks
+            s["verdict_vs_rules"] = "PASS" if all(checks.values()) else ("INDICATIVE" if s.get("n", 0) < g["stage3_min_trades"] else "KILL")
+            out["variants"][name] = s
+        else:
+            out["contrasts"][name] = s
+    return out
 
 
 def holdout(in_sample_expectancy: float, cfg=None, sim_trades: pd.DataFrame | None = None,
@@ -210,17 +307,21 @@ def to_json(x) -> str:
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["stage1", "stage2", "stage3"])
-    ap.add_argument("--carry", help="comma-separated level groups carried from Stage 2")
+    ap.add_argument("stage", choices=["stage1", "stage2", "stage3", "variants"])
+    ap.add_argument("--carry", nargs="+", help="level groups carried from Stage 2 (space- or comma-separated)")
     a = ap.parse_args(argv)
     cfg = load_config()
+    carry = [g for item in (a.carry or []) for g in item.split(",") if g] or None
     if a.stage == "stage1":
         out = stage1(cfg)
     elif a.stage == "stage2":
         out = stage2(cfg)
+    elif a.stage == "stage3":
+        feats = store.load_derived("features", cfg)
+        out = stage3(cfg, features=feats, carry=carry)
     else:
         feats = store.load_derived("features", cfg)
-        out = stage3(cfg, features=feats, carry=a.carry.split(",") if a.carry else None)
+        out = variants(cfg, features=feats, carry=carry)
     print(to_json(out))
 
 

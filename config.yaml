@@ -2,6 +2,7 @@
 # Every tunable number lives here. Do not edit after Stage 1 starts without logging it in RUNLOG.md.
 # `nudges` lists the one-notch-up / one-notch-down values used ONLY by the robustness check.
 
+name: main
 status:
   frozen: false            # set true (and log in RUNLOG.md) once you've signed off on every value below
 
@@ -27,7 +28,8 @@ market:
   rth_open: "09:30"
   rth_close: "16:00"
   half_day_close: "13:00"
-  quote_time: "16:15"      # SPX/SPXW option close on D-1 (start of T_q clock)
+  quote_time: "17:00"      # ThetaData EOD NBBO = Cboe curb-session close on D-1 (start of T_q clock);
+                           # was 16:15 per SPEC, changed 2026-10-05 after the pilot quote-time scan (RUNLOG)
   spxw_expiry_time: "16:00"
   spx_expiry_time: "09:30" # AM-settled monthlies settle at the open
   touch_start: "09:31"
@@ -41,6 +43,7 @@ market:
 # ---------------------------------------------------------------------------
 data:
   root: "data"
+  derived_dir: "derived"   # raw/ is shared by every config; derived tables are per config
   thetadata_url: "http://127.0.0.1:25503/v3"
   thetadata_symbols: ["SPXW", "SPX"]
   thetadata_pause_s: 1.0   # pacing between free-tier requests
@@ -53,6 +56,16 @@ data:
   # t_r + 30m with t_r up to t0 + 10m, so t0+30m would truncate exits. 45m covers it.
   trades_pre_min: 10
   trades_post_min: 45
+
+# ---------------------------------------------------------------------------
+# Stage 3 day sample: ES trade data is ~$0.54/day, so Stage 3 runs on a fixed-seed random subset of
+# days, stratified by calendar year, chosen before any trade data exists (set 2026-10-06, approved).
+# 0 = every day. Stage 2 still uses every day (bars only).
+# ---------------------------------------------------------------------------
+stage3_sample:
+  seed: 20231101
+  in_sample_days: 120
+  holdout_days: 45
 
 # ---------------------------------------------------------------------------
 # Spending guard (CLAUDE.md rule 7)
@@ -72,9 +85,9 @@ params:
   flip_half_width:    {value: 0.05}          # grid from (1-w) S0 to (1+w) S0
   flip_step:          {value: 5.0}           # SPX points
   gex_pct_lookback:   {value: 252,   nudges: [126, 504]}
-  # Sessions of history required before gex_pct is defined. 252 = SPEC-literal (no value until
-  # a full year of GEX exists, i.e. Stage 1 effectively starts ~June 2024). PROPOSED -- confirm.
-  gex_pct_min_periods: {value: 252}
+  # Sessions of history required before gex_pct is defined. SPEC-literal would be 252 (a full year);
+  # set to 126 (six months) on 2026-10-05 so Stage 1 starts ~Dec 2023 instead of ~Jun 2024.
+  gex_pct_min_periods: {value: 126}
   round_step:         {value: 50,    nudges: [25, 100]}
   level_window:       {value: 1.0,   nudges: [0.75, 1.25]}   # EM units
   merge_tol:          {value: 2,     nudges: [1, 4]}         # ticks
@@ -86,7 +99,7 @@ params:
   fail_F:             {value: 0.05,  nudges: [0.04, 0.075]}  # EM units (also the naive-baseline stop)
   label_horizon:      {value: 60,    nudges: [45, 90]}       # bars
   mfe_horizon:        {value: 30}                            # bars
-  placebo_per_day:    {value: 5}
+  placebo_per_day:    {value: 2}             # was 5 (SPEC); cut 2026-10-06 to shrink Stage 3 trade windows (approved)
   placebo_min_gap:    {value: 4}                             # ticks from any real level
   placebo_seed:       {value: 20230601}
   abs_window:         {value: 3,     nudges: [2, 5]}         # minutes
@@ -94,14 +107,15 @@ params:
   baseline_sessions:  {value: 20,    nudges: [10, 40]}
   reclaim_window:     {value: 10,    nudges: [5, 15]}        # minutes
   reclaim_ticks:      {value: 2,     nudges: [1, 3]}
+  break_ticks:        {value: 4,     nudges: [3, 6]}         # V5: penetration through the level that counts as a break
   entry_slippage:     {value: 1,     nudges: [2]}            # ticks
   stop_buffer:        {value: 2,     nudges: [1, 4]}         # ticks
   max_risk:           {value: 0.15,  nudges: [0.10, 0.20]}   # EM units
   min_risk:           {value: 4}                             # ticks
   target_mult:        {value: 1.5,   nudges: [1.0, 2.0]}     # R
   time_exit:          {value: 30,    nudges: [20, 45]}       # minutes
-  # All-in round trip per contract (commission + exchange + NFA). PLACEHOLDER -- set to your broker's number.
-  cost_rt_usd:        {value: 5.00,  nudges: [7.50]}
+  # All-in round trip per contract (commission + exchange + NFA), the user's broker, set 2026-10-05.
+  cost_rt_usd:        {value: 3.98,  nudges: [5.97]}   # nudge = +50%
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -122,5 +136,5 @@ gates:
 
 # Gate 0 (GEX validation) tolerances
 validation:
-  forward_tol_pts: 5.0     # nearest-expiry forward within this many points of SPX close ...
+  forward_tol_pts: 5.0     # check 1: S0 within this many points of (ES at quote_time on D-1 - basis) ...
   forward_share: 0.95      # ... on at least this share of days

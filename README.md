@@ -19,10 +19,17 @@ Each report prints the numbers next to the frozen pass/kill rules (`verdict_vs_r
 
 ```bash
 pip install -r requirements.txt
-export DATABENTO_API_KEY=...          # never in code, config, or logs
+cp .env.example .env                   # then put your Databento key in .env (git-ignored, never committed)
 # Install and start the Theta Terminal (free account); it serves http://127.0.0.1:25503/v3
 pytest -q                              # 41 tests: hand-verified formulas + an end-to-end synthetic run
 ```
+
+## Pilot first (3 months, Mar-May 2025)
+
+`config.pilot.yaml` overlays `config.yaml` for a cheap first pass on real data. Turn it on by adding
+`GAMMA_EDGE_CONFIG=config.pilot.yaml` to `.env`; remove the line to switch back to the main config.
+Raw downloads are shared (the main run reuses them, nothing is bought twice); pilot results go to
+`data/derived_pilot/`. Every command below then defaults to the pilot dates.
 
 ## Runbook (Week 1 first: price everything before pulling anything at scale)
 
@@ -91,10 +98,9 @@ These are places where `SPEC.md` was silent, ambiguous, or would leak future dat
 config value or a documented rule you can change now; after Stage 1 starts, changes go in RUNLOG.md.
 
 1. **Holdout start = 2026-01-01** (≈ the last 9 months, Jan to Sep 2026). In-sample is 2023-06-01 to 2025-12-31.
-2. **`cost_rt_usd` = $5.00 is a placeholder.** Set it to your broker's all-in ES round trip.
-3. **`gex_pct_min_periods` = 252** follows the spec literally: no percentile until a full year of
-   GEX exists, so Stage 1 really starts around June 2024 (~380 sessions instead of ~630). 126 would
-   recover about six months of sample.
+2. **`cost_rt_usd` = $3.98**, the user's broker all-in ES round trip (set 2026-10-05).
+3. **`gex_pct_min_periods` = 126** (decided 2026-10-05; spec-literal was 252). The GEX percentile needs
+   six months of history, so Stage 1 starts around December 2023.
 4. **Stage 3 trade window is t0-10m to t0+45m, not +30m.** A reclaim can arrive at t0+10m and the
    time exit is 30 minutes later, so a +30m window would cut trades off early.
 5. **Lookahead fix in the confirmation rule.** AbsRatio needs trades through t0+3m, but a reclaim
@@ -106,7 +112,10 @@ config value or a documented rule you can change now; after Stage 1 starts, chan
 9. **Touch rules:** the debounce skips a touch if any of the previous 10 bars came within b of L;
    d comes from which side of L the previous close sits on.
 10. **Stage 1 excludes half days** (no full 09:30 to 16:00 session).
-11. **`static/events.csv` has FOMC days for 2023 to 2025 only.** Add CPI and NFP dates from the BLS
+11. **`quote_time` = 17:00 ET** (decided 2026-10-05; spec said 16:15). The pilot showed the ThetaData EOD
+    NBBO tracks ES at 17:00, when Cboe's SPX curb session ends. It sets the implied-vol clock and the
+    reference for Gate 0 check 1. Still before the open of D, so point-in-time holds.
+12. **`static/events.csv` has FOMC days for 2023 to 2025 only.** Add CPI and NFP dates from the BLS
     calendar before running the "drop event days" robustness check.
 
 ## Layout

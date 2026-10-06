@@ -104,11 +104,17 @@ def hhmm_to_min(hhmm: str) -> int:
 # ---------------------------------------------------------------------------
 # Trading calendar (built once from ES bars)
 # ---------------------------------------------------------------------------
-def build_calendar(bars: pd.DataFrame, cfg: dict | None = None) -> pd.DataFrame:
-    """One row per trading session that has RTH bars.
+def build_calendar(bars: pd.DataFrame, cfg: dict | None = None, equity_dates=None) -> pd.DataFrame:
+    """One row per ES session that has RTH bars.
 
     Columns: date, prev_date, instrument_id (RTH front contract), roll (instrument differs from
-    prev session), half_day (RTH ends before the normal close), n_rth_bars.
+    the previous equity session), half_day (RTH ends before the normal close), n_rth_bars,
+    equity_session (SPX cash and options traded that day).
+
+    ES trades on several equity holidays (MLK, Presidents', Memorial, Juneteenth, Labor Day,
+    Thanksgiving) with an early close, while SPX cash, SPX options and OPRA are closed. Those ES-only
+    sessions have no quotes, no OI and no SPX close, so they are not research sessions: `equity_dates`
+    (dates with an SPX close) marks them, and prev_date / roll step over them.
     """
     cfg = cfg or load_config()
     m = cfg["market"]
@@ -123,10 +129,15 @@ def build_calendar(bars: pd.DataFrame, cfg: dict | None = None) -> pd.DataFrame:
         "n_rth_bars": g.size(),
         "last_rth_min": g["mod"].max(),
     }).reset_index().sort_values("date").reset_index(drop=True)
-    cal["prev_date"] = cal["date"].shift(1)
-    cal["roll"] = cal["instrument_id"] != cal["instrument_id"].shift(1)
-    cal.loc[0, "roll"] = False
     cal["half_day"] = cal["last_rth_min"] < hhmm_to_min(m["rth_close"]) - 30
+    cal["equity_session"] = True if equity_dates is None else cal["date"].isin(set(equity_dates))
+    eq = cal.index[cal["equity_session"]]
+    cal["prev_date"] = None
+    cal.loc[eq, "prev_date"] = cal.loc[eq, "date"].shift(1)
+    cal["roll"] = False
+    cal.loc[eq, "roll"] = (cal.loc[eq, "instrument_id"] != cal.loc[eq, "instrument_id"].shift(1)).values
+    if len(eq):
+        cal.loc[eq[0], "roll"] = False
     return cal.drop(columns="last_rth_min")
 
 
@@ -140,3 +151,33 @@ def prev_trading_day(day: dt.date, cal: pd.DataFrame) -> dt.date | None:
 def weekdays(start, end) -> list[dt.date]:
     """Fallback date list for ingestion before the ES calendar exists (holidays return empty)."""
     return [d.date() for d in pd.bdate_range(start, end)]
+
+
+# ---------------------------------------------------------------------------
+# Stage 3 day sample
+# ---------------------------------------------------------------------------
+def stage3_days(cal: pd.DataFrame, cfg: dict | None = None, holdout: bool = False) -> set:
+    """Deterministic subset of session dates for Stage 3 trade data (config stage3_sample).
+
+    Stratified by calendar year: each year contributes days in proportion to its share of the
+    period. Returns every date in `cal` when the configured count is 0 or exceeds the period.
+    """
+    cfg = cfg or load_config()
+    sp = cfg.get("stage3_sample", {})
+    n = int(sp.get("holdout_days" if holdout else "in_sample_days", 0))
+    dates = sorted(cal["date"])
+    if n <= 0 or n >= len(dates):
+        return set(dates)
+    rng = np.random.default_rng(int(sp.get("seed", 0)) + (1 if holdout else 0))
+    by_year: dict[int, list] = {}
+    for d in dates:
+        by_year.setdefault(d.year, []).append(d)
+    out: set = set()
+    quota = {y: n * len(v) / len(dates) for y, v in by_year.items()}
+    # Largest-remainder rounding so the quotas sum to exactly n.
+    base = {y: int(q) for y, q in quota.items()}
+    for y in sorted(quota, key=lambda y: quota[y] - base[y], reverse=True)[: n - sum(base.values())]:
+        base[y] += 1
+    for y, v in by_year.items():
+        out.update(rng.choice(v, size=base[y], replace=False).tolist())
+    return out

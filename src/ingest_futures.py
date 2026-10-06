@@ -84,9 +84,18 @@ def rebuild_calendar(cfg):
     if not files:
         return
     bars = pd.concat([store.read(f) for f in files], ignore_index=True).drop_duplicates("ts_open_utc")
-    c = calm.build_calendar(bars, cfg)
+    equity = None
+    if store.daily_path(cfg).exists():
+        d = store.read(store.daily_path(cfg))
+        equity = set(pd.to_datetime(d.loc[d["spx_close"].notna(), "date"]).dt.date)
+    else:
+        log.warning("no FRED daily file: ES-only holiday sessions will NOT be excluded. "
+                    "Run `python -m src.ingest_daily`, then `python -m src.ingest_futures calendar`.")
+    c = calm.build_calendar(bars, cfg, equity)
+    log.info("calendar: %d ES sessions, %d equity sessions, %d roll days, %d half days, %d ES-only holidays: %s",
+             len(c), c["equity_session"].sum(), c["roll"].sum(), c["half_day"].sum(),
+             (~c["equity_session"]).sum(), ", ".join(str(x) for x in c.loc[~c["equity_session"], "date"]))
     store.save_derived(c, "calendar", cfg)
-    log.info("calendar: %d sessions, %d roll days, %d half days", len(c), c["roll"].sum(), c["half_day"].sum())
 
 
 # ---------------------------------------------------------------------------
@@ -94,9 +103,7 @@ def rebuild_calendar(cfg):
 # ---------------------------------------------------------------------------
 def ingest_roll_basis(cfg, budget: spend.Budget, price_only: bool):
     cl = spend.client()
-    cal = store.read(store.derived_path(cfg, "calendar"))
-    cal["date"] = pd.to_datetime(cal["date"]).dt.date
-    cal["prev_date"] = pd.to_datetime(cal["prev_date"]).dt.date
+    cal = store.load_calendar(cfg, include_holdout=True) if calm.holdout_unsealed() else store.load_calendar(cfg)
     rolls = cal[cal["roll"] & cal["prev_date"].notna()]
     total = 0.0
     for r in rolls.itertuples():
@@ -199,7 +206,14 @@ def ingest_trades(cfg, budget: spend.Budget, price_only: bool, sample: int, hold
     cl = spend.client()
     # Sealed: in-sample touches only, unless this is the final holdout run (env flag required).
     touches = store.load_derived("touches_holdout" if holdout else "touches", cfg, include_holdout=holdout)
-    cal = store.load_calendar(cfg, include_holdout=holdout).set_index("date")
+    cal_df = store.load_calendar(cfg, include_holdout=holdout)
+    if holdout:
+        cal_df = cal_df[cal_df["date"] >= calm.holdout_start(cfg)]
+    days = calm.stage3_days(cal_df, cfg, holdout)
+    n_all = touches["date"].nunique()
+    touches = touches[touches["date"].isin(days)]
+    log.info("stage 3 day sample: %d of %d touch days (%d touches)", touches["date"].nunique(), n_all, len(touches))
+    cal = cal_df.set_index("date")
     spans = needed_spans(cfg, touch_windows(touches, cfg))
 
     def args(day, s, e):
@@ -251,8 +265,9 @@ def main(argv=None):
     cfg = load_config()
     budget = spend.Budget(cfg, a.approve_usd, a.allow_past_total)
     if a.job == "bars":
-        # Start one month early so the first session has a prior day and a basis.
-        start = a.start or (pd.Timestamp(cfg["sample"]["start"]) - pd.offsets.MonthBegin(1)).date()
+        # Start two months early: the first session needs a prior day, a basis, and
+        # baseline_sessions of history for the Stage 3 volume baseline.
+        start = a.start or (pd.Timestamp(cfg["sample"]["start"]) - pd.offsets.MonthBegin(2)).date()
         ingest_bars(cfg, start, a.end or cfg["sample"]["end"], budget, a.price_only)
     elif a.job == "roll-basis":
         ingest_roll_basis(cfg, budget, a.price_only)

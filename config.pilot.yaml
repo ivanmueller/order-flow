@@ -1,0 +1,25 @@
+# Pilot overlay: 3 months (Mar-May 2025) to check the pipeline on real data and get a first,
+# noisy read on Stages 2-3. Only the keys below differ from config.yaml.
+# Activate:  put  GAMMA_EDGE_CONFIG=config.pilot.yaml  in .env   (delete the line to switch back)
+# Raw downloads land in the shared data/raw/ and are reused by the main run; derived tables go
+# to data/derived_pilot/ so pilot results never mix with main results.
+# Pilot numbers are NOT gate decisions (too few days, e.g. < 200 confirmed trades).
+extends: config.yaml
+name: pilot
+
+sample:
+  start: "2025-03-03"
+  end: "2025-05-30"
+
+data:
+  derived_dir: "derived_pilot"
+
+stage3_sample:
+  in_sample_days: 0        # pilot trade data was bought for every day
+  holdout_days: 0
+
+params:
+  placebo_per_day: {value: 5}   # pilot was run with the SPEC default; keep its results reproducible
+  # A 3-month pilot has no 252-session GEX history. Build the percentile up within the pilot
+  # (approved for the pilot only; main config keeps 252).
+  gex_pct_min_periods: {value: 20}

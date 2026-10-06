@@ -13,6 +13,9 @@ t0 is reset to the first trade at or through L + d b (i.e. d (p - L) <= b) from 
   Reclaim: first 1-minute bar k ending in (t0, t0 + reclaim_window] with
       d (close_k - L) >= reclaim_ticks ticks  and  d * sum v over [t0, end_k) > 0;  t_r = end_k
   Confirmed = reclaim and AbsRatio >= abs_threshold.
+  V5 break (pre-registered variant, RUNLOG 2026-10-06): no reclaim within reclaim_window, price pushed
+      at least break_ticks through the level inside that window, and -d * sum v over [t0, t0 + rw) > 0.
+      Decision time t0 + reclaim_window; the continuation trade goes in direction -d.
 
 Point-in-time fix (flagged in README): AbsRatio needs trades through t0 + abs_window, but a reclaim
 can complete earlier. The entry decision time is therefore t_dec = max(t_r, t0 + abs_window), and the
@@ -89,7 +92,7 @@ def features(trades: pd.DataFrame, bar_open: pd.Timestamp, L: float, d: int, bas
     """All Stage 3 features for one touch. trades: the window around the touch, time-sorted."""
     tick = cfg["market"]["tick"]
     b = param(cfg, "proximity_b") * tick
-    out = {"has_t0": False, "confirmed": False, "reclaim": False}
+    out = {"has_t0": False, "confirmed": False, "reclaim": False, "broke": False}
     trades = trades.reset_index(drop=True)
     i0, t0 = reset_t0(trades, bar_open, L, d, b)
     if t0 is None:
@@ -127,6 +130,16 @@ def features(trades: pd.DataFrame, bar_open: pd.Timestamp, L: float, d: int, bas
         if d * (seg["side"] * seg["size"]).sum() > 0:
             t_r = bar.end
             break
+    # V5 break: no reclaim, price pushed >= break_ticks through the level inside the reclaim window,
+    # and net aggressive flow since t0 points through the level (the mirror of the reclaim test).
+    win = trades[(ts >= t0) & (ts < t0 + rw)]
+    if not win.empty:
+        p_thru = win["price"].min() if d == 1 else win["price"].max()
+        out["break_pen"] = float(d * (L - p_thru) / tick)
+        out["break_flow"] = float(-d * (win["side"] * win["size"]).sum())
+    out["broke"] = bool(t_r is None and out.get("break_pen", 0) >= param(cfg, "break_ticks")
+                        and out.get("break_flow", 0) > 0)
+    out["t_break"] = t0 + rw
     if t_r is None:
         return out
     t_dec = max(t_r, t0 + aw)

@@ -396,16 +396,98 @@ def _append(cfg, name, parts):
 # ---------------------------------------------------------------------------
 # Gate 0 validation
 # ---------------------------------------------------------------------------
-def validate(gex_daily: pd.DataFrame, daily: pd.DataFrame, vols: pd.DataFrame | None, cfg) -> dict:
-    """The automatable Gate 0 checks. Check 3 (match public GEX charts) is manual."""
+# Diagnostic only (not a tunable): which ES print does the option-implied forward S0 track?
+# 16:00 = SPX cash close, 16:15 = SPX regular-session close, 17:00 = Cboe curb-session close.
+# ES halts 16:15-16:30 ET, so 16:30 would read the same bar as 16:15.
+QUOTE_TIME_CANDIDATES = ("16:00", "16:15", "16:45", "17:00")
+
+
+def _es_at(b: pd.DataFrame, mod: pd.Series, hhmm: str) -> float:
+    """Close of the last bar that ends at or before hhmm ET (bars are keyed by open time)."""
+    x = b[mod < calm.hhmm_to_min(hhmm)]
+    return float(x["close"].iloc[-1]) if not x.empty else np.nan
+
+
+def forward_vs_es(gex_daily: pd.DataFrame, bars: pd.DataFrame, cal: pd.DataFrame, cfg) -> pd.DataFrame:
+    """Per-day diagnostic for check 1.
+
+    SPX cash closes at 16:00 but the EOD option quotes are stamped later, so S0 should track the ES
+    print at the quote time on D-1 minus the day's basis, not the 16:00 cash close. For each
+    candidate time t: es_<t> is that ES print and r_<t> = S0 - (es_<t> - B_D). `resid` is r at the
+    configured quote_time. Roll days are skipped (D-1 bars are on the old contract).
+    """
+    times = list(QUOTE_TIME_CANDIDATES)
+    qt = cfg["market"]["quote_time"]
+    if qt not in times:
+        times.append(qt)
+    by_day = {d: x for d, x in bars.groupby("date")}
+    c = cal.set_index("date")
+    rows = []
+    for r in gex_daily.itertuples():
+        if r.date not in c.index or pd.isna(c.loc[r.date, "prev_date"]):
+            continue
+        prev = c.loc[r.date, "prev_date"]
+        if prev not in by_day or not np.isfinite(r.basis):
+            continue
+        b = by_day[prev]
+        b = b[b["instrument_id"] == c.loc[r.date, "instrument_id"]].sort_values("ts_open_utc")
+        if b.empty:
+            continue
+        mod = calm.minutes_of_day_et(b["ts_open_utc"])
+        row = {"date": r.date, "spx_prev_close": r.spx_prev_close, "s0": r.s0,
+               "s0_minus_spx": r.s0 - r.spx_prev_close, "basis": r.basis}
+        for t in times:
+            es = _es_at(b, mod, t)
+            k = t.replace(":", "")
+            row[f"es_{k}"] = es
+            row[f"r_{k}"] = r.s0 - (es - r.basis)
+        row["resid"] = row[f"r_{qt.replace(':', '')}"]
+        row["nearest"] = f"{r.nearest_root} {r.nearest_exp}"
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def validate(gex_daily: pd.DataFrame, daily: pd.DataFrame, vols: pd.DataFrame | None, cfg,
+             bars: pd.DataFrame | None = None, cal: pd.DataFrame | None = None) -> dict:
+    """The automatable Gate 0 checks. Check 3 (match public GEX charts) is manual.
+
+    Check 1 compares S0 with the ES print at market.quote_time on D-1 minus the basis: the EOD quotes
+    are stamped at the Cboe curb close (17:00 ET), after the 16:00 cash close, so the cash close is
+    the wrong reference (pilot diagnostic, RUNLOG 2026-10-05). The cash-close comparison is still
+    reported as information. Without bars/cal the cash-close version decides 1_pass.
+    """
     v = cfg["validation"]
+    tol, share_req = v["forward_tol_pts"], v["forward_share"]
     g = gex_daily.copy()
     out = {}
     dev = (g["s0"] - g["spx_prev_close"]).abs()
-    share = float((dev <= v["forward_tol_pts"]).mean())
-    out["1_forward_within_tol_share"] = share
-    out["1_forward_abs_dev_median"] = float(dev.median())
-    out["1_pass"] = share >= v["forward_share"]
+    out["1_info_vs_spx_cash_close_median_abs"] = float(dev.median())
+    out[f"1_info_vs_spx_cash_close_within_{tol:g}pt_share"] = float((dev <= tol).mean())
+    f = forward_vs_es(g, bars, cal, cfg) if bars is not None and cal is not None else pd.DataFrame()
+    if f.empty:
+        out["1_reference"] = "SPX cash close (no bars given)"
+        out["1_pass"] = bool((dev <= tol).mean() >= share_req)
+    else:
+        qt = cfg["market"]["quote_time"]
+        out["1_reference"] = f"ES at {qt} on D-1 minus basis"
+        out["1_forward_vs_es_median_abs"] = float(f["resid"].abs().median())
+        out["1_forward_vs_es_median_signed"] = float(f["resid"].median())
+        share = float((f["resid"].abs() <= tol).mean())
+        out[f"1_forward_vs_es_within_{tol:g}pt_share"] = share
+        out["1_n_days"] = len(f)
+        out["1_pass"] = bool(share >= share_req)
+        best, best_med = None, np.inf
+        for t in QUOTE_TIME_CANDIDATES:
+            k = t.replace(":", "")
+            if f"r_{k}" not in f:
+                continue
+            med = float(f[f"r_{k}"].abs().median())
+            out[f"1_scan_{t}_median_abs"] = med
+            out[f"1_scan_{t}_within_{tol:g}pt_share"] = float((f[f"r_{k}"].abs() <= tol).mean())
+            if med < best_med:
+                best, best_med = t, med
+        out["1_scan_best_time"] = best
+        out["1_scan_configured"] = qt
     if vols is not None and not vols.empty:
         vv = vols.merge(g[["date", "nearest_root", "nearest_exp"]], on="date")
         vv = vv[(vv["root"] == vv["nearest_root"]) & (vv["expiration"] == vv["nearest_exp"])]
@@ -427,9 +509,43 @@ def validate(gex_daily: pd.DataFrame, daily: pd.DataFrame, vols: pd.DataFrame | 
     out["4_corr_em_vs_vix"] = float(np.corrcoef(x[ok], y[ok])[0, 1]) if ok.sum() > 2 else np.nan
     out["4_median_ratio_em_over_vix_daily"] = float((x[ok] / y[ok]).median()) if ok.any() else np.nan
     out["n_days"] = len(g)
+    out["first_day"] = str(g["date"].min())
+    out["last_day"] = str(g["date"].max())
+    out["net_gex_negative_share"] = float((g["net_gex"] < 0).mean())
+    out["net_gex_median_bn"] = float(g["net_gex"].median() / 1e9)
+    out["n_contracts_median"] = float(g["n_contracts"].median()) if "n_contracts" in g else np.nan
+    out["oi_used_share_mean"] = float(g["oi_used_share"].mean()) if "oi_used_share" in g else np.nan
     out["flip_missing_share"] = float(g["flip"].isna().mean())
+    if "nearest_exp" in g:
+        # S0 and EM come from the nearest expiry; when the dailies had no bids (ThetaData zero-bid
+        # files) the engine falls back to a later expiry and EM is inflated. Flag those days.
+        dte = (pd.to_datetime(g["nearest_exp"]) - pd.to_datetime(g["date"])).dt.days
+        far = g.loc[dte > 3, "date"].tolist()
+        out["nearest_exp_beyond_3d_n"] = len(far)
+        out["nearest_exp_beyond_3d_dates"] = ", ".join(map(str, far[:15])) + (", ..." if len(far) > 15 else "")
     out["basis_missing_share"] = float(g["basis"].isna().mean()) if "basis" in g else np.nan
     return out
+
+
+SHOW_COLS = ["date", "s0", "em", "net_gex_bn", "net_gex_0dte_bn", "gex_pct", "flip", "call_wall", "put_wall",
+             "top1", "top2", "top3", "basis"]
+
+
+def top_strikes(strikes: pd.DataFrame, day, n: int = 12) -> pd.DataFrame:
+    """Largest |G(K)| strikes for one day, in $bn per 1% move, for an eyeball check of the aggregation."""
+    g = strikes[strikes["date"] == store.as_date(day)].copy()
+    for c in ("call_gex", "put_gex", "total"):
+        g[c] = g[c] / 1e9
+    return g.reindex(g["total"].abs().sort_values(ascending=False).index).head(n)[
+        ["strike", "call_gex", "put_gex", "total"]].rename(columns={"call_gex": "call_bn", "put_gex": "put_bn", "total": "net_bn"})
+
+
+def show(gex_daily: pd.DataFrame, dates) -> pd.DataFrame:
+    """Rows for check 3 (compare sign, walls and flip with a public GEX chart for those dates)."""
+    g = gex_daily[gex_daily["date"].isin({store.as_date(d) for d in dates})].copy()
+    g["net_gex_bn"] = g["net_gex"] / 1e9
+    g["net_gex_0dte_bn"] = g["net_gex_0dte"] / 1e9
+    return g[[c for c in SHOW_COLS if c in g]]
 
 
 def _prev_value(daily: pd.DataFrame, col: str) -> dict:
@@ -437,22 +553,119 @@ def _prev_value(daily: pd.DataFrame, col: str) -> dict:
     return dict(zip(d["date"], d[col].shift(1)))
 
 
+def expiry_diagnostics(day, prev, quotes: pd.DataFrame, ref_close: float, cfg) -> pd.DataFrame:
+    """Per (root, expiration) in the max_dte window: quote rows, valid share, parity pairs inside the
+    band, fitted F and D, and why the surface was rejected (if it was)."""
+    if quotes.empty or not np.isfinite(ref_close):
+        return pd.DataFrame()
+    max_dte = param(cfg, "max_dte")
+    t_quote = calm.et_time(prev, cfg["market"]["quote_time"])
+    q = quotes.copy()
+    q["expiration"] = pd.to_datetime(q["expiration"]).dt.date
+    q = q[(q["expiration"] >= day) & (q["expiration"] <= day + dt.timedelta(days=max_dte))]
+    q = q[~((q["symbol"] == "SPX") & (q["expiration"] == day))]
+    q["valid"] = valid_quote_mask(q, param(cfg, "max_rel_spread"))
+    band = param(cfg, "parity_band") * ref_close
+    rows = []
+    for (root, exp), g in q.groupby(["symbol", "expiration"]):
+        Tq = year_frac(t_quote, expiry_ts(root, exp, cfg), cfg)
+        w = _wide_chain(g)
+        par = w[w["valid_C"] & w["valid_P"] & (np.abs(w.index - ref_close) <= band)]
+        F, D = fit_forward(par.index.values, par["mid_C"].values, par["mid_P"].values) if Tq > 0 else (np.nan, np.nan)
+        if Tq <= 0:
+            why_ = "expired at quote time"
+        elif len(par) < MIN_PARITY_STRIKES:
+            why_ = "too few valid put-call pairs in band"
+        elif not np.isfinite(F):
+            why_ = "discount factor outside sane range"
+        else:
+            why_ = "ok"
+        rows.append({"root": root, "expiration": exp, "rows": len(g), "valid_share": round(float(g["valid"].mean()), 3),
+                     "bid0_share": round(float((g["bid"] <= 0).mean()), 3), "parity_pairs": len(par),
+                     "F": F, "D": D, "status": why_})
+    return pd.DataFrame(rows).sort_values(["expiration", "root"]).reset_index(drop=True)
+
+
+def why(cfg, day, include_holdout: bool = False) -> dict:
+    """Inputs behind one session's GEX row (or its absence): D-1, quote/OI rows per root, SPX close,
+    the nearest expiry used for S0 and the expected move, and the ATM straddle legs."""
+    day = store.as_date(day)
+    if not include_holdout and not calm.in_sample(day, cfg):
+        raise calm.HoldoutSealed(f"{day} is a holdout date")
+    cal = store.load_calendar(cfg, include_holdout).set_index("date")
+    if day not in cal.index:
+        return {"date": day, "error": "not an equity session in the calendar"}
+    prev = cal.loc[day, "prev_date"]
+    out = {"date": day, "prev_date": prev}
+    if pd.isna(prev):
+        return out
+    q = store.load_options_eod(cfg, prev)
+    o = store.load_oi(cfg, day)
+    out["quote_rows"] = {} if q.empty else q.groupby("symbol").size().to_dict()
+    out["oi_rows"] = {} if o.empty else o.groupby("root").size().to_dict()
+    spx = store.load_daily(cfg, include_holdout).set_index("date")["spx_close"]
+    out["spx_prev_close"] = float(spx.get(prev, np.nan))
+    out["expiries"] = expiry_diagnostics(day, prev, q, out["spx_prev_close"], cfg)
+    res = compute_day(day, q, o, out["spx_prev_close"], cfg, prev)
+    if res is None:
+        out["result"] = "no usable GEX"
+        return out
+    row = res["row"]
+    out.update({k: row[k] for k in ("s0", "em", "net_gex", "flip") if k in row})
+    v = res["vols"]
+    if not v.empty:
+        first = v.sort_values(["expiration", "root"]).iloc[0]
+        out["nearest_expiry"] = f"{first['root']} {first['expiration']}"
+        out["vol_rows_nearest"] = int(((v["root"] == first["root"]) & (v["expiration"] == first["expiration"])).sum())
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--start")
     ap.add_argument("--end")
     ap.add_argument("--include-holdout", action="store_true")
+    ap.add_argument("--validate-only", action="store_true", help="re-run the checks on the saved table")
+    ap.add_argument("--diagnose", action="store_true", help="print the per-day forward-vs-ES table")
+    ap.add_argument("--show", help="comma-separated dates: print levels for the check-3 chart comparison")
+    ap.add_argument("--strikes", help="one date: print the top strikes by |GEX| with the call/put split")
+    ap.add_argument("--why", help="comma-separated dates: print the inputs behind each session's GEX row")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
-    g = build(a.start, a.end, cfg, a.include_holdout)
+    if a.why:
+        with pd.option_context("display.width", 220, "display.max_rows", 500, "display.float_format", "{:.4f}".format):
+            for d in a.why.split(","):
+                for k, v in why(cfg, d.strip(), a.include_holdout).items():
+                    if isinstance(v, pd.DataFrame):
+                        print(f"{k}:\n{v.head(12).to_string(index=False)}")
+                    else:
+                        print(f"{k:20s} {v}")
+                print()
+        return
+    start = a.start or cfg["sample"]["start"]
+    end = a.end or cfg["sample"]["end"]
+    if a.validate_only:
+        g = store.date_range_filter(store.load_derived("gex_daily", cfg, a.include_holdout), start, end)
+    else:
+        g = build(start, end, cfg, a.include_holdout)
     if g.empty:
         print("No GEX rows built.")
         return
     daily = store.load_daily(cfg, a.include_holdout)
     vols = store.load_derived("gex_vols", cfg, a.include_holdout)
-    for k, v in validate(g, daily, vols, cfg).items():
+    bars = store.load_bars(cfg, a.include_holdout)
+    cal = store.load_calendar(cfg, a.include_holdout)
+    for k, v in validate(g, daily, vols, cfg, bars, cal).items():
         print(f"{k:40s} {v}")
+    with pd.option_context("display.width", 220, "display.max_rows", 500, "display.float_format", "{:.2f}".format):
+        if a.diagnose:
+            print(forward_vs_es(g, bars, cal, cfg).to_string(index=False))
+        if a.show:
+            print(show(g, a.show.split(",")).to_string(index=False))
+        if a.strikes:
+            st = store.load_derived("gex_strikes", cfg, a.include_holdout)
+            print(top_strikes(st, a.strikes).to_string(index=False))
 
 
 if __name__ == "__main__":
