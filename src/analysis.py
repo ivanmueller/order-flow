@@ -161,8 +161,12 @@ def stage2(cfg=None, touches: pd.DataFrame | None = None) -> dict:
 def fairness(done: pd.DataFrame, cfg) -> dict:
     """Simulator fairness check, per mode and over real + placebo levels alike.
 
-    rw_win_rate: the win rate a driftless walk would give these exact barriers (stop triggers at a
-    touch of S, target needs a print one tick beyond T): R_k / (R_k + target_mult R_k + tick).
+    rw_win_rate: the win rate a driftless walk would give these exact barriers. Every entry is a
+    print one tick inside E (the naive fill prints one tick through L; the others pay a tick of
+    slippage), the stop triggers at a touch of S, and the target needs a print one tick beyond T,
+    so from the entry print the stop is R_k - tick away and the target trigger target_mult R_k +
+    2 ticks: p = (R_k - tick) / ((1 + target_mult) R_k + tick). Verified on a synthetic driftless
+    tick walk in tests/test_flow_sim.py.
     rw_expectancy: that win rate applied to the observed average win and loss sizes, i.e. the drag
     from fills and costs alone. The gap observed - rw is the market's contribution.
     mirror trades take the opposite side of every naive fill with symmetric barriers: under a fair
@@ -173,7 +177,7 @@ def fairness(done: pd.DataFrame, cfg) -> dict:
     out = {}
     for mode, g in done.groupby("mode"):
         wins, losses = g[g["pnl_r"] > 0], g[g["pnl_r"] <= 0]
-        rw_p = float((g["R_k"] / (g["R_k"] * (1 + tm) + tick)).mean())
+        rw_p = float(((g["R_k"] - tick) / (g["R_k"] * (1 + tm) + tick)).mean())
         aw = float(wins["pnl_r"].mean()) if len(wins) else 0.0
         al = float(-losses["pnl_r"].mean()) if len(losses) else 0.0
         out[mode] = {"n": int(len(g)), "win_rate": float((g["pnl_r"] > 0).mean()), "rw_win_rate": rw_p,

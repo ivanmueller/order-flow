@@ -189,6 +189,32 @@ def test_fairness_block(cfg):
     done = pd.DataFrame({"mode": ["naive"] * 4 + ["mirror"] * 4, "R_k": 2.5, "pnl_r": [1.4, -1.1, -1.1, -1.1, 1.4, -1.1, 1.4, -1.1],
                          "exit_reason": ["target", "stop", "stop", "stop", "target", "stop", "target", "stop"]})
     fb = analysis.fairness(done, cfg)
-    assert fb["naive"]["rw_win_rate"] == pytest.approx(2.5 / (2.5 * 2.5 + 0.25))
+    assert fb["naive"]["rw_win_rate"] == pytest.approx((2.5 - 0.25) / (2.5 * 2.5 + 0.25))
     assert fb["naive"]["R_k_ticks_median"] == 10 and fb["naive"]["win_rate"] == 0.25
     assert "naive_plus_mirror" in fb and fb["naive_plus_mirror"]["sum_expectancy_r"] == pytest.approx(0.25 * 1.4 - 0.75 * 1.1 + 0.5 * 1.4 - 0.5 * 1.1)
+
+
+def test_simulator_is_fair_on_a_driftless_tick_walk(cfg):
+    """Naive and mirror trades on a symmetric random walk must win at the rate the barrier geometry
+    implies, (R_k - tick) / (2.5 R_k + tick), and their expectancy must equal that rate applied to
+    the observed average win and loss. Any systematic shortfall would be a simulator penalty."""
+    import numpy as np
+    from src import analysis
+    rng = np.random.default_rng(11)
+    rows = []
+    for _ in range(400):
+        n = 1800
+        px = L + 0.5 + np.cumsum(rng.choice([-0.25, 0.0, 0.25], size=n, p=[0.3, 0.4, 0.3]))
+        t = pd.date_range(f"{DAY} 10:00:00", periods=n, freq="1s", tz=ET).tz_convert("UTC")
+        tr = pd.DataFrame({"ts_event_utc": t, "price": px, "size": 1, "side": 1, "instrument_id": 1,
+                           "sequence": np.arange(n)})
+        for mode, fn in (("naive", sim.naive_trade), ("mirror", sim.mirror_trade)):
+            r = fn(tr, t[0], L, 1, 30.0, DAY, cfg)
+            if r and "pnl_r" in r:
+                rows.append({"mode": mode, "pnl_r": r["pnl_r"], "R_k": r["R_k"], "exit_reason": r["exit_reason"]})
+    done = pd.DataFrame(rows)
+    fb = analysis.fairness(done, cfg)
+    for mode in ("naive", "mirror"):
+        assert fb[mode]["n"] > 250
+        assert abs(fb[mode]["win_rate"] - fb[mode]["rw_win_rate"]) < 0.05
+        assert abs(fb[mode]["expectancy_r"] - fb[mode]["rw_expectancy_r"]) < 0.15   # ~2 SE at 400 paths

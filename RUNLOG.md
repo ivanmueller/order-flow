@@ -254,3 +254,30 @@ Variant count so far: 5 of 20.
 - Touches and Stage 2 must be rebuilt (`python -m src.touches`, `python -m src.analysis stage2`);
   Stage 3 trades do not use labels, but `python -m src.stage3` is re-run anyway for the mirror /
   fairness diagnostics. All free.
+
+## 2026-10-06 Stage 2 after the labeler fix, and the simulator fairness result
+- Stage 2 rebuilt (7,284 touches, 511 days): hold rates fell from 57-61% to 43-47% (placebo 46.5%,
+  gamma_only 45.4%, both 44.4%, structural_only 42.8%); success_on_touch_bar_share now 0.0.
+  Driftless baseline F/(R+F) = 33%, so a real but level-agnostic mean reversion of ~12 points remains.
+  Logit: G -0.181 (p=0.054), G:gex_pct +0.305 (p=0.044), gex_pct +0.292 (p=0.002). keep_gamma_tags
+  flips to TRUE on the interaction term. Terciles: gamma_only 39.9% (low) -> 50.8% (high); placebo
+  45.7% -> 49.4%. Gamma levels break MORE than random levels in low gamma and match them in high
+  gamma. No real group's 90% CI beats placebo overall. 
+- Stage 3 fairness block (first version) showed naive+mirror = -0.64R vs twice-drag -0.38R. Replayed
+  the simulator on a synthetic driftless tick walk: the same shortfall appears, so it is the
+  barrier geometry, not the market: every entry print sits one tick inside E (naive fill one tick
+  through L; slippage elsewhere), so the true driftless win rate is (R_k - tick)/(2.5 R_k + tick):
+  31% at the naive/continuation R_k of 6 ticks, 35% at the confirmed 11 ticks. fairness() corrected;
+  test_simulator_is_fair_on_a_driftless_tick_walk added.
+- Reading the Stage 3 numbers against the corrected baseline (sim_trades unchanged):
+  naive win 34.9% vs 31% baseline (+4), exp -0.29R vs -0.38R drag => market +0.10R;
+  mirror 30.8% vs 33% (-2), -0.35 vs -0.32 => -0.03R;
+  confirmed 32.1% vs 35% (-3), -0.32 vs -0.24 => -0.08R;
+  continuation 34.2% vs 31% (+3), -0.34 vs -0.38 => +0.05R.
+  Conclusion: a small pre-cost mean-reversion edge exists at touched levels (naive +0.10R over a
+  random walk) but the SPEC trade rules cost 0.24-0.38R per trade at 6-11 ticks of risk (a tick of
+  slippage, a tick through on the stop, a tick beyond on the target, $3.98 RT). Absorption
+  confirmation does not add to it (confirmed is below its baseline). The Stage 3 KILL stands as
+  pre-registered; the signal is too small for these execution rules.
+- Next, all pre-registered and free: `python -m src.robustness nudges` (includes max_risk, stop_buffer,
+  target_mult, time_exit nudges) and `python -m src.robustness splits`.
