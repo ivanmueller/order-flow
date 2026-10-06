@@ -153,3 +153,30 @@ Variant count so far: 5 of 20.
   2023-06-02. No config change needed. Audit: "every in-sample session has files" for both datasets.
 - Spend: ledger ~$48 of $125. ThetaData free.
 - Next: `python -m src.gex` (Gate 0 block re-checked on ~645 days), levels, touches, Stage 1, Stage 2.
+
+## 2026-10-06 full in-sample run: Gate 0 re-check, Stage 1, Stage 2 (main config)
+- Commit: d372131 (data), report code unchanged since 2ea126d. Config: config.yaml, no diff.
+- GEX: 642 sessions 2023-06-02..2025-12-31. 7 sessions dropped as "no usable GEX": 2023-06-01 (no
+  D-1 report) and the six sessions whose D-1 is a half day (2024-07-05, 2024-12-02, 2024-12-26,
+  2025-07-07, 2025-12-01, 2025-12-26); cause under investigation with `gex --why`. One session with
+  no levels (2025-01-27). Flip missing on 3.0% of days (whole grid negative in Aug-2024 and
+  Mar/Apr-2025 selloffs). net_gex negative on 38.8% of days, median +8.0bn.
+- Gate 0 on 631 days: check 1 PASS (S0 vs ES at 17:00 minus basis: 96.7% within 5 pts, median 1.5;
+  scan best 17:00, as configured); check 2 PASS (put vol > call vol 99.4%, smile 2nd diff 0.0007);
+  check 4 PASS (corr EM vs VIX 0.87). Gate 0 acceptance stands.
+- Suspicious EM values to check before Stage 3: 2024-12-03 em=112.9 (VIX ~13 that week), also
+  2024-11-06 82.4 (post-election, plausible) and 2025-10-13 107.3 (post-tariff crash, plausible).
+- Stage 1 (510 days from 2023-12-01, after the 126-session percentile warm-up), Newey-West OLS with
+  ln VIX and DOW: RR beta on gex_pct -0.216, p=0.029 (right sign); VR beta -0.071, p=0.11 (same
+  sign, not significant); ER beta -0.007, p=0.31. RR quintile means 1.66 (Q1) -> 1.54 (Q5), gap
+  7.5% vs the 15% rule. Robustness: with ln(EM/S0) control RR beta -0.399, p=0.001; dropping 17
+  event days -0.219, p=0.034; 0DTE-only percentile -0.079, p=0.38.
+  Verdict vs rules: KILL (significant but effect under 15%).
+- Stage 2 (7,284 touches, 511 days), day-clustered logit: gamma-tag G -0.104, p=0.28 (rule needs
+  positive at p<0.10); G:gex_pct +0.130, p=0.41. gex_pct main effect +0.360, p=0.0003 (all levels,
+  placebo included, hold more on high-GEX days). Success: placebo 61.2%, both 58.9%, gamma_only
+  58.7%, structural_only 56.8%; no real group's 90% CI beats placebo. keep_gamma_tags false;
+  carry_groups structural_only, both. Verdict vs rules: not a kill; carry structural levels only.
+- Gate decisions: Matteo's. Next if Stage 3 proceeds: trades pull on the 120 sampled days (~$52,
+  needs approval), then `python -m src.stage3`, `analysis stage3 --carry structural_only both`,
+  then the pre-registered variants (exploratory given the Stage 1 verdict).
