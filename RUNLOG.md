@@ -198,3 +198,13 @@ Variant count so far: 5 of 20.
   identical to the first run (7,284 touches, 511 days, same coefficients): that session had produced
   no touches because its inflated EM made the approach distance unreachable on a 20-pt day.
   Stage 2 verdict unchanged: G -0.104 p=0.28, no real group beats placebo, carry structural_only + both.
+
+## Gate decisions (2026-10-06, Matteo)
+- Stage 2: DEVIATION from the pre-registered carry rule, at Matteo's instruction. The Stage 3 gate is
+  scored on all three real level groups (structural_only, gamma_only, both) rather than structural
+  levels only, so each level type is studied independently in the order-flow test. The per-group
+  table in `analysis stage3` reports each group on its own; the pooled gate uses all three.
+  Rationale recorded: "measure everything"; the Stage 2 placebo result is noted, not overridden.
+- Stage 3 trades pull approved: 110 sampled days, 1,573 touches, 201 spans, est $30.09, cap $34.
+- Variants V1-V5 run after the main Stage 3, labelled exploratory given the Stage 1 verdict.
+- Stage 1 call: pending (verdict vs rules KILL on the 15% size bar; sign and significance hold).
