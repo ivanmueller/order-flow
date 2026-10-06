@@ -6,11 +6,11 @@ Batch research code that tests whether SPX gamma levels plus ES order flow confi
 
 Update this block at the end of every session.
 
-- Stage: Week 2. Pilot (63 days, Mar-May 2025) complete end to end on real data: Gate 0 checks 1, 2, 4
-  pass; Stages 1-3 run (RUNLOG.md). Pilot Stage 3: confirmed expectancy -0.07R in carried groups,
-  real levels beat placebo after confirmation but none positive. Databento spend ~$35.60 of $125.
-  Next: full in-sample run (switch .env to main config), cheap parts first (bars, OI, EOD, GEX, Stages 1-2),
-  then decide the Stage 3 trade-data budget (~$0.54/day; full set exceeds the credit).
+- Stage: Week 2. Pilot complete (RUNLOG.md). Full in-sample pull in progress on the main config: bars,
+  EOD quotes and roll-basis done, OI pull running (--workers 4), then `python -m src.gex` for Gate 0 on
+  ~645 days, then Stages 1-2. Stage 3 will run on the fixed-seed day sample (config stage3_sample) with
+  placebo_per_day 2. Databento spend ~$48 of $125 after the OI pull.
+- Pre-registered Stage 3 variants V1-V3 in RUNLOG.md (awaiting approval), to run after the main Stage 3.
 - Pilot: `config.pilot.yaml` (Mar-May 2025, gex_pct_min_periods 20) approved; activate via .env. Pilot output is not a gate decision.
 - Gates passed: none
 - Open issues: sign off the decisions listed in README.md ("Decisions that need your sign-off"),

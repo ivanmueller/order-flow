@@ -206,7 +206,14 @@ def ingest_trades(cfg, budget: spend.Budget, price_only: bool, sample: int, hold
     cl = spend.client()
     # Sealed: in-sample touches only, unless this is the final holdout run (env flag required).
     touches = store.load_derived("touches_holdout" if holdout else "touches", cfg, include_holdout=holdout)
-    cal = store.load_calendar(cfg, include_holdout=holdout).set_index("date")
+    cal_df = store.load_calendar(cfg, include_holdout=holdout)
+    if holdout:
+        cal_df = cal_df[cal_df["date"] >= calm.holdout_start(cfg)]
+    days = calm.stage3_days(cal_df, cfg, holdout)
+    n_all = touches["date"].nunique()
+    touches = touches[touches["date"].isin(days)]
+    log.info("stage 3 day sample: %d of %d touch days (%d touches)", touches["date"].nunique(), n_all, len(touches))
+    cal = cal_df.set_index("date")
     spans = needed_spans(cfg, touch_windows(touches, cfg))
 
     def args(day, s, e):

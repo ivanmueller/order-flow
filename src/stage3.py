@@ -26,8 +26,11 @@ def run(cfg=None, include_holdout: bool = False, touches: pd.DataFrame | None = 
     sfx = "_holdout" if include_holdout else ""
     if touches is None:
         touches = store.load_derived("touches" + sfx, cfg, include_holdout)
+    cal = store.load_calendar(cfg, include_holdout)
+    sample_cal = cal[cal["date"] >= calm.holdout_start(cfg)] if include_holdout else cal
+    days = calm.stage3_days(sample_cal, cfg, include_holdout)
+    touches = touches[touches["date"].isin(days)]
     if baseline is None:
-        cal = store.load_calendar(cfg, include_holdout)
         baseline = flow.baseline_table(store.load_bars(cfg, include_holdout), cal, cfg)
     base = baseline.set_index(["date", "slot"])["baseline"]
     pre = pd.Timedelta(minutes=cfg["data"]["trades_pre_min"])
@@ -57,6 +60,7 @@ def run(cfg=None, include_holdout: bool = False, touches: pd.DataFrame | None = 
     T = pd.DataFrame(trades_out)
     if not F.empty:
         F = touches.merge(F, on="touch_id", how="inner")
+        F.attrs["sampled_days"] = len(days)
     if save:
         store.save_derived(F, "features" + sfx, cfg)
         store.save_derived(T, "sim_trades" + sfx, cfg)

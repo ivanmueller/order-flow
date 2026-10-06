@@ -143,12 +143,13 @@ def stage3(cfg=None, sim_trades: pd.DataFrame | None = None, features: pd.DataFr
         sim_trades = store.load_derived("sim_trades", cfg)
     draws, seed, lvl = _boot(cfg)
     done = sim_trades[sim_trades["pnl_r"].notna()].copy() if "pnl_r" in sim_trades else sim_trades.iloc[0:0]
+    sampled_days = int(features["date"].nunique()) if features is not None and not features.empty else None
     table = []
     for grp in ["gamma_only", "structural_only", "both", "placebo", "ALL_REAL"]:
         sub = done[done["group"] != "placebo"] if grp == "ALL_REAL" else done[done["group"] == grp]
         row = {"group": grp}
         for mode in ("naive", "confirmed"):
-            s = stats.trade_summary(sub[sub["mode"] == mode], draws, seed, lvl)
+            s = stats.trade_summary(sub[sub["mode"] == mode], draws, seed, lvl, sampled_days)
             row.update({f"{mode}_{k}": v for k, v in s.items()})
         d = stats.day_bootstrap_diff(sub[sub["mode"] == "confirmed"], sub[sub["mode"] == "naive"],
                                      "pnl_r", draws, seed, lvl)
@@ -157,7 +158,8 @@ def stage3(cfg=None, sim_trades: pd.DataFrame | None = None, features: pd.DataFr
     carry = carry or ["gamma_only", "both", "structural_only"]
     cs = done[done["group"].isin(carry)]
     conf, naive = cs[cs["mode"] == "confirmed"], cs[cs["mode"] == "naive"]
-    s = stats.trade_summary(conf, draws, seed, lvl)
+    s = stats.trade_summary(conf, draws, seed, lvl, sampled_days)
+    s["sampled_days"] = sampled_days
     dd = stats.day_bootstrap_diff(conf, naive, "pnl_r", draws, seed, lvl)
     g = cfg["gates"]
     checks = {

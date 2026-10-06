@@ -151,3 +151,33 @@ def prev_trading_day(day: dt.date, cal: pd.DataFrame) -> dt.date | None:
 def weekdays(start, end) -> list[dt.date]:
     """Fallback date list for ingestion before the ES calendar exists (holidays return empty)."""
     return [d.date() for d in pd.bdate_range(start, end)]
+
+
+# ---------------------------------------------------------------------------
+# Stage 3 day sample
+# ---------------------------------------------------------------------------
+def stage3_days(cal: pd.DataFrame, cfg: dict | None = None, holdout: bool = False) -> set:
+    """Deterministic subset of session dates for Stage 3 trade data (config stage3_sample).
+
+    Stratified by calendar year: each year contributes days in proportion to its share of the
+    period. Returns every date in `cal` when the configured count is 0 or exceeds the period.
+    """
+    cfg = cfg or load_config()
+    sp = cfg.get("stage3_sample", {})
+    n = int(sp.get("holdout_days" if holdout else "in_sample_days", 0))
+    dates = sorted(cal["date"])
+    if n <= 0 or n >= len(dates):
+        return set(dates)
+    rng = np.random.default_rng(int(sp.get("seed", 0)) + (1 if holdout else 0))
+    by_year: dict[int, list] = {}
+    for d in dates:
+        by_year.setdefault(d.year, []).append(d)
+    out: set = set()
+    quota = {y: n * len(v) / len(dates) for y, v in by_year.items()}
+    # Largest-remainder rounding so the quotas sum to exactly n.
+    base = {y: int(q) for y, q in quota.items()}
+    for y in sorted(quota, key=lambda y: quota[y] - base[y], reverse=True)[: n - sum(base.values())]:
+        base[y] += 1
+    for y, v in by_year.items():
+        out.update(rng.choice(v, size=base[y], replace=False).tolist())
+    return out

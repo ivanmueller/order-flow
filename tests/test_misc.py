@@ -82,7 +82,7 @@ def test_day_levels_and_placebos(cfg):
     assert any("pd_high" in t for t in lv["tags"]) and any("on_low" in t for t in lv["tags"])
     assert (lv["dist_em"] <= 1.0).all()
     pl = levels.add_placebos(day, lv, g, cfg)
-    assert len(pl) == 5 and pl["is_placebo"].all()
+    assert len(pl) == cfg["params"]["placebo_per_day"]["value"] and pl["is_placebo"].all()
     gaps = np.abs(pl["level_es"].to_numpy()[:, None] - lv["level_es"].to_numpy()[None, :])
     assert (gaps >= 1.0).all()
     assert (levels.add_placebos(day, lv, g, cfg)["level_es"].values == pl["level_es"].values).all()
@@ -247,3 +247,19 @@ def test_429_is_transient():
     from src import spend
     assert spend._transient(BentoClientError(http_status=429, http_body=None, message="rate limited"))
     assert not spend._transient(BentoClientError(http_status=422, http_body=None, message="bad"))
+
+
+def test_stage3_day_sample_is_deterministic_and_stratified(cfg):
+    import copy
+    dates = [d.date() for d in pd.bdate_range("2023-06-01", "2025-12-31")]
+    cal = pd.DataFrame({"date": dates})
+    c = copy.deepcopy(cfg)
+    c["stage3_sample"] = {"seed": 7, "in_sample_days": 120, "holdout_days": 45}
+    a, b = calm.stage3_days(cal, c), calm.stage3_days(cal, c)
+    assert a == b and len(a) == 120 and a <= set(dates)
+    by_year = pd.Series([d.year for d in a]).value_counts()
+    # 2023 has ~7 months, 2024 and 2025 a full year each: roughly 1 : 1.7 : 1.7
+    assert 20 <= by_year[2023] <= 35 and 40 <= by_year[2024] <= 55 and 40 <= by_year[2025] <= 55
+    assert calm.stage3_days(cal, c, holdout=True) != a               # different seed offset
+    c["stage3_sample"]["in_sample_days"] = 0
+    assert calm.stage3_days(cal, c) == set(dates)                     # 0 = every day

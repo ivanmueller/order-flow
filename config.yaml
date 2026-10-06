@@ -58,6 +58,16 @@ data:
   trades_post_min: 45
 
 # ---------------------------------------------------------------------------
+# Stage 3 day sample: ES trade data is ~$0.54/day, so Stage 3 runs on a fixed-seed random subset of
+# days, stratified by calendar year, chosen before any trade data exists (set 2026-10-06, approved).
+# 0 = every day. Stage 2 still uses every day (bars only).
+# ---------------------------------------------------------------------------
+stage3_sample:
+  seed: 20231101
+  in_sample_days: 120
+  holdout_days: 45
+
+# ---------------------------------------------------------------------------
 # Spending guard (CLAUDE.md rule 7)
 # ---------------------------------------------------------------------------
 budget:
@@ -89,7 +99,7 @@ params:
   fail_F:             {value: 0.05,  nudges: [0.04, 0.075]}  # EM units (also the naive-baseline stop)
   label_horizon:      {value: 60,    nudges: [45, 90]}       # bars
   mfe_horizon:        {value: 30}                            # bars
-  placebo_per_day:    {value: 5}
+  placebo_per_day:    {value: 2}             # was 5 (SPEC); cut 2026-10-06 to shrink Stage 3 trade windows (approved)
   placebo_min_gap:    {value: 4}                             # ticks from any real level
   placebo_seed:       {value: 20230601}
   abs_window:         {value: 3,     nudges: [2, 5]}         # minutes

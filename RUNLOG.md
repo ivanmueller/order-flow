@@ -102,3 +102,21 @@ Append with `from src.runlog import log_run`.
   through; not tuned on. To be re-checked on the full run's regime splits before believing it.
 - Cost finding: merged windows cover ~340 of 390 RTH minutes/day -> ~$0.54/day of ES trades. Full
   in-sample (~582 remaining days) ~$315, holdout (~190 days) ~$103; credit remaining ~$89.
+
+## 2026-10-06 | config: Stage 3 data budget (approved: "cheapest combo that gets adequate data")
+- config diff (config.yaml): params.placebo_per_day 5 -> 2 (shrinks the merged trade windows ~20%);
+  new stage3_sample {seed 20231101, in_sample_days 120, holdout_days 45}: Stage 3 runs on a fixed-seed
+  random subset of days stratified by year, chosen before any full-run trade data exists. Stage 2 still
+  uses every day. The pilot overlay keeps placebo 5 and sampling off so its logged results stay reproducible.
+- expected cost: ~120 x $0.43 + 45 x $0.43 = ~$71 of the ~$77 credit remaining after the OI pull.
+- Check 3 (public chart): gex-levels.com has no 2025 history; no other free dated source found.
+  Proposed to accept Gate 0 on checks 1, 2, 4 plus the qualitative regime match (negative gamma
+  Mar-Apr 2025, positive from mid-May). Awaiting the user's call.
+
+## Pre-registered Stage 3 variants (proposed 2026-10-06, before any full-run trade data; awaiting approval)
+Each counts toward the 20-variant limit. All are reversal trades under the frozen rules; only the
+eligibility filter changes. Run once, after the main Stage 3, on the same sampled days.
+- V1 regime filter: confirmed trades only on days with gex_pct >= 0.5.
+- V2: V1 restricted to gamma-tagged levels (is_gamma).
+- V3 side-of-flip alignment: support trades (d=+1) only when the 09:30 price is above the flip,
+  resistance trades (d=-1) only when below; days with no flip excluded.

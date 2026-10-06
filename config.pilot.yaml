@@ -14,7 +14,12 @@ sample:
 data:
   derived_dir: "derived_pilot"
 
+stage3_sample:
+  in_sample_days: 0        # pilot trade data was bought for every day
+  holdout_days: 0
+
 params:
+  placebo_per_day: {value: 5}   # pilot was run with the SPEC default; keep its results reproducible
   # A 3-month pilot has no 252-session GEX history. Build the percentile up within the pilot
   # (approved for the pilot only; main config keeps 252).
   gex_pct_min_periods: {value: 20}
