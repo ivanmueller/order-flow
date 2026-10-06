@@ -112,6 +112,7 @@ def test_forward_vs_es_diagnostic(synth_env):
     assert np.allclose(f["resid"], f["r_1700"])            # configured quote_time is 17:00
     v = gex.validate(g, store.load_daily(cfg), None, cfg, store.load_bars(cfg), cal)
     assert "1_forward_vs_es_within_5pt_share" in v and v["1_n_days"] == len(f)
+    assert v["nearest_exp_beyond_3d_n"] == 0                 # synth always has a 0/1-DTE expiry
     assert v["1_scan_best_time"] == "16:00" and v["1_scan_configured"] == "17:00"
     assert v["1_scan_16:00_within_5pt_share"] == 1.0
     assert set(gex.show(g, [str(g["date"].iloc[3])])["date"]) == {g["date"].iloc[3]}

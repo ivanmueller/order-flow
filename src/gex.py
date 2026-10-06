@@ -516,6 +516,13 @@ def validate(gex_daily: pd.DataFrame, daily: pd.DataFrame, vols: pd.DataFrame | 
     out["n_contracts_median"] = float(g["n_contracts"].median()) if "n_contracts" in g else np.nan
     out["oi_used_share_mean"] = float(g["oi_used_share"].mean()) if "oi_used_share" in g else np.nan
     out["flip_missing_share"] = float(g["flip"].isna().mean())
+    if "nearest_exp" in g:
+        # S0 and EM come from the nearest expiry; when the dailies had no bids (ThetaData zero-bid
+        # files) the engine falls back to a later expiry and EM is inflated. Flag those days.
+        dte = (pd.to_datetime(g["nearest_exp"]) - pd.to_datetime(g["date"])).dt.days
+        far = g.loc[dte > 3, "date"].tolist()
+        out["nearest_exp_beyond_3d_n"] = len(far)
+        out["nearest_exp_beyond_3d_dates"] = ", ".join(map(str, far[:15])) + (", ..." if len(far) > 15 else "")
     out["basis_missing_share"] = float(g["basis"].isna().mean()) if "basis" in g else np.nan
     return out
 
