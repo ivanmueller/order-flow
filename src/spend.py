@@ -19,7 +19,7 @@ from src.config import data_path, load_env_file
 
 log = logging.getLogger("spend")
 
-RETRY_WAITS_S = (2, 4, 8, 16, 32)
+RETRY_WAITS_S = (2, 4, 8, 16, 32, 60, 90)
 
 
 class SpendRefused(RuntimeError):
@@ -35,13 +35,19 @@ def _transient(e: Exception) -> bool:
     return isinstance(e, (BentoServerError, requests.ConnectionError, requests.Timeout))
 
 
+class GaveUp(RuntimeError):
+    """A transient error persisted through every retry. The caller may skip the item and move on."""
+
+
 def with_retries(fn, what: str):
     for i, wait in enumerate(RETRY_WAITS_S + (None,)):
         try:
             return fn()
         except Exception as e:  # noqa: BLE001
-            if wait is None or not _transient(e):
+            if not _transient(e):
                 raise
+            if wait is None:
+                raise GaveUp(f"{what}: still failing after {len(RETRY_WAITS_S)} retries: {str(e).splitlines()[0][:120]}") from e
             log.warning("%s: %s; retry %d/%d in %ds", what, str(e).splitlines()[0][:120], i + 1, len(RETRY_WAITS_S), wait)
             time.sleep(wait)
 

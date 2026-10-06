@@ -236,13 +236,21 @@ def ingest_oi_parallel(cfg, todo, budget: spend.Budget, roots, workers: int):
             local.cl = spend.client()
         return local.cl
 
-    done = 0
+    done, gave_up = 0, []
     with ThreadPoolExecutor(max_workers=workers) as ex:
         futures = {ex.submit(_pull_one_day, cfg, roots, budget, d, client_factory): d for d in todo}
         for fut in as_completed(futures):
-            day, rows, cost = fut.result()   # a SpendRefused or non-transient error propagates and stops the run
+            try:
+                day, rows, cost = fut.result()   # SpendRefused or a non-transient error still stops the run
+            except spend.GaveUp as e:
+                gave_up.append(futures[fut])
+                log.error("oi %s: skipped for now (%s)", futures[fut], e)
+                continue
             done += 1
             log.info("oi %s rows=%d cost=$%.4f run=$%.2f (%d/%d)", day, rows, cost, budget.spent, done, len(todo))
+    if gave_up:
+        log.error("%d day(s) skipped after repeated gateway timeouts: %s. Re-run the same command to fetch them.",
+                  len(gave_up), ", ".join(str(d) for d in sorted(gave_up)))
 
 
 def ingest_oi(cfg, days, budget: spend.Budget, price_only: bool, sample: int, chunk_days: int = 1,

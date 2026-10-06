@@ -185,7 +185,7 @@ def test_with_retries_only_on_transient(monkeypatch):
 
     def always():
         raise BentoServerError(http_status=504, http_body=None, message="timeout")
-    with pytest.raises(BentoServerError):
+    with pytest.raises(spend.GaveUp):
         spend.with_retries(always, "x")
 
 
