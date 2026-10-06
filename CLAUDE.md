@@ -10,9 +10,9 @@ Update this block at the end of every session.
   EOD quotes and roll-basis done, OI pull running (--workers 4), then `python -m src.gex` for Gate 0 on
   ~645 days, then Stages 1-2. Stage 3 will run on the fixed-seed day sample (config stage3_sample) with
   placebo_per_day 2. Databento spend ~$48 of $125 after the OI pull.
-- Pre-registered Stage 3 variants V1-V3 in RUNLOG.md (awaiting approval), to run after the main Stage 3.
+- Pre-registered Stage 3 variants V1-V4 (+ conditional V5) in RUNLOG.md, approved; run after the main Stage 3.
 - Pilot: `config.pilot.yaml` (Mar-May 2025, gex_pct_min_periods 20) approved; activate via .env. Pilot output is not a gate decision.
-- Gates passed: none
+- Gates passed: Gate 0 (accepted 2026-10-06 on the pilot; re-checked on the full run's Gate 0 block).
 - Open issues: sign off the decisions listed in README.md ("Decisions that need your sign-off"),
   especially holdout_start, cost_rt_usd, gex_pct_min_periods; then set status.frozen in config.yaml.
   Data sources confirmed: ThetaData v3 EOD columns map correctly; OPRA parent symbology returns OSI

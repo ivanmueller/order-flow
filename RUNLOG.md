@@ -113,10 +113,28 @@ Append with `from src.runlog import log_run`.
   Proposed to accept Gate 0 on checks 1, 2, 4 plus the qualitative regime match (negative gamma
   Mar-Apr 2025, positive from mid-May). Awaiting the user's call.
 
-## Pre-registered Stage 3 variants (proposed 2026-10-06, before any full-run trade data; awaiting approval)
-Each counts toward the 20-variant limit. All are reversal trades under the frozen rules; only the
-eligibility filter changes. Run once, after the main Stage 3, on the same sampled days.
-- V1 regime filter: confirmed trades only on days with gex_pct >= 0.5.
+## Gate 0 decision (2026-10-06): ACCEPTED by Matteo
+- Checks 1, 2, 4 pass on the pilot's real data (RUNLOG 2026-10-05). Check 3 done qualitatively: no free
+  dated public GEX source for 2025 was found; the engine's sign pattern (negative gamma Mar-Apr 2025,
+  positive from mid-May) matches the reported regime of that period. Will be re-checked on the full run.
+
+## Pre-registered Stage 3 variants (approved 2026-10-06, before any full-run trade data exists)
+Each counts toward the 20-variant limit. V1-V4 are reversal (fade) trades under the frozen rules in
+both directions (long at support, short at resistance); only the eligibility filter changes. They run
+once, after the main Stage 3, on the same sampled days. Dealer-gamma logic: long-gamma dealers sell
+rallies and buy dips, so fades should work in both directions when gamma is positive and fail when it
+is negative; direction does not change with the regime, eligibility does.
+- V1 regime filter: confirmed fades only on days with gex_pct >= 0.5.
 - V2: V1 restricted to gamma-tagged levels (is_gamma).
-- V3 side-of-flip alignment: support trades (d=+1) only when the 09:30 price is above the flip,
-  resistance trades (d=-1) only when below; days with no flip excluded.
+- V3 flip filter: confirmed fades (both directions) only when the 09:30 price is above the flip; days
+  with no flip excluded. (An earlier draft had resistance trades below the flip; that was backwards.)
+- V4 wall alignment: shorts only at levels tagged gamma_call_wall, longs only at levels tagged
+  gamma_put_wall (gamma_top and structural tags do not qualify).
+- V5 (conditional, not yet built) negative-gamma continuation: on days with gex_pct < 0.5, or below the
+  flip, trade WITH the break when absorption fails (aggressive volume through the level, penetration
+  >= 4 ticks, no reclaim within reclaim_window); entry at the first trade after the reclaim window
+  expires plus 1 tick, stop 2 ticks back inside the level, target 1.5R, same time exit. Built and run
+  only if the main Stage 3's gex-tercile split shows fades losing in the low tercile. Rules fixed here.
+Sample-size note: V1/V3 roughly halve the trade count, V2/V4 cut further; a variant under 200 trades
+is reported against the gate but treated as indicative.
+Variant count so far: 5 of 20 (V5 counts only if run).
