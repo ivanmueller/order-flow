@@ -16,6 +16,10 @@ from src import regime, stats, store
 from src.config import ROOT, load_config, param
 
 
+MIN_STAGE1_DAYS = 30        # below this the regressions are meaningless; report instead of crashing
+MIN_STAGE2_TOUCHES = 100
+
+
 def _boot(cfg):
     return param(cfg, "bootstrap_draws"), param(cfg, "bootstrap_seed"), param(cfg, "ci_level")
 
@@ -45,6 +49,10 @@ def stage1(cfg=None, df: pd.DataFrame | None = None) -> dict:
     if df is None:
         df = stage1_frame(cfg)
     df = df[~df["half_day"]].dropna(subset=["gex_pct", "ln_vix", "rr"]).sort_values("date").reset_index(drop=True)
+    if len(df) < MIN_STAGE1_DAYS:
+        return {"error": f"only {len(df)} days with a GEX percentile (need >= {MIN_STAGE1_DAYS}); "
+                         "gex_pct needs gex_pct_min_periods prior sessions of GEX. Is gex_daily complete?",
+                "n_days": len(df)}
     draws, seed, lvl = _boot(cfg)
     lags = param(cfg, "nw_lags")
     main = _stage1_models(df, "gex_pct", "ln_vix", lags)
@@ -104,6 +112,10 @@ def stage2(cfg=None, touches: pd.DataFrame | None = None) -> dict:
     if touches is None:
         touches = store.load_derived("touches", cfg)
     t = stage2_frame(touches)
+    if len(t) < MIN_STAGE2_TOUCHES or t["date"].nunique() < MIN_STAGE1_DAYS:
+        return {"error": f"only {len(t)} touches on {t['date'].nunique()} days have a GEX percentile "
+                         f"(need >= {MIN_STAGE2_TOUCHES} touches on >= {MIN_STAGE1_DAYS} days). Is gex_daily complete?",
+                "n_touches": len(t)}
     res = stats.logit_clustered(t, STAGE2_FORMULA)
     ct = stats.coef_table(res)
     lvl = param(cfg, "ci_level")

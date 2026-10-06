@@ -263,3 +263,15 @@ def test_stage3_day_sample_is_deterministic_and_stratified(cfg):
     assert calm.stage3_days(cal, c, holdout=True) != a               # different seed offset
     c["stage3_sample"]["in_sample_days"] = 0
     assert calm.stage3_days(cal, c) == set(dates)                     # 0 = every day
+
+
+def test_stage_reports_refuse_tiny_samples(cfg):
+    from src import analysis
+    df = pd.DataFrame({"date": [dt.date(2024, 1, 2)], "half_day": [False], "gex_pct": [0.5], "ln_vix": [2.7],
+                       "rr": [1.0], "vr": [1.0], "er": [0.1], "dow": [1], "ln_em_s0": [-5.0], "gex_pct_0dte": [0.5]})
+    out = analysis.stage1(cfg, df)
+    assert "error" in out and out["n_days"] == 1
+    t = pd.DataFrame({"date": [dt.date(2024, 1, 2)], "success": [True], "is_gamma": [True], "tag_round": [False],
+                      "tag_pd": [False], "tag_on": [False], "first": [True], "dist_em": [0.3], "gex_pct": [0.5],
+                      "group": ["gamma_only"], "timeout": [False], "tod": ["open"], "d": [1]})
+    assert "error" in analysis.stage2(cfg, t)
