@@ -448,3 +448,409 @@ loaded; the permutation test guards against a time-trend in gex_pct masquerading
   reaching the band).
 - Rule 6 on the breakout: after the fill fix it is +0.03R with the interval straddling zero; not a
   result. Study 3 verdict vs rules: KILL on every variant. 12 of 20 variants used. No holdout.
+
+## 2026-10-07 | review of studies 1-3 and Study 4 pre-registration DRAFT (not a run; awaiting Matteo)
+- commit: 77f9ed6 reviewed; this entry committed on branch claude/affectionate-gauss-7nuqm8.
+- change: code and log audit (REVIEW.md). No data on this machine; nothing re-run. pytest: 77 passed.
+- config diff: none. Variant count unchanged at 12 of 20.
+- result: every kill in studies 1-3 stands as scored; point-in-time, holdout seal, roll handling and
+  fill conservatism verified in code; the 0.6-tick naive residual is the only positive signal and it
+  is a quarter of the friction. Three report-only caveats on the regime variable (sign convention is
+  an assumption; calendar-time clock overweights 0DTE ATM gamma; the percentile ranks raw dollar GEX,
+  which drifts with S0^2) do not change any verdict but should be re-checked before anything
+  conditions on the regime again.
+- proposed next (REVIEW.md section 5), needs approval before any code runs: Study 4, regime-conditioned
+  D-expiring SPXW ATM straddle at the D-1 17:00 close held to settlement (S4a short in high gamma,
+  S4b long in low gamma, S4c iron fly with 1 EM wings), regime = gex_pct of session D-1 (point in
+  time), entry at the quoted bid/ask, settlement = FRED SPX close, permutation placebo, Stage 1
+  regression restated on straddle P&L. New params proposed: opt_cost_per_leg_usd 1.50 [3.00],
+  s4_wing_em 1.0 [0.75, 1.5], s4_min_expectancy_em 0.03 (gate), s4_regime_lag 1 (fixed). Would bring
+  the count to 15 of 20. Secondary: Study 5, last-30-minute hedging-flow trade (Baltussen et al.),
+  two variants, 17 of 20. Not recommended: any further level/absorption/band variant, MBP-10 spend.
+
+## Study 4 pre-registration: regime-conditioned 0DTE straddle at the D-1 close (APPROVED by Matteo 2026-10-07, "lets run a test on study 4"; frozen as drafted in REVIEW.md section 5 before any run)
+- config diff (config.yaml): market.option_multiplier 100.0 (structural); params.opt_cost_per_leg_usd 1.50
+  [nudge 3.00] (all-in per leg: commission, exchange, regulatory, settlement; placeholder until confirmed
+  with the broker), params.s4_wing_em 1.0 [0.75, 1.5], params.s4_regime_lag 1 (fixed: point in time);
+  gates.study4_min_expectancy_em 0.03. regime_threshold 0.5 reused, no nudge.
+- hypothesis H4: conditional on the PRIOR session's gamma percentile, the D-expiring SPXW ATM straddle
+  sold at the D-1 17:00 close and held to the SPX settlement pays after costs on high-gamma sessions
+  (S4a), the long straddle pays on low-gamma sessions (S4b), and the defined-risk iron fly with wings
+  one EM out pays on high-gamma sessions (S4c); each with the regime contrast positive and the
+  permutation placebo beaten.
+- build: K = strike nearest F with both legs valid (the engine's atm_straddle rule; the chain's
+  straddle mid must equal gex_daily.em, mismatches counted); short sells at bid_C + bid_P, long buys at
+  ask_C + ask_P, wings bought at the ask at the valid strikes nearest K +/- s4_wing_em EM (skip the fly
+  when the nearest strike is more than 25% off the target width); settlement |S_T - K| at the FRED SPX
+  close; fees per leg; P&L in EM units (pnl_pts / em), also points and dollars. Regime = gex_pct of
+  session D-1 (its inputs were all published before the 17:00 D-1 entry); the D row's percentile uses
+  OI published the morning of D and is reported as a non-tradeable diagnostic only. Eligible sessions:
+  equity sessions, not half days, GEX row present, nearest expiry = the SPXW expiring on D, lagged
+  percentile present, settlement present, a both-valid ATM strike. All three structures on every
+  eligible session; the regime filter is applied in the report.
+- placebo and contrasts: permutation of the lagged percentile across sessions (perm_draws 1000, seed
+  bootstrap_seed); the complement regime; every structure on all sessions (variance premium baseline)
+  and by percentile tercile; the Stage 1 regression restated with pnl_em as the outcome (ln VIX and
+  ln EM/S0 controls, day-of-week dummies, Newey-West 5 lags).
+- gates per variant: n >= 200; mean pnl_em >= 0.03; day-bootstrap 90% CI lower > 0; regime contrast
+  CI lower > 0; permutation p < 0.05. Tail block reported, not gated: five worst and best days, their
+  share of the total, mean without the best five. S4c carries the decision if S4a and S4c disagree.
+- variants: S4a, S4b, S4c -> 15 of 20 once run.
+- rule-6 checks pre-committed: every entry input stamped <= 17:00 D-1; settlement is the official close;
+  holdout sessions never loaded (calendar is sealed; the holdout can serve this new hypothesis later);
+  half days excluded; no session double counted; em_mismatch count must be 0.
+
+## 2026-10-07 | Study 4 built tests-first; real-data run PENDING (this session's container has no data/)
+- commit: see git log (branch claude/affectionate-gauss-7nuqm8). Tests: tests/test_study4.py (hand-
+  verified ATM selection, short/long straddle and iron-fly payoffs incl. wing caps and tolerance,
+  regime lag, eligibility rules, generalised permutation test, report on synthetic frames) and a
+  synthetic end-to-end run in tests/test_pipeline.py (holdout excluded, em_mismatch 0, fly loss bounded
+  by max_loss, regime equals the prior session's percentile). src/study3.permutation_test gained
+  value/pct arguments (defaults unchanged).
+- config diff: the Study 4 entries above. No other change.
+- result: no real-data numbers yet. Run on the data machine: `python -m src.study4` (reads gex_daily,
+  the D-1 EOD files and data/raw/daily; writes data/derived/straddle_trades.parquet; prints the report
+  with verdict_vs_rules per variant). Zero Databento spend. Then log the headline here.
+
+## 2026-10-07 | Study 4 first run on real data (Matteo's machine, commit f89b0e1, config as approved): KILL on all three variants
+- run: `python -m src.study4`, 502 sessions (2023-12 .. 2025-12). Skipped: half_day 8, no_gex_row 47
+  (the ~40 calendar sessions before 2023-06-02 from the two-month bar warm-up plus the 7 known), no_prev_regime
+  130 (the 126-session percentile warm-up), nearest_not_spxw_0dte 2. em_mismatch_sessions 0 (rule-6 check passes).
+- S4a short straddle, gex_pct(D-1) >= 0.5: n=266, win 62.8%, +0.059 EM (+2.4 pts, +$238 per straddle),
+  90% CI -0.021..+0.135 (FAILS ci_lower>0); complement -0.071 EM; regime contrast +0.130 (CI +0.012..+0.247);
+  permutation p=0.035; PF 1.22; max DD 7.4 EM; worst day 2025-10-10 -5.3 EM (-154 pts); mean ex-best-5
+  +0.041, ex-worst-5 +0.119. 4 of 5 gates pass. Verdict vs rules: KILL.
+- S4b long straddle, gex_pct(D-1) < 0.5: n=236, win 47.0%, +0.033 EM (+1.9 pts), CI -0.050..+0.121 (FAILS);
+  complement -0.099; contrast +0.132 (CI +0.013..+0.248); permutation p=0.036; mean ex-best-5 -0.031 (the long
+  side leans on its best days). KILL.
+- S4c iron fly, high gamma, 1 EM wings: n=265, -0.010 EM, CI -0.046..+0.025; contrast +0.046 (CI -0.006..+0.098);
+  permutation p=0.063. Wings cost 0.33 EM of the 0.98 EM credit and double the spread. KILL on 4 of 5 gates.
+  Pre-registered tie-break: S4c carries the decision when S4a and S4c disagree -> KILL.
+- contrasts: short straddle on all sessions -0.002 EM (the 0DTE variance premium is about zero in this sample,
+  as REVIEW.md expected); terciles low/mid/high: short -0.096 / +0.078 / +0.011, long +0.057 / -0.116 / -0.052,
+  fly -0.058 / -0.011 / -0.027. NOT monotonic: the effect is "low gamma is bad for the short straddle", not
+  "high gamma is good"; the top tercile is about zero.
+- Stage 1 restated on straddle P&L: beta on the lagged percentile +0.19, p=0.17 (ln VIX), +0.18, p=0.18 (ln EM/S0):
+  not significant. Same-day percentile (OI published after entry, NOT tradeable): +0.35, p=0.001; S4a/S4b under it
+  +0.060 / +0.034 with contrasts CI > 0 and permutation p 0.03 / 0.027: the lag costs little, so the point-in-time
+  version is a fair test of the tradeable thing.
+- reading: friction is not the problem (half-spread 0.019 EM + fees 0.001 EM vs a 0.13 EM regime contrast);
+  variance is. Per-session sd ~0.77 EM, SE ~0.047 on 266 sessions, so the +0.059 mean is 1.2 SE from zero. At this
+  mean a CI lower bound above zero needs ~460 high-gamma sessions (about 3.5 more years). Pooling S4a and S4b into
+  one switching strategy (not pre-registered, reported for information only) gives +0.047 EM on 502 sessions,
+  SE ~0.035, 90% lower bound about -0.01: still a fail. The defined-risk version has no edge at all.
+- rule-6 notes: point in time by construction (lagged regime, D-1 quotes, official settlement); holdout untouched;
+  the permutation test treats sessions as exchangeable although the percentile is persistent, so its p is
+  anti-conservative (a block permutation would be stricter), which only strengthens the kill.
+- Variant count: 15 of 20. Decision is Matteo's. No holdout run.
+- PowerShell note: the "NativeCommandError" in the console is PowerShell treating the module's stderr log line as
+  an error under `2>&1`; the run completed normally.
+
+## 2026-10-07 | Study 4 code hardening after a six-lens review (no run; numbers above are from commit f89b0e1)
+- change: s4_regime_lag < 1 now raises (a lag of 0 would silently gate on the same-day, non-tradeable
+  percentile); sessions whose quotes imply a riskless structure (iron-fly credit >= its narrower wing, or a
+  non-positive premium) are dropped and counted as quote_sanity; sessions where no admissible wing exists are
+  counted (fly_no_wing) so S4c's sample size is visible; friction_em_mean (half-spread + fees) reported next
+  to the full spread; tail block reports the sums and only forms shares when the total is positive; a
+  21-session block permutation is reported as a diagnostic beside the pre-registered session permutation
+  (the lagged percentile is persistent, so the session shuffle is anti-conservative); --report-only recomputes
+  the em_mismatch check from the saved table; permutation p is (count + 1) / (draws + 1), never exactly 0.
+  Gates, formulas and variants unchanged. Tests added; 90 pass.
+- config diff: none.
+- effect on the logged result: none of the changes touch a gate or a payoff; a re-run would add the diagnostic
+  fields (block_permutation p, friction_em_mean, fly_no_wing, quote_sanity counts) to the same verdicts.
+
+## 2026-10-07 | next-study selection per NEXT.md (not a run): inventory, 15 candidates, scoring (CANDIDATES.md)
+- commit: branch claude/next-study-prereg from main afbe3af (see git log). No data on this machine (data/
+  is git-ignored) and no Databento key, so nothing was re-run and nothing was priced with get_cost; counts
+  are quoted from this log and RESULTS.md, prices are estimates from the ledger's own rates. pytest: 90 passed.
+- config diff: none. Variant count unchanged at 15 of 20.
+- result: CANDIDATES.md inventories every table (what it supports, its stamp, its gaps), enumerates 15
+  candidates (REVIEW's study 5, the term-structure-timed premium from the earlier NEXT.md draft in commit
+  4146b21, the three section-3b re-checks, ten new ones) and scores them on prior, own-price payoff, signal
+  to friction, independent decisions per month, power and independence. Ranking: (1) last-30-minute
+  momentum into the close; (2) the one-week premium split into body and wings, not resolvable in sample
+  (MDE 0.13 to 0.19 of premium) but testable with a $40 ThetaData Value month (2020 onward); the rest not
+  recommended, each with its reason. No candidate on disk can resolve its published effect after costs;
+  study 5 comes closest (about even odds of detecting the published effect before costs, about one in five
+  after).
+- Findings from reading: the draft term-structure study cannot meet its own sample gate (about 64 weekly and
+  15 monthly non-overlapping positions in regime); of REVIEW 3b.1's three sign conventions, two are mirror
+  images and the third is the unsigned measure divided by S0^2.
+- Literature checked (sources in CANDIDATES.md): the overnight drift has averaged near zero since 2021 (NY
+  Fed, July 2026); last-30-minute momentum measured flat on 1,085 SPX sessions of the 0DTE era and damped by
+  0DTE positioning (Adams et al. 2025); one-week SPX ATM short straddles flat after costs over 2010-2019
+  (Miller and Li 2026); little weekend effect in S&P 500 options (Jones and Shemesh 2018).
+- Independent review before freezing (a separate agent read the draft against the code and logs; 15
+  findings): the published Gao et al. effect was overstated about two-fold (a long-or-cash summary figure,
+  6.3% against -0.5%, read as long-short; the paper's long-short strategy earns 6.67% a year, Sharpe 1.08),
+  which had put study 5's MDE below the published effect when it is above it; the S5b stop was off the tick
+  grid and a gapped stop could fill a tick better than rule 5; the EM eligibility rule admitted an 18-day EM
+  (2024-12-03); two "contrasts" were really further trades (alternative predictors, the gamma split); gate
+  4 restated gate 3; the session-permutation claim held only for constant drift; post-half-day sessions were
+  handled inconsistently; several gate numbers were hard-coded; the 16:00 exit's departure from flat_time was
+  unstated; arithmetic slips. All corrected in the pre-registration below and in CANDIDATES.md.
+- Second review of the corrected draft (same agent; 11 findings): sample B's economics power was overstated
+  because gate 2, not gate 3, binds at B's sample size; pulling the 2019 bars rebuilds the calendar and
+  would redraw the stage-3 day sample (only 13 of the current 120 days survive on a proxy calendar), so
+  studies 1 and 2 would stop being reproducible; under B nothing checked that existence holds in 2023-2025;
+  gate 4 and the session permutation are the same test; the 2.65 bp reading of Gao et al. implies a Sharpe of
+  1.56 in this window and is an upper bracket, not the published size; the block length deciding gate 5 was
+  a module constant; the 0.75 EM/VIX factor is the pilot's, not the full sample's; NQ replication under B
+  would cost about $8 to $10. Corrected below. Consequence: sample A is now the default and B an option
+  (more existence power if the effect is constant, less economics power, a code prerequisite). The ranking
+  survives; the case for study 5 is narrow: in sample A it has about even odds of detecting the published
+  effect before costs and about one in five after.
+
+## Study 5 pre-registration: last-30-minute momentum into the close (APPROVED by Matteo 2026-10-07 with sample A, "We'll do sample A to start"; frozen before any run)
+Revised from REVIEW.md section 5, which conditioned both legs on the gamma regime (with the move in low
+gamma, against it in high gamma). NEXT.md closes the regime as a trade and forbids new variants of it, so
+here the hypothesis is unconditional and gamma appears only as a descriptive statistic that cannot produce
+a Go (open PR #3, unmerged, records the same instruction: gamma is optional). Holdout sealed.
+
+Hypothesis H5. On ES, the return from 15:30 to 16:00 ET continues the rest-of-day return from the prior
+session's close to 15:30: one contract taken at 15:30 in the direction of that return and held to 16:00 (i)
+times the closing window better than a random direction with the same long and short mix (existence), and
+(ii) has positive after-cost expectancy (economics), on all eligible sessions, with no regime filter.
+Expected outcome, stated before the run: KILL (CANDIDATES.md C1). Power is in the paragraph after the gates;
+in short, at the published effect size the existence half is a coin flip in sample A and the economics half
+cannot be resolved on either sample.
+
+Sample, chosen by Matteo at approval, before any data is read:
+- A (default): 2023-06-02 to 2025-12-31, data on disk, zero spend.
+- B (option): 2019-01-03 to 2025-12-31 (the first session with a prior close and a prior VIX on disk), after
+  an ES 1-minute bar pull for 2019-01 to 2023-03 (estimated $5.4 at the pilot's $0.105 a month, just over
+  the $5 ask line; price with `python -m src.ingest_futures bars --start 2019-01-01 --end 2023-03-31
+  --price-only` and approve before pulling). FRED SPX and VIX from 2019 are already on disk, so the
+  calendar's equity-session flags cover B. Prerequisite before that pull: the pull rebuilds
+  data/derived/calendar.parquet, and calendar.stage3_days draws its stratified sample from the whole
+  calendar, so the stage-3 day set used by studies 1 and 2 (and by `robustness nudges` and `ingest_futures
+  trades`) would change. The current in-sample day set is written to disk first and stage3_days is made to
+  read it when present, with a test that the set is identical before and after a calendar rebuild (a code
+  change, logged, no result changes). Under B the NQ replication after a pass needs NQ bars from 2019,
+  estimated $8 to $10 (over the ask line, total spend near $95).
+Everything below applies to both samples; gates 7a and 7b apply to B only.
+
+Build rules, every input stamped at or before the 15:30:00 ET decision on session D (bars are keyed by open
+time; a bar is known at its close):
+- P_prev = close of D-1's last RTH bar (`gex.es_close_at_spx_close`), on D's instrument_id.
+- P_dec = close of D's bar opening one minute before s5_decision_time (the 15:29 bar, closing at 15:30:00).
+- Unit: EM_V = s5_em_vix_factor x (VIX close of D-1 / 100) / sqrt(252) x P_prev, a VIX-implied expected
+  move. One unit for every session in both samples, because option EMs do not exist before 2023-06 and
+  gex_daily.em is not always the 0DTE straddle (2024-12-03 is an 18-day straddle). The factor 0.75 is a
+  convention taken from the pilot's EM / S0 to VIX / sqrt(252) ratio (33 days of March-April 2025); the
+  full-sample ratio from `python -m src.gex --validate-only` is logged before the run for information, and
+  the factor is not changed after this registration (it scales the unit, the stop and gate 2 together,
+  so freezing it adds no bias). Where gex_daily has a row whose nearest expiry is the SPXW expiring on D,
+  results are also reported in that option EM as a cross-check.
+- r_ROD = (P_dec - P_prev) / EM_V; trade direction d = sign(r_ROD); r_ROD = 0 means no trade (counted).
+- Entry E = open of D's bar opening at s5_decision_time (15:30) + d x entry_slippage ticks. The decision bar
+  and the entry bar are different bars by construction.
+- S5a exit: X = open of D's bar opening at s5_exit_time (16:00) - d x 1 tick (rule-5 time exit). That bar
+  lies outside study 3's RTH frame (which stops at 15:59) and is read explicitly; a session without it is
+  skipped and counted, never filled at a later price. The 16:00 exit departs from market.flat_time (15:55,
+  the hard exit for studies 1 to 3) and from REVIEW's draft: the hypothesis is about the window that ends
+  at the 16:00 close, and the closing auction and the 15:50 imbalance publication fall in its last minutes.
+- S5b exit (defined risk): stop S = E - d x s5_stop_em x EM_V, rounded to the tick grid away from the entry
+  (down for a long, up for a short): S_g. A bar whose adverse extreme reaches S_g fills at the worse of its
+  open and S_g - d x 1 tick (a long fills at min(open, S_g - tick)); on the entry bar, whose open is the
+  entry, that is S_g - d x tick. Otherwise the S5a time exit. No target.
+- pnl_pts = d (X - E) - cost_rt_usd / point_value; pnl_em = pnl_pts / EM_V (gate unit); also pnl_bp =
+  1e4 pnl_pts / E and pnl_usd = pnl_pts x point_value.
+- For descriptive statistics only (not fills): r_L30 = (open of the 16:00 bar - open of the 15:30 bar) /
+  EM_V.
+Eligibility: in-sample equity session in the chosen sample; not a half day; previous equity session not a
+half day (its last ES bar is the early close, not 16:00); not a roll day (calendar.roll: the predictor
+would span two contracts); VIX close of D-1 present; bars present for D-1's last RTH bar and D's 15:29,
+15:30 and 16:00 bars, all on D's instrument_id; r_ROD != 0. Both variants on every eligible session (one
+sample). Expected n: about 620 (A), about 1,690 (B); about 20 independent decisions a month.
+
+Variants (count toward the 20; 15 used):
+- S5a: momentum, no stop. [16]
+- S5b: S5a with the s5_stop_em stop (the defined-risk version). [17]
+No other rule is scored, traded or given a p-value. Count after this study: 17 of 20.
+
+Descriptive statistics (reported without trade P&L intervals or p-values, not variants; none of them may
+later be pre-registered as a trade on any data used here, only on new data such as the holdout):
+1. Drift: the always-long and always-short 15:30-16:00 means with the same fills (they also enter gate 4);
+   S5a's long and short legs separately.
+2. Slope of r_L30 on r_ROD, Newey-West nw_lags, with and without the s5_outlier_n largest |r_ROD| sessions.
+3. S5a mean by tercile of |r_ROD| and by tercile of EM_V / P_prev; by year; FOMC days (static/events.csv)
+   against the rest.
+4. Slopes of r_L30 on two other predictors (prior close to 10:00, Gao et al.; 09:30 to 15:30, comparable to
+   the 0DTE-era measurement), with standard errors only.
+5. Mechanism (Baltussen et al.): the slope of r_L30 on r_ROD separately by the sign of the D row's net_gex
+   (< 0 = dealers short gamma under the SPEC convention), 2023-06 onward, with standard errors only. The D
+   row uses OI published before 09:30 D, so it is point in time at 15:30.
+6. The gross move in the trade direction in 15:30-15:50 and 15:50-16:00 (bar opens).
+7. Overlap with study 3's trend days: S5a on sessions where price reached O +/- band_a x EM_V (O the 09:30
+   open) before 15:30, computed from the bars for every session, against the rest.
+8. Friction: mean friction in EM_V and points; S5b's share of stopped trades; the driftless baseline for these
+   fills (minus the friction, a little worse for stopped trades).
+
+Placebo. Session permutation of the trade direction d across eligible sessions (perm_draws, seed
+bootstrap_seed) and a block permutation of d in blocks of s5_perm_block (21) sessions. Each session's long
+and short outcomes are computed once, so S5b's stop path is exact under either shuffle. p = (count + 1) /
+(draws + 1) over permuted means at or above the observed. The session shuffle keeps the long and short
+counts fixed, which removes a constant drift; drift that varies with the share of up days over weeks
+survives it, which is what the block shuffle is for. Both enter gate 5.
+
+Gates per variant (frozen before any run). Existence: 4, 5 and, under B, 7a. Economics: 2, 3, 6 and, under
+B, 7b. Gate 4 and the session half of gate 5 are the same test in two forms: under the fixed-count shuffle
+the expected permuted mean is exactly gate 4's random-direction benchmark, so both measure the observed mean
+minus that benchmark; gate 4 is kept for its interval, and the block half of gate 5 is the independent
+check.
+1. n >= study5_min_sessions (400).
+2. mean pnl_em >= study5_min_expectancy_em (0.02 EM after costs, about 0.85 points at an EM of 42). In A
+   gate 3 binds first under the planning standard deviation (it needs about 0.024 EM); in B gate 2 binds
+   (gate 3 needs only about 0.015 EM there).
+3. day-bootstrap 90% interval of mean pnl_em has a lower bound > 0 (bootstrap_draws, bootstrap_seed,
+   ci_level).
+4. timing contrast: mean pnl_em minus the mean of the same long and short mix taken in random directions
+   (the strategy's long share times the always-long mean plus its short share times the always-short mean,
+   the legs computed on the identical session set with the same fills and costs), day-bootstrap 90%
+   interval lower bound > 0; every bootstrap resample recomputes the long share and both leg means. For
+   S5a friction and constant drift cancel exactly; for S5b they cancel approximately (the extra tick on a
+   stopped trade depends on each direction's path).
+5. both permutation p-values (session and block) < study5_perm_p (0.05).
+6. mean pnl_em without the study5_tail_drop (5) best sessions > 0. Reported with it: the five worst and best
+   sessions and their sums, the share of P&L from FOMC days and from March 2020 and April 2025 where in
+   sample, max drawdown, longest losing streak.
+7a. (B only) era, existence: the 2023-06 to 2025-12 timing contrast (gate 4's statistic) has the same sign
+   as the full-sample contrast and at least half its size.
+7b. (B only) era, economics: the 2023-06 to 2025-12 mean of pnl_em has the same sign as the full-sample mean
+   and at least half its size (the holdout rule's form).
+Decision: pass means every gate on the deciding variant. S5b carries the decision when S5a and S5b disagree
+(study 4's tie-break). The report states existence and economics separately, so "the effect exists but does
+not pay" is a possible, complete answer. Kill: anything less; stop, write up, no nudges, no new predictors,
+no holdout. Pass: nudges and splits, the NQ replication (NQ bars priced first: about $3 to $4 under A, $8 to
+$10 under B), then the holdout once on Matteo's word.
+
+Power, stated before the run (CANDIDATES.md C1). Planning standard deviation of pnl_em 0.36 EM (an
+assumption no gate uses); ES friction 0.58 points, about 0.014 EM in A and about 0.016 on average in B
+(friction in EM terms is larger when the index was lower). Published size: Gao et al.'s long-short timing
+strategy earned 6.67% a year, Sharpe 1.08 (SPY 1993-2013); rescaled to this window's volatility that is about
+0.025 EM gross (0.011 net in A). An upper bracket reads the 2.65 bp a session directly as basis points,
+0.035 EM gross, which implies a Sharpe of about 1.56 in this window and is optimistic.
+- A (n about 620; SE 0.0145): gate 3 needs about 0.024 EM net (1.0 point, 1.8 bp); MDE 0.036. At the
+  published size: existence 0.52, economics 0.18 (upper bracket 0.79 and 0.43). If the 0DTE-era measurement
+  is the truth (about 0.005 EM gross), existence passes with 0.10, and the 90% upper bound excludes the
+  published size with probability 0.38 (0.67 for the upper bracket).
+- B (n about 1,690; SE 0.009), with gates 7a and 7b, by simulation: if the published size held throughout,
+  existence 0.76 and economics 0.08 (upper bracket 0.92 and 0.41); if it held before 2023-06 and fell to the
+  0DTE-era size after, existence passes with 0.29, so the era gate catches the decay about seven times in
+  ten; with no effect anywhere, existence passes with 0.04. B buys existence power if the effect is
+  constant, and a decay pattern to describe if it is not; it does not buy economics power.
+These figures are for single gates (B's include the era gates); the joint decision has somewhat lower power
+because gates 3 to 5 test nearly the same thing at the same level. Independent decisions: about 20 a month.
+
+Rule-6 checks committed:
+- Point in time: the direction uses bars that close at or before 15:30:00; entry is the next bar's open; the
+  unit uses the VIX close of D-1; the mechanism statistic uses the D row (OI before 09:30 D). A unit test
+  gives a session whose 15:30 bar alone carries the move and requires the direction to ignore it.
+- No series spans a roll: roll days are ineligible and instrument_id is checked on D-1's close and on every
+  bar used on D.
+- The holdout is never loaded (a sealed-holdout refusal test); half days and post-half-day sessions are
+  excluded; one trade per session per variant; no session counted twice.
+- The 16:00 exit bar must exist; sessions without it are skipped and counted.
+- Fill realism: on the sampled tick sessions whose windows cover 15:29:00 to 16:01:00, the bar-rule entry and
+  exit are compared with the first tick print after 15:30:00 and after 16:00:00 (one tick against); the mean
+  and worst differences in ticks are reported, and any average advantage of bar fills is flagged against
+  rule 5.
+- A synthetic driftless walk through the module returns minus the friction within sampling error.
+- Data sanity: missing minutes between 15:29 and 16:00, duplicate bars, and sessions with |r_L30| >
+  s5_sanity_em (3 EM_V) are counted and listed, not dropped.
+- If anything looks strong: the drift legs, both permutations, the FOMC and crash-month shares, the overlap
+  with trend days (statistic 7), and the option-EM cross-check are re-examined, and the report says what was
+  checked.
+
+New parameters (config.yaml; rule 3, need approval):
+- params.s5_sample "A" or "B": chosen at approval, no nudge.
+- params.s5_decision_time "15:30" (nudges "15:25", "15:35") and params.s5_exit_time "16:00" (nudges
+  "15:55", "16:05"): robustness only.
+- params.s5_stop_em 0.50 (nudges 0.35, 0.75): REVIEW proposed 0.25 EM as "rarely hit", but with a
+  closing-window standard deviation near 0.36 EM a 0.25 EM stop is reached on about half of sessions (twice
+  the normal tail beyond 0.7 standard deviations) and would make it a different trade; 0.5 EM, about 1.4
+  standard deviations, is reached on about 16% and still caps the tail.
+- params.s5_em_vix_factor 0.75 (a unit convention from the pilot's EM / S0 to VIX / sqrt(252) ratio; no
+  nudge).
+- params.s5_perm_block 21 (sessions per block in gate 5's block shuffle; no nudge: it decides a gate).
+- params.s5_outlier_n 5 and params.s5_sanity_em 3.0: reporting constants.
+- gates.study5_min_sessions 400, gates.study5_min_expectancy_em 0.02, gates.study5_perm_p 0.05,
+  gates.study5_tail_drop 5: gates, no nudges.
+Reused: entry_slippage (1 tick), cost_rt_usd (3.98, nudge 5.97), band_a (0.50, statistic 7 only),
+perm_draws, bootstrap_draws, bootstrap_seed, ci_level, nw_lags, market.tick, market.point_value.
+
+Tests first after approval, each with a hand-verified answer: the predictor (prior close on the same
+instrument; roll-day and post-half-day exclusion); the direction ignores the 15:30 bar; EM_V from a VIX
+close; entry and exit fills; a missing 16:00 bar skips the session; the stop (rounded to the grid away from
+entry; reached on the entry bar; gapped through, filling at the worse of the open and one tick beyond;
+reached on the 15:59 bar against the time exit); P&L units and costs; the timing contrast against a
+hand-computed random-direction mean; both permutations with precomputed outcomes and p never zero; the
+Newey-West slope on synthetic data with a known beta; both era gates; (B only) the frozen stage-3 day set
+surviving a calendar rebuild; stop rounding with a small tolerance so floating-point noise never moves the
+stop a tick; the sealed-holdout refusal; a synthetic
+end-to-end run with injected momentum (existence passes) and without (minus the friction, existence
+fails). Then `src/study5.py`, one run (`python -m src.study5`), the report against the gates, and stop. The
+gate call is Matteo's.
+
+## 2026-10-07 | Study 5 approved with sample A; config entries added (not a run)
+- Approval: Matteo, "We'll do sample A to start". The pre-registration above is frozen as written; sample A
+  (2023-06-02 to 2025-12-31, data on disk, zero spend). Sample B is not approved and the module refuses it
+  (it would first need the stage-3 day-set freeze).
+- config diff (config.yaml), as registered: params s5_sample "A", s5_decision_time "15:30" [15:25, 15:35],
+  s5_exit_time "16:00" [15:55, 16:05], s5_stop_em 0.50 [0.35, 0.75], s5_em_vix_factor 0.75,
+  s5_perm_block 21, s5_outlier_n 5, s5_sanity_em 3.0; gates study5_min_sessions 400,
+  study5_min_expectancy_em 0.02, study5_perm_p 0.05, study5_tail_drop 5; sample.s5_starts {A 2023-06-02,
+  B 2019-01-03}. Two structural market times for registered descriptive statistics only (no gate uses
+  them): market.moc_imbalance_time "15:50" (statistic 6), market.first_half_hour_end "10:00" (statistic 4).
+- Variant count: 17 of 20 once run.
+
+## 2026-10-07 | Study 5 built tests-first; real-data run PENDING (this session's container has no data/)
+- code: src/study5.py; tests/test_study5.py (25 tests, hand-verified on one constructed session: EM_V,
+  tick-grid stops, touched, gapped, entry-bar and last-bar stops, both directions, skips, eligibility,
+  descriptive fields, timing contrast, both permutations, era check, Newey-West slope, tie-break, a
+  driftless walk returning minus the friction, injected momentum passing existence and none failing it,
+  sample B refused) and test_study5_end_to_end in tests/test_pipeline.py (synthetic store, roll day skipped,
+  no holdout date, holdout request refused). Mutation check: four planted bugs (direction from the entry
+  bar, stop filled at the stop, gapped stop at the better price, time exit a tick favourable) each failed
+  the tests. pytest: 116 passed.
+- config diff: none beyond the approval entry above.
+- Run on the data machine: `python -m src.study5` (reads the calendar, ES bars, FRED VIX and gex_daily for
+  descriptive fields; writes data/derived/close_momentum_trades.parquet; prints the report with
+  verdict_vs_rules per variant, the existence and economics halves, and decision_vs_rules). Zero spend.
+  Then log the headline here.
+
+## 2026-10-07 | Study 5 first run on real data (Matteo's machine, commit c7c2c68, config as approved, sample A): KILL on both variants
+- run: `python -m src.study5`; 618 sessions 2023-06-02..2025-12-31. Skipped: roll_day 11, half_day 8,
+  prev_half_day 8, flat_predictor 3. Sanity: 0 sessions with missing minutes in 15:29-16:00, 0 duplicate
+  bars, no |r_L30| > 3 EM_V. pytest on that machine: all passed.
+- S5a momentum, no stop: mean -0.037 EM_V (-1.66 pts, -3.0 bp, -$83/contract), 90% CI -0.054..-0.020;
+  win 44.3%, PF 0.67; timing contrast -0.024 (CI -0.041..-0.006); session perm p 0.994, block p 0.974;
+  mean without best 5 -0.044. Existence FAIL, economics FAIL, KILL.
+- S5b with 0.5 EM_V stop (stopped 6.6%): mean -0.031 (CI -0.046..-0.015); timing contrast -0.020 (CI
+  -0.036..-0.003); perm p 0.985 / block 0.962. Existence FAIL, economics FAIL, KILL. Decision (S5b
+  carries it): KILL. Variant count 17 of 20.
+- Reading: the published momentum is excluded, and the sign is the opposite. The timing contrast's whole
+  interval is below zero: going with the rest-of-day move does worse than random directions with the same
+  long/short mix. Descriptive slope of r_L30 on r_ROD -0.028 (t -2.3; -0.037, t -3.5 without the 5
+  largest |r_ROD|); negative in every year (2023 -0.029, 2024 -0.050, 2025 -0.030 EM); strongest in the
+  top |r_ROD| tercile (-0.074); both other predictors negative (Gao first half-hour t -1.4, open-to-15:30
+  t -2.0). Gamma split (descriptive only): reversal slope -0.042 (t -2.8, n 374) when net_gex >= 0, -0.013
+  (t -0.7, n 244) when < 0, the direction the dealer-hedging mechanism predicts (long gamma damps moves),
+  consistent with Adams et al. 2025. Most of it is 15:30-15:50 (-0.021) rather than 15:50-16:00 (-0.002).
+  Always-long -0.009, always-short -0.020 (friction 0.014 EM_V a trade).
+- The mirror (fade the rest-of-day move) would net about +0.009 EM_V a session (each session's two
+  directions sum to minus twice the friction, so the mirror mean is +0.037 - 2 x 0.014), with an interval
+  that includes zero. It was not pre-registered, and by the registration no trade suggested by this data may
+  be registered on it; testing it would need new data (the holdout or sample B) and a variant.
+- rule-6 checks on the strong (negative) result: sign logic verified by the hand tests (long when the day is
+  up, pnl = X - E) and by the injected-momentum test, which passes with a positive mean; friction cancels in
+  the timing contrast, so fills cannot create it; the decision bar (15:29 close) and entry (15:30 open) are
+  adjacent prints, and a quarter-point bounce is small against a 0.36 EM_V (about 15 points) window; same
+  sign in every year, in option-EM units (S5a -0.047, S5b -0.040 option EM on 616 sessions) and in both
+  predictor variants; no holdout date loaded (last 2025-12-31).
+- Unit note: median option EM / EM_V = 0.757, so the frozen 0.75 factor (from the 33-day pilot) makes EM_V
+  about 1.32 option EMs. A pure scale: it changes no sign, interval or p-value; it makes the 0.5 EM_V stop
+  about 0.66 option EM and gate 2 about 0.026 option EM. No verdict depends on it.
+- Decision is Matteo's. No holdout run.

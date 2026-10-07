@@ -178,10 +178,11 @@ def run(cfg=None, save: bool = True) -> pd.DataFrame:
     return T
 
 
-def permutation_test(t: pd.DataFrame, high_is_variant: bool, thr: float, draws: int, seed: int) -> dict:
-    """Observed gap = mean pnl on the variant's regime minus the complement; p = share of gex_pct
-    shuffles across sessions whose gap is at least as large."""
-    pnl, g = t["pnl_r"].to_numpy(float), t["gex_pct"].to_numpy(float)
+def permutation_test(t: pd.DataFrame, high_is_variant: bool, thr: float, draws: int, seed: int,
+                     value: str = "pnl_r", pct: str = "gex_pct") -> dict:
+    """Observed gap = mean `value` on the variant's regime minus the complement; p = share of `pct`
+    shuffles across sessions whose gap is at least as large. Study 4 passes pnl_em / regime_pct."""
+    pnl, g = t[value].to_numpy(float), t[pct].to_numpy(float)
     hi = g >= thr
     sel = hi if high_is_variant else ~hi
 
@@ -194,7 +195,7 @@ def permutation_test(t: pd.DataFrame, high_is_variant: bool, thr: float, draws: 
     rng = np.random.default_rng(seed)
     perm = np.array([gap((rng.permutation(g) >= thr) if high_is_variant else ~(rng.permutation(g) >= thr))
                      for _ in range(draws)])
-    p = float(np.mean(perm >= obs)) if np.isfinite(obs) else np.nan
+    p = float((np.sum(perm >= obs) + 1) / (len(perm) + 1)) if np.isfinite(obs) else np.nan   # never exactly 0
     return {"observed_gap": float(obs), "p": p, "perm_95th": float(np.nanquantile(perm, 0.95)), "draws": draws}
 
 

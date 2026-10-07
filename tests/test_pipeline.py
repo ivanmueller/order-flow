@@ -186,3 +186,62 @@ def test_study3_end_to_end(synth_env):
     for v in out["variants"].values():
         assert v["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") and "permutation" in v
     analysis.to_json(out)
+
+
+def test_study4_end_to_end(synth_env):
+    """Synthetic chains (tests/synth.py) always list the D-expiring SPXW, so every session with a
+    lagged percentile and a close trades all three structures; the straddle mid must equal the
+    engine's EM and the iron fly can never lose more than its max loss."""
+    from src import study4
+    cfg, _ = synth_env
+    g = gex.build(cfg=cfg)
+    T = study4.run(cfg)
+    assert not T.empty and set(T["mode"]) == set(study4.MODES)
+    assert (T["date"] < calm.holdout_start(cfg)).all()
+    assert (T.groupby("date")["mode"].nunique() == 3).all()
+    assert np.isfinite(T["pnl_em"]).all() and (T["em"] > 0).all()
+    assert T.attrs["skipped"]["em_mismatch_sessions"] == 0
+    ss = T[T["mode"] == "short_straddle"]
+    assert np.allclose(ss["pnl_pts"], ss["premium_pts"] - (ss["settle"] - ss["K"]).abs() - ss["fees_pts"])
+    fly = T[T["mode"] == "iron_fly"]
+    assert (fly["pnl_pts"] >= -fly["max_loss_pts"] - 1e-9).all() and (fly["K_up"] > fly["K"]).all() and (fly["K_dn"] < fly["K"]).all()
+    # The regime is the prior session's percentile, never the same day's.
+    gi = g.set_index("date")["gex_pct"]
+    cal = store.load_calendar(cfg).set_index("date")
+    for r in ss.itertuples():
+        assert r.regime_pct == gi[cal.loc[r.date, "prev_date"]]
+    out = study4.report(cfg, T)
+    assert set(out["variants"]) == set(study4.VARIANTS)
+    for v in out["variants"].values():
+        assert v["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") and "permutation" in v and "tail" in v
+    assert "short_straddle_ln_vix" in out["stage1_restated"]
+    analysis.to_json(out)
+
+
+def test_study5_end_to_end(synth_env):
+    """Synthetic bars (tests/synth.py) run 18:00-17:00, so every session has its 15:29, 15:30 and 16:00
+    bars; the roll day is skipped; no holdout date appears; the direction is the sign of r_ROD; the
+    holdout cannot be requested without the flag."""
+    from src import study5
+    cfg, _ = synth_env
+    gex.build(cfg=cfg)
+    T = study5.run(cfg)
+    cal = store.load_calendar(cfg)
+    roll_days = set(cal.loc[cal["roll"], "date"])
+    assert not T.empty and T["date"].is_unique
+    assert (T["date"] < calm.holdout_start(cfg)).all() and not (set(T["date"]) & roll_days)
+    assert T.attrs["skipped"].get("roll_day", 0) == len(roll_days & set(cal["date"]))
+    assert (T["d"] == np.sign(T["r_rod_em"])).all()
+    for mode in study5.MODES:
+        assert np.isfinite(T[f"pnl_em_{mode}"]).all()
+    # the stop variant can never lose more than the stop distance plus one tick, slippage and costs
+    worst = -(T["E_long"] - T["S_long"] + 0.25 + 3.98 / 50) / T["em_v"]
+    assert (T["pnl_em_momentum_stop_long"] >= worst - 1e-9).all()
+    assert T["em_option"].notna().any()                   # D rows whose nearest expiry is D's SPXW
+    out = study5.report(cfg, T)
+    assert set(out["variants"]) == set(study5.VARIANTS) and out["sample"] == "A"
+    for v in out["variants"].values():
+        assert v["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") and v["existence"] in ("PASS", "FAIL")
+    analysis.to_json(out)
+    with pytest.raises(calm.HoldoutSealed):
+        study5.run(cfg, save=False, include_holdout=True)

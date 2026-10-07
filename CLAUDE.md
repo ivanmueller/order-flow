@@ -16,6 +16,32 @@ Update this block at the end of every session.
 - Study 3 run twice 2026-10-07 (first run superseded by a fill-realism fix): R1 -0.24R, R2 -0.06R,
   R3 -0.22R, regime contrasts negative, permutation p > 0.9. KILL on all; 12 of 20 variants used.
   Awaiting Matteo's call on study 3 and on the project. WRITEUP.md and RESULTS.md are current.
+- Review 2026-10-07 (REVIEW.md, RUNLOG same date): studies 1-3 audited in code and logs, every kill
+  stands; intraday level/flow thesis closed. Three report-only re-checks of the regime variable are
+  recommended (sign convention, business-time clock, S0^2-normalised percentile), not yet run.
+- Study 4 approved 2026-10-07 (regime-conditioned 0DTE straddle at the D-1 close: S4a short / S4b
+  long / S4c iron fly; params opt_cost_per_leg_usd 1.50, s4_wing_em 1.0, s4_regime_lag 1, gate
+  study4_min_expectancy_em 0.03 added to config.yaml). Built tests-first in `src/study4.py` (90 tests pass); run by
+  Matteo 2026-10-07 (RUNLOG): S4a +0.059 EM (CI -0.02..+0.14, contrast CI > 0, perm p 0.035), S4b +0.033
+  (CI fails), S4c iron fly -0.010. KILL on all three by the rules; 15 of 20 variants. Regime effect real
+  but ~1.2 SE at 266 sessions; defined-risk version has no edge. Holdout still sealed.
+- Next-study selection 2026-10-07 per NEXT.md (CANDIDATES.md; RUNLOG same date): data inventory, 15
+  candidates scored; no candidate on disk can resolve its published effect after costs. Study 5
+  pre-registered as a DRAFT awaiting Matteo's approval: last-30-minute ES momentum into the close,
+  unconditional (S5a no stop, S5b 0.5 EM stop; would bring the count to 17 of 20), unit = VIX-implied EM,
+  gamma only as a descriptive slope, verdict reported as existence (timing) and economics (after costs).
+  Sample chosen at approval: A (2023-06..2025-12, on disk, default) or B (2019-01..2025-12, needs ES bars
+  2019-01..2023-03, est $5.4, and first a code change freezing the stage-3 day set, which a calendar
+  rebuild would otherwise redraw). Power at the published size in A: existence ~0.52, after costs ~0.18.
+  Expected outcome stated in advance: KILL. Alternatives: the one-week premium (body and wings) with a $40
+  ThetaData Value month (2020+), or write up. New params proposed, not yet in config.yaml: s5_sample,
+  s5_decision_time, s5_exit_time, s5_stop_em, s5_em_vix_factor, s5_perm_block, s5_outlier_n,
+  s5_sanity_em; gates study5_min_sessions, study5_min_expectancy_em, study5_perm_p, study5_tail_drop.
+  Two independent reviews corrected the draft before freezing (RUNLOG). APPROVED with sample A; config
+  entries added; built tests-first in src/study5.py (116 tests pass). Run 2026-10-07 (RUNLOG): KILL on both;
+  S5a -0.037 EM_V (CI -0.054..-0.020), S5b -0.031; timing contrast negative with CI below zero: the close
+  REVERSES the day (slope t -2.3, strongest when net_gex >= 0). Momentum excluded. 17 of 20 variants.
+  Mirror (fade) nets ~+0.009 EM_V, CI includes 0, not registered. Awaiting Matteo's call.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
@@ -73,5 +99,7 @@ See README.md for the full runbook in order.
 - Stage 3 trades: `python -m src.ingest_futures trades [--price-only | --approve-usd X]`, then `python -m src.stage3`
 - Gate reports: `python -m src.analysis stage1|stage2|stage3|variants|study2 [--carry ...]`
 - Study 3 band trades: `python -m src.study3 [--report-only]`
+- Study 4 straddles: `python -m src.study4 [--report-only]`
+- Study 5 close momentum: `python -m src.study5 [--report-only]`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`
