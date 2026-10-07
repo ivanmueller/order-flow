@@ -34,6 +34,10 @@ WRITEUP.md. Nothing here touched the holdout (2026-01-01 onward).
   one tick beyond (or at the print if it gapped). Target fills only on a print one tick beyond T. Time
   exit at the next print minus one tick. Costs $3.98 per round trip subtracted. Risk floor 4 ticks,
   cap 0.15 EM, target 1.5R, time exit 30 minutes.
+- **Study 4 (`src/study4.py`).** From the D-1 EOD chain: the strike nearest the forward with both legs
+  valid, short straddle at the bids, long at the asks, iron fly with wings at the valid strikes nearest
+  K +/- one EM, settlement |S_T - K| at the FRED SPX close, per-leg fees, P&L in EM units. Regime = the
+  prior session's gex_pct. Session and block permutations, complement contrast, Stage 1 restated.
 - **Statistics (`src/stats.py`).** Day-clustered logits, Newey-West OLS, Wilson intervals, day-bootstrap
   confidence intervals (5,000 draws, 90%), paired-by-day differences.
 - **Fairness baseline.** For each trade the win rate a driftless walk would give its exact barriers,
