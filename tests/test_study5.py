@@ -318,3 +318,47 @@ def test_fade_report_on_momentum_sessions_is_negative(cfg):
     assert out["n"] == len(T) and out["mean_em"] < 0
     assert out["momentum_direction_mean_em"] > 0
     assert {"ci_lo", "ci_hi", "timing_contrast", "permutation", "block_permutation", "tail"} <= set(out)
+
+
+# ---------------------------------------------------------------------------
+# Study 5f robustness and NQ replication (RUNLOG 2026-10-07, approved)
+# ---------------------------------------------------------------------------
+def test_fade_nudges_are_the_registered_eight(cfg):
+    got = study5.fade_nudges(cfg)
+    assert got == [("s5_decision_time", "15:25"), ("s5_decision_time", "15:35"),
+                   ("s5_exit_time", "15:55"), ("s5_exit_time", "16:05"),
+                   ("s5_stop_em", 0.35), ("s5_stop_em", 0.75),
+                   ("entry_slippage", 2), ("cost_rt_usd", 5.97)]
+
+
+def test_replication_gate():
+    assert study5.replication_gate(0.004, 0.01) == "PASS"
+    assert study5.replication_gate(-0.001, 0.01) == "FAIL"
+    assert study5.replication_gate(0.004, -0.002) == "FAIL"
+
+
+def test_single_year_carry_warning():
+    # all-year mean of a frame where dropping 2024 leaves a negative mean -> warning names 2024
+    f = pd.DataFrame({"date": [dt.date(2023, 6, 5), dt.date(2023, 6, 6), dt.date(2024, 6, 5), dt.date(2025, 6, 5)],
+                      "pnl_em": [-0.01, -0.01, 0.10, -0.01]})
+    assert study5.year_carry_warning(f) == ["2024"]
+    g = f.assign(pnl_em=[0.01, 0.01, 0.01, 0.01])
+    assert study5.year_carry_warning(g) == []
+
+
+def test_nq_overlay_config(monkeypatch):
+    from src.config import load_config
+    monkeypatch.delenv("GAMMA_EDGE_CONFIG", raising=False)     # the env var would override the path argument
+    c = load_config("config.nq.yaml")
+    assert c["data"]["root"] == "data_nq" and c["data"]["es_symbol"] == "NQ.v.0"
+    assert c["market"]["point_value"] == 20.0 and c["market"]["tick"] == 0.25
+    assert c["data"]["ledger"] == "data/spend_ledger.csv"                 # one ledger for all spend
+    assert c["params"]["s5_stop_em"]["value"] == 0.50 and c["sample"]["holdout_start"] == "2026-01-01"
+
+
+def test_spend_ledger_can_be_shared(cfg):
+    from src import spend
+    from src.config import ROOT
+    assert spend.ledger_path(cfg) == ROOT / "data" / "spend_ledger.csv"
+    c = dict(cfg, data={**cfg["data"], "root": "data_nq", "ledger": "data/spend_ledger.csv"})
+    assert spend.ledger_path(c) == ROOT / "data" / "spend_ledger.csv"

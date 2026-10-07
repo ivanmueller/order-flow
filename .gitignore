@@ -1,4 +1,5 @@
 data/
+data_nq/
 .env
 __pycache__/
 *.pyc

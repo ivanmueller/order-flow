@@ -62,6 +62,14 @@ def client():
 
 
 def ledger_path(cfg):
+    """One ledger for all Databento spend. An overlay with its own data root (config.nq.yaml) points
+    data.ledger back at the main ledger so the $100 guard sees every dollar."""
+    shared = cfg["data"].get("ledger")
+    if shared:
+        from pathlib import Path
+        from src.config import ROOT
+        p = Path(shared)
+        return p if p.is_absolute() else ROOT / p
     return data_path(cfg, "spend_ledger.csv")
 
 

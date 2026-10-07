@@ -262,3 +262,15 @@ def test_study5f_holdout_path(synth_env, monkeypatch):
     assert out["gate"] in ("PASS", "FAIL") and out["reference_in_sample_mean_em"] == 0.01
     out0, _ = study5.run_fade_holdout(cfg, reference=-0.01, save=False)
     assert out0["gate"] == "VOID"
+
+
+def test_study5f_robustness_on_synthetic_store(synth_env):
+    from src import study5
+    cfg, _ = synth_env
+    gex.build(cfg=cfg)
+    out = study5.fade_robustness(cfg)
+    names = [r["param"] for r in out["nudges"]]
+    assert names[0] == "BASE" and len(names) == 9
+    assert 0.0 <= out["positive_share"] <= 1.0 and out["rule_min_share"] == 0.8
+    assert set(out["splits"]) >= {"year", "em_v_tercile", "net_gex_sign", "weekday"}
+    assert isinstance(out["year_carry_warning"], list)

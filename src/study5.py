@@ -204,16 +204,20 @@ def _sample_start(cfg):
     return pd.Timestamp(cfg["sample"]["s5_starts"][s]).date()
 
 
-def run(cfg=None, save: bool = True, include_holdout: bool = False, holdout_only: bool = False) -> pd.DataFrame:
+def _load(cfg, include_holdout: bool = False):
+    cal = store.load_calendar(cfg, include_holdout)
+    bars = store.load_bars(cfg, include_holdout)
+    vix = store.load_daily(cfg, include_holdout).set_index("date")["vix_close"]
+    return cal, {d: x for d, x in bars.groupby("date")}, vix
+
+
+def run(cfg=None, save: bool = True, include_holdout: bool = False, holdout_only: bool = False,
+        data=None) -> pd.DataFrame:
     cfg = cfg or load_config()
     start = _sample_start(cfg)
     if holdout_only:
         start = calm.holdout_start(cfg)
-    cal = store.load_calendar(cfg, include_holdout)
-    bars = store.load_bars(cfg, include_holdout)
-    daily = store.load_daily(cfg, include_holdout).set_index("date")
-    vix = daily["vix_close"]
-    by_day = {d: x for d, x in bars.groupby("date")}
+    cal, by_day, vix = data if data is not None else _load(cfg, include_holdout)
     half = dict(zip(cal["date"], cal["half_day"])) if "half_day" in cal else {}
     gx = None
     p = store.derived_path(cfg, "gex_daily")
@@ -536,6 +540,70 @@ def run_fade_holdout(cfg=None, reference: float = np.nan, save: bool = True):
     return out, T
 
 
+# ---------------------------------------------------------------------------
+# Study 5f robustness and NQ replication (RUNLOG 2026-10-07, approved; in-sample only)
+# ---------------------------------------------------------------------------
+NUDGED = ("s5_decision_time", "s5_exit_time", "s5_stop_em", "entry_slippage", "cost_rt_usd")
+
+
+def fade_nudges(cfg) -> list:
+    return [(k, v) for k in NUDGED for v in (cfg["params"][k].get("nudges") or [])]
+
+
+def replication_gate(mean_em: float, timing_contrast: float) -> str:
+    return "PASS" if mean_em > 0 and timing_contrast > 0 else "FAIL"
+
+
+def year_carry_warning(f: pd.DataFrame) -> list:
+    """Years whose removal turns the mean non-positive (SPEC: one period carrying the whole result)."""
+    yr = pd.to_datetime(f["date"]).dt.year
+    return [str(y) for y in sorted(yr.unique()) if not (f.loc[yr != y, "pnl_em"].mean() > 0)]
+
+
+def _fade_point(T: pd.DataFrame) -> dict:
+    f = fade(variant_frame(T, FADE_MODE))
+    return {"n": int(len(f)), "mean_em": float(f["pnl_em"].mean()),
+            "timing_contrast": _contrast(f["d"].to_numpy(int), f["long"].to_numpy(float), f["short"].to_numpy(float))[2]}
+
+
+def fade_robustness(cfg=None) -> dict:
+    from src.config import with_params
+    cfg = cfg or load_config()
+    data = _load(cfg)
+    T0 = run(cfg, save=False, data=data)
+    rows = [{"param": "BASE", "value": None, **_fade_point(T0)}]
+    for k, v in fade_nudges(cfg):
+        rows.append({"param": k, "value": v, **_fade_point(run(with_params(cfg, **{k: v}), save=False, data=data))})
+    nud = rows[1:]
+    share = float(np.mean([r["mean_em"] > 0 for r in nud])) if nud else np.nan
+    rule = cfg["gates"]["robustness_min_positive_share"]
+    f = fade(variant_frame(T0, FADE_MODE)).merge(T0[["date", "em_v", "P_prev", "net_gex"]], on="date")
+    draws, seed, lvl = param(cfg, "bootstrap_draws"), param(cfg, "bootstrap_seed"), param(cfg, "ci_level")
+
+    def split(key):
+        return {str(k): {kk: stats.day_bootstrap_mean(g, "pnl_em", draws, seed, lvl)[kk] for kk in ("n", "mean", "lo", "hi")}
+                for k, g in f.groupby(key, observed=True)}
+    splits = {"year": split(pd.to_datetime(f["date"]).dt.year),
+              "em_v_tercile": split(pd.qcut((f["em_v"] / f["P_prev"]).rank(method="first"), 3, labels=["low", "mid", "high"])),
+              "net_gex_sign": split(np.where(f["net_gex"].isna(), "none", np.where(f["net_gex"] < 0, "negative", "non_negative"))),
+              "weekday": split(pd.to_datetime(f["date"]).dt.day_name())}
+    return {"nudges": rows, "positive_share": share, "rule_min_share": rule,
+            "nudge_verdict": "PASS" if share >= rule else "FAIL", "splits": splits,
+            "year_carry_warning": year_carry_warning(f)}
+
+
+def fade_replication(cfg=None) -> dict:
+    """NQ (or any market the active config points at): run the frozen rules in sample, report the fade."""
+    cfg = cfg or load_config()
+    T = run(cfg)
+    out = fade_report(cfg, T)
+    out["market"] = cfg["data"]["es_symbol"]
+    out["replication_gate"] = replication_gate(out["mean_em"], out["timing_contrast"]["diff"])
+    out["gate_rule"] = "fade mean > 0 and timing contrast > 0 (point estimates)"
+    out["skipped"] = T.attrs.get("skipped", {})
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--report-only", action="store_true")
@@ -543,10 +611,19 @@ def main(argv=None):
     ap.add_argument("--holdout-check", action="store_true", help="study 5f step 2: do the holdout input files exist?")
     ap.add_argument("--fade-holdout", type=float, metavar="IN_SAMPLE_MEAN_EM",
                     help="study 5f step 4: one holdout run (needs GAMMA_EDGE_RUN_HOLDOUT=1)")
+    ap.add_argument("--fade-robustness", action="store_true", help="study 5f nudges and splits (in sample)")
+    ap.add_argument("--fade-replication", action="store_true",
+                    help="study 5f on the active config's market (use with GAMMA_EDGE_CONFIG=config.nq.yaml)")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
     from src.analysis import to_json
+    if a.fade_robustness:
+        print(to_json(fade_robustness(cfg)))
+        return
+    if a.fade_replication:
+        print(to_json(fade_replication(cfg)))
+        return
     if a.fade_reference:
         print(to_json(fade_report(cfg, store.load_derived("close_momentum_trades", cfg))))
         return

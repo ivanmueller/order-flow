@@ -1,0 +1,13 @@
+# NQ replication overlay (RUNLOG 2026-10-07, study 5f robustness, approved). Same frozen rules on NQ.v.0.
+# Separate data root so NQ bars and the NQ calendar never touch the ES tables; one shared spend ledger.
+# Use per command:  $env:GAMMA_EDGE_CONFIG = "config.nq.yaml"   ...   Remove-Item Env:GAMMA_EDGE_CONFIG
+extends: config.yaml
+name: nq
+
+data:
+  root: "data_nq"
+  es_symbol: "NQ.v.0"
+  ledger: "data/spend_ledger.csv"
+
+market:
+  point_value: 20.0        # $ per NQ point (tick 0.25 unchanged)

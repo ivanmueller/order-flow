@@ -940,3 +940,37 @@ Using the holdout here also spends its freshness for any later ES close-window h
   for the holdout, as intended (descriptive only).
 - Per SPEC after a pass: robustness nudges and splits on the in-sample data, the NQ replication (bars to be
   priced), and paper trading before any spend. Decision is Matteo's. Variant count 18 of 20.
+
+## Study 5f robustness and NQ replication pre-registration (APPROVED by Matteo 2026-10-07, "Okay lets do 1 and 2"; frozen before any run)
+Per SPEC "Robustness checks" after the holdout pass. No new variant: the frozen S5f rule is re-run, not
+changed. In-sample data only (2023-06-02..2025-12-31); the holdout is not reopened.
+1. Nudges (in-sample, ES): each registered nudge one at a time, everything else frozen:
+   s5_decision_time 15:25 / 15:35, s5_exit_time 15:55 / 16:05, s5_stop_em 0.35 / 0.75, entry_slippage 2,
+   cost_rt_usd 5.97 (eight runs). Rule (SPEC; gates.robustness_min_positive_share 0.80): the S5f mean
+   pnl_em must stay positive in at least 80% of the nudges, i.e. at least 7 of 8. Reported per nudge: n,
+   mean, timing contrast.
+2. Splits (in-sample, ES, the base run): S5f mean, n and day-bootstrap 90% interval by calendar year, by
+   tercile of EM_V / price, by the sign of the D row's net_gex, and by weekday. Report only; a warning is
+   recorded if removing any single year turns the mean non-positive ("one period carrying the whole result").
+3. NQ replication (SPEC robustness 3): the same frozen rules on NQ.v.0 1-minute bars over the same in-sample
+   window, with the same VIX-based unit (EM_V on NQ's prior close; NQ's higher volatility makes the 0.5
+   EM_V stop relatively tighter, accepted as part of "frozen rules"), NQ point value $20, the same tick,
+   slippage and $3.98 round trip. Rule: S5f mean pnl_em > 0 and timing contrast > 0 on NQ (point
+   estimates); intervals and both permutations reported. Data: NQ bars 2023-04..2025-12 only (no holdout
+   months), pulled under a separate overlay (config.nq.yaml, data root data_nq) so ES tables and the ES
+   calendar are untouched; the spend ledger stays the single data/spend_ledger.csv. Priced with get_cost
+   first (estimate $3 to $4); Matteo approves the amount.
+Outcome language: passes on all three -> "robust in sample and on NQ"; the next step would be paper trading
+(SPEC "Partial": three months of logged live signals before any spend). Any failure is reported as such.
+
+## 2026-10-07 | Study 5f robustness and NQ replication built tests-first (nothing run on real data)
+- code: study5.fade_robustness() (BASE plus the eight registered nudges on one in-sample load; splits by
+  year, EM_V tercile, net_gex sign, weekday; single-year carry warning), study5.fade_replication() (frozen
+  rules on the active config's market, replication gate), CLI --fade-robustness and --fade-replication.
+  config.nq.yaml overlay (data root data_nq, NQ.v.0, point value $20, shared ledger data/spend_ledger.csv);
+  spend.ledger_path honours data.ledger so the $100 guard counts NQ spend; data_nq/ git-ignored.
+- tests: the registered nudge list, replication gate, carry warning (hand frames), overlay values, shared
+  ledger path, robustness on the synthetic store. pytest: all pass.
+- config diff: config.nq.yaml added (overlay only); config.yaml unchanged.
+- Next on Matteo's machine: `python -m src.study5 --fade-robustness`; then under the NQ overlay:
+  ingest_daily (free), price NQ bars 2023-04..2025-12 with --price-only, approve, then --fade-replication.
