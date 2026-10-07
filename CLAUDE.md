@@ -48,7 +48,9 @@ Update this block at the end of every session.
   positive; timing positive in all 8) but one extra tick of slippage or a 15:55 exit takes the edge to ~0.
   NQ replication run (ledger ~$84.60): +0.0243 EM_V (CI +0.004..+0.044), timing CI > 0, perm p 0.012, gate PASS;
   4 of 5 best days shared with ES, so not independent. Multiple testing now per study family (<= 4 gated variants
-  plus own out-of-sample). Awaiting Matteo: paper trading, optional RTY check, or price the pure order-flow family.
+  plus own out-of-sample). Order-flow family pricing: src/price_menu.py built (quotes only); awaiting Matteo's
+  menu run. Usage-based full-RTH ES trades ~$0.60/session (~$380 in sample) exceed the credit; options are the
+  Databento Standard plan ($199/month, last 12 months of trades) or Sierra Chart tick history. Then other-market fades.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
@@ -113,5 +115,6 @@ See README.md for the full runbook in order.
 - Study 5f robustness: `python -m src.study5 --fade-robustness`; NQ: set GAMMA_EDGE_CONFIG=config.nq.yaml,
   then `python -m src.ingest_daily`, `python -m src.ingest_futures bars --start 2023-04-01 --end 2025-12-31
   --price-only` (then --approve-usd), `python -m src.study5 --fade-replication`
+- Price menu (no pulls): `python -m src.price_menu --start YYYY-MM-DD --end YYYY-MM-DD [--symbols ES.v.0 ...]`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`

@@ -1023,3 +1023,18 @@ Outcome language: passes on all three -> "robust in sample and on NQ"; the next 
   considerations. Programme count unchanged at 18 of 20; this run satisfies the over-20 NQ rule for 5f.
 - Gate call is Matteo's. Options: paper trading per SPEC "Partial" (ES and/or NQ), an RTY check under the
   same frozen rules, or move on to pricing the pure order-flow family.
+
+## 2026-10-07 | Pricing tool for the pure order-flow family and other-market fades (built; nothing pulled)
+- Request (Matteo): price the pure order-flow study first, then test the fade on uncorrelated markets.
+- code: src/price_menu.py, quotes only via metadata.get_cost (free), never calls timeseries. Per continuous
+  symbol: trades 24h (exact, per month), trades RTH 09:30-16:00 ET (even weekday sample, extrapolated, errs
+  high over holidays), ohlcv-1m 24h (exact). Default symbols ES, NQ, CL, GC, ZN, 6E. Pricing reads no market
+  data, so quoting 2026 dates does not touch the holdout. tests/test_price_menu.py (fake client): pass; full
+  suite passes. config diff: none.
+- Prior from the ledger: Stage 3 ES trades cost ~$0.54 per ~340 RTH minutes, so full RTH is ~$0.60/session
+  and the 2023-06..2025-12 sample (~640 sessions) ~$380 usage-based, well past the ~$40 of credit left.
+- Alternatives found (2026-10-07, to verify): Databento Standard CME plan $199/month includes L1 schemas
+  (trades, TBBO, MBP-1) for the last 12 months and OHLCV for 16+ years across CME/CBOT/NYMEX/COMEX; Sierra
+  Chart historical service (packages from $26-56/month) carries CME tick data with aggressor bid/ask volume
+  from about 2011-2013, exchange fees separate.
+- Next on Matteo's machine: run the two price menus below, then choose the data route.
