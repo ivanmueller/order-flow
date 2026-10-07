@@ -37,7 +37,8 @@ Update this block at the end of every session.
   ThetaData Value month (2020+), or write up. New params proposed, not yet in config.yaml: s5_sample,
   s5_decision_time, s5_exit_time, s5_stop_em, s5_em_vix_factor, s5_perm_block, s5_outlier_n,
   s5_sanity_em; gates study5_min_sessions, study5_min_expectancy_em, study5_perm_p, study5_tail_drop.
-  Two independent reviews corrected the draft before freezing (RUNLOG). No code written for study 5.
+  Two independent reviews corrected the draft before freezing (RUNLOG). APPROVED with sample A; config
+  entries added; built tests-first in src/study5.py (116 tests pass). Real-data run pending on Matteo's machine.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
@@ -96,5 +97,6 @@ See README.md for the full runbook in order.
 - Gate reports: `python -m src.analysis stage1|stage2|stage3|variants|study2 [--carry ...]`
 - Study 3 band trades: `python -m src.study3 [--report-only]`
 - Study 4 straddles: `python -m src.study4 [--report-only]`
+- Study 5 close momentum: `python -m src.study5 [--report-only]`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`

@@ -15,6 +15,9 @@ sample:
   # in_sample(date) excludes every date >= holdout_start. PROPOSED -- confirm before Stage 1.
   holdout_start: "2026-01-01"
   end: "2026-09-30"        # last date ingested (holdout period runs holdout_start .. end)
+  # Study 5 sample starts (RUNLOG 2026-10-07): A = data on disk; B needs ES bars 2019-01..2023-03 and a
+  # frozen stage-3 day set first. Choice is params.s5_sample. A's start is also B's era boundary.
+  s5_starts: {A: "2023-06-02", B: "2019-01-03"}
 
 # ---------------------------------------------------------------------------
 # Market conventions (structural, not tuned)
@@ -40,6 +43,8 @@ market:
   tod_breaks: ["10:30", "14:00"]   # Stage 2 time-of-day buckets: open / midday / close
   minutes_per_year: 525600
   option_multiplier: 100.0 # $ per SPX index point per option contract (study 4)
+  moc_imbalance_time: "15:50"   # study 5 descriptive split: NYSE/Nasdaq closing-imbalance publication
+  first_half_hour_end: "10:00"  # study 5 descriptive predictor: Gao et al.'s first half-hour ends here
 
 # ---------------------------------------------------------------------------
 # Data sources
@@ -136,6 +141,15 @@ params:
   opt_cost_per_leg_usd: {value: 1.50, nudges: [3.00]}      # all-in per option leg (commission, exchange, regulatory, settlement); confirm with broker
   s4_wing_em:         {value: 1.0,   nudges: [0.75, 1.5]}  # EM units: iron-fly wing distance from the ATM strike
   s4_regime_lag:      {value: 1}                            # sessions: regime = gex_pct of D-1 (point in time at the 17:00 D-1 entry); fixed
+  # Study 5 (RUNLOG 2026-10-07, approved with sample A): last-30-minute ES momentum into the close.
+  s5_sample:          {value: "A"}                          # sample.s5_starts key; chosen at approval, no nudge
+  s5_decision_time:   {value: "15:30", nudges: ["15:25", "15:35"]}  # decision on the bar closing here; entry at this bar's open
+  s5_exit_time:       {value: "16:00", nudges: ["15:55", "16:05"]}  # time exit at this bar's open (departs from flat_time on purpose)
+  s5_stop_em:         {value: 0.50,  nudges: [0.35, 0.75]}  # S5b stop distance from entry, EM_V units
+  s5_em_vix_factor:   {value: 0.75}                         # EM_V = factor x VIX(D-1)/100/sqrt(252) x P_prev; unit convention, no nudge
+  s5_perm_block:      {value: 21}                           # sessions per block in gate 5's block shuffle; decides a gate, no nudge
+  s5_outlier_n:       {value: 5}                            # report: slope repeated without this many largest |r_ROD|
+  s5_sanity_em:       {value: 3.0}                          # report: sessions with |r_L30| above this (EM_V) are listed
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -152,6 +166,10 @@ gates:
   stage3_min_expectancy_r: 0.10
   holdout_min_fraction: 0.5
   study4_min_expectancy_em: 0.03   # study 4: after-cost expectancy per session in expected-move units (about one SPX point)
+  study5_min_sessions: 400         # study 5 gates (RUNLOG 2026-10-07)
+  study5_min_expectancy_em: 0.02   # after costs, EM_V units
+  study5_perm_p: 0.05              # session and block permutation p must both be below this
+  study5_tail_drop: 5              # mean without this many best sessions must stay > 0
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 

@@ -602,7 +602,7 @@ loaded; the permutation test guards against a time-trend in gex_pct masquerading
   survives; the case for study 5 is narrow: in sample A it has about even odds of detecting the published
   effect before costs and about one in five after.
 
-## Study 5 pre-registration: last-30-minute momentum into the close (DRAFT, awaiting Matteo's approval; frozen before any run)
+## Study 5 pre-registration: last-30-minute momentum into the close (APPROVED by Matteo 2026-10-07 with sample A, "We'll do sample A to start"; frozen before any run)
 Revised from REVIEW.md section 5, which conditioned both legs on the gamma regime (with the move in low
 gamma, against it in high gamma). NEXT.md closes the regime as a trade and forbids new variants of it, so
 here the hypothesis is unconditional and gamma appears only as a descriptive statistic that cannot produce
@@ -793,3 +793,30 @@ stop a tick; the sealed-holdout refusal; a synthetic
 end-to-end run with injected momentum (existence passes) and without (minus the friction, existence
 fails). Then `src/study5.py`, one run (`python -m src.study5`), the report against the gates, and stop. The
 gate call is Matteo's.
+
+## 2026-10-07 | Study 5 approved with sample A; config entries added (not a run)
+- Approval: Matteo, "We'll do sample A to start". The pre-registration above is frozen as written; sample A
+  (2023-06-02 to 2025-12-31, data on disk, zero spend). Sample B is not approved and the module refuses it
+  (it would first need the stage-3 day-set freeze).
+- config diff (config.yaml), as registered: params s5_sample "A", s5_decision_time "15:30" [15:25, 15:35],
+  s5_exit_time "16:00" [15:55, 16:05], s5_stop_em 0.50 [0.35, 0.75], s5_em_vix_factor 0.75,
+  s5_perm_block 21, s5_outlier_n 5, s5_sanity_em 3.0; gates study5_min_sessions 400,
+  study5_min_expectancy_em 0.02, study5_perm_p 0.05, study5_tail_drop 5; sample.s5_starts {A 2023-06-02,
+  B 2019-01-03}. Two structural market times for registered descriptive statistics only (no gate uses
+  them): market.moc_imbalance_time "15:50" (statistic 6), market.first_half_hour_end "10:00" (statistic 4).
+- Variant count: 17 of 20 once run.
+
+## 2026-10-07 | Study 5 built tests-first; real-data run PENDING (this session's container has no data/)
+- code: src/study5.py; tests/test_study5.py (25 tests, hand-verified on one constructed session: EM_V,
+  tick-grid stops, touched, gapped, entry-bar and last-bar stops, both directions, skips, eligibility,
+  descriptive fields, timing contrast, both permutations, era check, Newey-West slope, tie-break, a
+  driftless walk returning minus the friction, injected momentum passing existence and none failing it,
+  sample B refused) and test_study5_end_to_end in tests/test_pipeline.py (synthetic store, roll day skipped,
+  no holdout date, holdout request refused). Mutation check: four planted bugs (direction from the entry
+  bar, stop filled at the stop, gapped stop at the better price, time exit a tick favourable) each failed
+  the tests. pytest: 116 passed.
+- config diff: none beyond the approval entry above.
+- Run on the data machine: `python -m src.study5` (reads the calendar, ES bars, FRED VIX and gex_daily for
+  descriptive fields; writes data/derived/close_momentum_trades.parquet; prints the report with
+  verdict_vs_rules per variant, the existence and economics halves, and decision_vs_rules). Zero spend.
+  Then log the headline here.

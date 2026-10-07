@@ -216,3 +216,32 @@ def test_study4_end_to_end(synth_env):
         assert v["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") and "permutation" in v and "tail" in v
     assert "short_straddle_ln_vix" in out["stage1_restated"]
     analysis.to_json(out)
+
+
+def test_study5_end_to_end(synth_env):
+    """Synthetic bars (tests/synth.py) run 18:00-17:00, so every session has its 15:29, 15:30 and 16:00
+    bars; the roll day is skipped; no holdout date appears; the direction is the sign of r_ROD; the
+    holdout cannot be requested without the flag."""
+    from src import study5
+    cfg, _ = synth_env
+    gex.build(cfg=cfg)
+    T = study5.run(cfg)
+    cal = store.load_calendar(cfg)
+    roll_days = set(cal.loc[cal["roll"], "date"])
+    assert not T.empty and T["date"].is_unique
+    assert (T["date"] < calm.holdout_start(cfg)).all() and not (set(T["date"]) & roll_days)
+    assert T.attrs["skipped"].get("roll_day", 0) == len(roll_days & set(cal["date"]))
+    assert (T["d"] == np.sign(T["r_rod_em"])).all()
+    for mode in study5.MODES:
+        assert np.isfinite(T[f"pnl_em_{mode}"]).all()
+    # the stop variant can never lose more than the stop distance plus one tick, slippage and costs
+    worst = -(T["E_long"] - T["S_long"] + 0.25 + 3.98 / 50) / T["em_v"]
+    assert (T["pnl_em_momentum_stop_long"] >= worst - 1e-9).all()
+    assert T["em_option"].notna().any()                   # D rows whose nearest expiry is D's SPXW
+    out = study5.report(cfg, T)
+    assert set(out["variants"]) == set(study5.VARIANTS) and out["sample"] == "A"
+    for v in out["variants"].values():
+        assert v["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") and v["existence"] in ("PASS", "FAIL")
+    analysis.to_json(out)
+    with pytest.raises(calm.HoldoutSealed):
+        study5.run(cfg, save=False, include_holdout=True)
