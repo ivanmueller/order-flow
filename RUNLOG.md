@@ -363,3 +363,50 @@ print; a close that reclaims L means no trade (skip "reclaimed").
   at-level entry does not change that. The retest-fail continuation in low gamma is also no better
   than random. Study 2 verdict vs rules: KILL on every variant. Variant count 9 of 20.
 - Per SPEC no-go: stop, write up (WRITEUP.md), keep the pipeline. Decision is Matteo's.
+
+## Decision (2026-10-07, Matteo): Study 2 KILL accepted. Intraday level thesis closed (no-go, no holdout).
+Rationale recorded: no variant beat a driftless walk by the pre-registered 0.15R; selection on absorbed
+flow is anti-predictive at 30-60 minutes; execution friction is 4x the pre-cost signal. Not worth
+adjusting: the nudges already span the execution space and every cell is negative.
+
+## Study 3 pre-registration: session-level gamma regime (DRAFT 2026-10-07, awaiting Matteo's approval; no run before approval)
+Motivation (what survived studies 1-2): high dealer gamma predicts a smaller session range beyond VIX
+(Stage 1 RR beta -0.216, p=0.029; -0.399, p=0.001 with ln EM/S0), and every level type holds more on
+high-gamma days (Stage 2 gex_pct +0.29, p=0.002). The effect is a property of the session, so the
+trade should be a session-scale range bet in ES, at a risk size where 2-3 ticks of friction are noise.
+Data: already on disk, no spend. gex_daily (EM, gex_pct, flip, S0) for 642 sessions, ES 1-minute bars
+for the whole period, VIX. No tick data needed: risk is 20-40 ticks, so 1-minute bars with SPEC rule-5
+fills (stop fills one tick beyond S when a bar's low/high touches it; target fills only when a bar
+prints one tick beyond T; a bar that touches both is a loss) are conservative and sufficient.
+Sample: the ~510 sessions with a GEX percentile (2023-12-01..2025-12-31), in-sample only. Holdout sealed.
+
+Hypothesis H: on high-gamma sessions, price that reaches the expected-move band returns toward the
+open more often than on low-gamma sessions, by enough to pay after costs.
+Setup (one trade per session, the first qualifying band touch, either side):
+  band:  B_up = O + a*EM, B_dn = O - a*EM, O = the 09:30 ES open (first RTH bar open), EM from gex_daily
+         (D-1 close straddle, point-in-time). a = band_a (0.50 EM).
+  touch: first RTH bar from band_start (10:00) to band_end (15:00) whose high >= B_up (or low <= B_dn).
+  R1 range fade (high gamma, gex_pct >= 0.5): enter against the move at the band price plus one tick of
+         slippage; stop s*EM beyond the band (band_stop_s 0.25 EM); target the open O (reward a*EM,
+         so 2:1); time exit flat_time (15:55) at the next bar's open minus one tick.
+  R2 band breakout (low gamma, gex_pct < 0.5): enter with the move at the band plus one tick; stop
+         s*EM back inside; target a further a*EM beyond the band; same time exit.
+  R3 = R1 restricted to sessions with the 09:30 open above the flip (the Stage 2 interaction's regime).
+  Costs cost_rt_usd; R_k = s*EM (typically 7-10 pts = 28-40 ticks, friction ~0.07R).
+Placebo for a regime (not a level) hypothesis: a permutation test. gex_pct is shuffled across sessions
+1000 times (seed bootstrap_seed); the observed high-minus-low-gamma expectancy gap must exceed the 95th
+percentile of the shuffled gaps. Also reported: the same trade on ALL sessions (no regime filter) and on
+the complementary regime, as contrasts.
+Gates (SPEC Stage 3 rules reused, per variant): n >= 200 trades, after-cost expectancy >= 0.10R, day-
+bootstrap 90% CI lower > 0, AND the regime contrast (variant minus its complement) CI lower > 0, AND the
+permutation p < 0.05. Pass -> robustness nudges and year/tercile/time splits, then the holdout once.
+Kill -> stop; the regime effect is documented in WRITEUP.md but not tradable at this horizon either.
+Variant count: R1, R2, R3 -> 12 of 20.
+New config params proposed (need approval): band_a 0.50 EM [nudges 0.40, 0.60], band_stop_s 0.25 EM
+[0.20, 0.35], band_start "10:00", band_end "15:00", regime_threshold 0.5 (gex_pct) [no nudge: it is
+the pre-registered split, nudging it would be fitting].
+Tests first: band detection, both entries with hand-verified fills on synthetic bars, the permutation
+test on synthetic frames.
+Rule-6 checks pre-committed: EM and gex_pct are D-1 quantities (point-in-time); no roll day inside a
+session; the open O is the first RTH bar, not a later bar; one trade per session; holdout dates never
+loaded; the permutation test guards against a time-trend in gex_pct masquerading as regime.
