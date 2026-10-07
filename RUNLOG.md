@@ -369,7 +369,7 @@ Rationale recorded: no variant beat a driftless walk by the pre-registered 0.15R
 flow is anti-predictive at 30-60 minutes; execution friction is 4x the pre-cost signal. Not worth
 adjusting: the nudges already span the execution space and every cell is negative.
 
-## Study 3 pre-registration: session-level gamma regime (DRAFT 2026-10-07, awaiting Matteo's approval; no run before approval)
+## Study 3 pre-registration: session-level gamma regime (APPROVED by Matteo 2026-10-07 with the params; frozen before any run)
 Motivation (what survived studies 1-2): high dealer gamma predicts a smaller session range beyond VIX
 (Stage 1 RR beta -0.216, p=0.029; -0.399, p=0.001 with ln EM/S0), and every level type holds more on
 high-gamma days (Stage 2 gex_pct +0.29, p=0.002). The effect is a property of the session, so the

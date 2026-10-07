@@ -11,9 +11,11 @@ Update this block at the end of every session.
   beats placebo, gamma x regime interaction p=0.044; Stage 3 KILL, robust to all nudges and splits
   (confirmed -0.33R; pre-cost naive-fade edge ~+0.10R = 0.6 ticks vs ~2.3 ticks of friction). No
   holdout run. Databento spend ~$81 of $125.
-- Study 2 run 2026-10-07 (RUNLOG): S2 -0.48R, S2r -0.31R, S2c -0.45R, S2h -0.54R; no variant beats a
-  driftless walk by 0.15R. KILL on every variant; 9 of 20 variants used. Per SPEC no-go: WRITEUP.md
-  holds what was learned. Awaiting Matteo's final call; no holdout run.
+- Study 2 run 2026-10-07: KILL on every variant, accepted by Matteo; intraday level thesis closed
+  (WRITEUP.md, RESULTS.md). 9 of 20 variants used.
+- Study 3 (RUNLOG 2026-10-07, approved and frozen): session-level gamma regime, expected-move band
+  trades on 1-minute bars (src/study3.py, tests/test_study3.py). R1 fade high gamma, R2 breakout low
+  gamma, R3 R1 above flip; permutation test as placebo. First run pending: `python -m src.study3`.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
@@ -70,5 +72,6 @@ See README.md for the full runbook in order.
 - Levels and touches: `python -m src.levels`, `python -m src.touches`
 - Stage 3 trades: `python -m src.ingest_futures trades [--price-only | --approve-usd X]`, then `python -m src.stage3`
 - Gate reports: `python -m src.analysis stage1|stage2|stage3|variants|study2 [--carry ...]`
+- Study 3 band trades: `python -m src.study3 [--report-only]`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`

@@ -169,3 +169,20 @@ def test_levels_skip_stale_nearest_expiry(synth_env):
     assert lv.stale_nearest_expiry(g.set_index("date").loc[d]) and not lv.stale_nearest_expiry(g.set_index("date").loc[g["date"].iloc[8]])
     out = levels.build(cfg=cfg, gex=g)
     assert out["date"].nunique() == n_all - 1 and d not in set(out["date"])
+
+
+def test_study3_end_to_end(synth_env):
+    from src import study3
+    cfg, _ = synth_env
+    gex.build(cfg=cfg)
+    T = study3.run(cfg)
+    assert not T.empty and set(T["mode"]) == {"fade", "breakout"}
+    assert (T.groupby("date").size() == 2).all()                       # one touch -> two simulated trades per session
+    assert (T["R_k"] > 0).all() and np.isfinite(T["pnl_r"]).all()
+    fade = T[T["mode"] == "fade"]
+    assert ((fade["d"] * (fade["X"] - fade["T"])) <= 1e-9).all()       # never better than the target
+    out = study3.report(cfg, T)
+    assert set(out["variants"]) == set(study3.VARIANTS)
+    for v in out["variants"].values():
+        assert v["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") and "permutation" in v
+    analysis.to_json(out)

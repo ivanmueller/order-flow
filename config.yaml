@@ -35,6 +35,8 @@ market:
   touch_start: "09:31"
   touch_end: "15:50"
   flat_time: "15:55"       # hard time exit for simulated trades
+  band_start: "10:00"      # study 3: first band touch counted from here ...
+  band_end: "15:00"        # ... to here
   tod_breaks: ["10:30", "14:00"]   # Stage 2 time-of-day buckets: open / midday / close
   minutes_per_year: 525600
 
@@ -124,6 +126,11 @@ params:
   retest_window:      {value: 15,    nudges: [10, 20]}     # minutes after a break to wait for the E2 retest
   s2h_target_mult:    {value: 2.5}                         # S2h longer-horizon variant
   s2h_time_exit:      {value: 60}                          # minutes
+  # Study 3 (RUNLOG 2026-10-07, approved): session-level gamma regime, expected-move band trades.
+  band_a:             {value: 0.50,  nudges: [0.40, 0.60]}  # EM units: band distance from the 09:30 open
+  band_stop_s:        {value: 0.25,  nudges: [0.20, 0.35]}  # EM units: stop beyond the band (fade) / back inside (breakout)
+  regime_threshold:   {value: 0.5}                          # gex_pct split; pre-registered, no nudge
+  perm_draws:         {value: 1000}                         # permutation test draws
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
