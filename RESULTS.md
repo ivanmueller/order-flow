@@ -194,6 +194,26 @@ only. Permutation placebo, complement contrast, all-sessions baseline, terciles,
 regression restated on straddle P&L. Gates: n >= 200, mean >= 0.03 EM, CI lower > 0, contrast CI
 lower > 0, permutation p < 0.05; tail block reported. `python -m src.study4`.
 
-### S4a short straddle in high gamma / S4b long straddle in low gamma / S4c iron fly in high gamma
-- **Result.** Not yet run on real data (built and tested 2026-10-07 in a container without data/).
-- **Verdict.** Pending.
+### S4a short straddle in high gamma (gex_pct of D-1 >= 0.5)
+- **Result.** n=266, win 62.8%, +0.059 EM per session (+2.4 SPX pts, +$238 per straddle), 90% CI
+  -0.021..+0.135; complement -0.071; regime contrast +0.130 (CI +0.012..+0.247); permutation p=0.035;
+  PF 1.22; worst day 2025-10-10 -5.3 EM. Mean without the five best days +0.041.
+- **Verdict.** KILL (the CI lower bound is below zero; the other four gates pass).
+
+### S4b long straddle in low gamma
+- **Result.** n=236, +0.033 EM, CI -0.050..+0.121; complement -0.099; contrast +0.132 (CI +0.013..+0.248);
+  permutation p=0.036; without the five best days -0.031.
+- **Verdict.** KILL (CI).
+
+### S4c iron fly in high gamma, wings one EM out
+- **Result.** n=265, -0.010 EM, CI -0.046..+0.025; contrast +0.046 (CI -0.006..+0.098); permutation p=0.063.
+  The wings cost 0.33 EM of the 0.98 EM credit.
+- **Verdict.** KILL; by the pre-registered tie-break (S4c decides when it disagrees with S4a) the study is a KILL.
+
+### Contrasts and reading
+- Short straddle on all sessions -0.002 EM: the 0DTE variance premium is about zero here. Terciles
+  low/mid/high for the short straddle -0.096 / +0.078 / +0.011: not monotonic; low gamma is bad for the
+  short side rather than high gamma being good. Stage 1 restated on straddle P&L: lagged-regime beta
+  +0.19, p=0.17 (same-day, non-tradeable: +0.35, p=0.001). Friction is 0.02 EM against a 0.13 EM contrast;
+  the per-session sd of 0.77 EM is what fails the gate (about 460 high-gamma sessions would be needed).
+  Pooled S4a+S4b switching (not pre-registered): +0.047 EM, 90% lower bound about -0.01. 15 of 20 variants.

@@ -511,3 +511,37 @@ loaded; the permutation test guards against a time-trend in gex_pct masquerading
 - result: no real-data numbers yet. Run on the data machine: `python -m src.study4` (reads gex_daily,
   the D-1 EOD files and data/raw/daily; writes data/derived/straddle_trades.parquet; prints the report
   with verdict_vs_rules per variant). Zero Databento spend. Then log the headline here.
+
+## 2026-10-07 | Study 4 first run on real data (Matteo's machine, commit f89b0e1, config as approved): KILL on all three variants
+- run: `python -m src.study4`, 502 sessions (2023-12 .. 2025-12). Skipped: half_day 8, no_gex_row 47
+  (the ~40 calendar sessions before 2023-06-02 from the two-month bar warm-up plus the 7 known), no_prev_regime
+  130 (the 126-session percentile warm-up), nearest_not_spxw_0dte 2. em_mismatch_sessions 0 (rule-6 check passes).
+- S4a short straddle, gex_pct(D-1) >= 0.5: n=266, win 62.8%, +0.059 EM (+2.4 pts, +$238 per straddle),
+  90% CI -0.021..+0.135 (FAILS ci_lower>0); complement -0.071 EM; regime contrast +0.130 (CI +0.012..+0.247);
+  permutation p=0.035; PF 1.22; max DD 7.4 EM; worst day 2025-10-10 -5.3 EM (-154 pts); mean ex-best-5
+  +0.041, ex-worst-5 +0.119. 4 of 5 gates pass. Verdict vs rules: KILL.
+- S4b long straddle, gex_pct(D-1) < 0.5: n=236, win 47.0%, +0.033 EM (+1.9 pts), CI -0.050..+0.121 (FAILS);
+  complement -0.099; contrast +0.132 (CI +0.013..+0.248); permutation p=0.036; mean ex-best-5 -0.031 (the long
+  side leans on its best days). KILL.
+- S4c iron fly, high gamma, 1 EM wings: n=265, -0.010 EM, CI -0.046..+0.025; contrast +0.046 (CI -0.006..+0.098);
+  permutation p=0.063. Wings cost 0.33 EM of the 0.98 EM credit and double the spread. KILL on 4 of 5 gates.
+  Pre-registered tie-break: S4c carries the decision when S4a and S4c disagree -> KILL.
+- contrasts: short straddle on all sessions -0.002 EM (the 0DTE variance premium is about zero in this sample,
+  as REVIEW.md expected); terciles low/mid/high: short -0.096 / +0.078 / +0.011, long +0.057 / -0.116 / -0.052,
+  fly -0.058 / -0.011 / -0.027. NOT monotonic: the effect is "low gamma is bad for the short straddle", not
+  "high gamma is good"; the top tercile is about zero.
+- Stage 1 restated on straddle P&L: beta on the lagged percentile +0.19, p=0.17 (ln VIX), +0.18, p=0.18 (ln EM/S0):
+  not significant. Same-day percentile (OI published after entry, NOT tradeable): +0.35, p=0.001; S4a/S4b under it
+  +0.060 / +0.034 with contrasts CI > 0 and permutation p 0.03 / 0.027: the lag costs little, so the point-in-time
+  version is a fair test of the tradeable thing.
+- reading: friction is not the problem (half-spread 0.019 EM + fees 0.001 EM vs a 0.13 EM regime contrast);
+  variance is. Per-session sd ~0.77 EM, SE ~0.047 on 266 sessions, so the +0.059 mean is 1.2 SE from zero. At this
+  mean a CI lower bound above zero needs ~460 high-gamma sessions (about 3.5 more years). Pooling S4a and S4b into
+  one switching strategy (not pre-registered, reported for information only) gives +0.047 EM on 502 sessions,
+  SE ~0.035, 90% lower bound about -0.01: still a fail. The defined-risk version has no edge at all.
+- rule-6 notes: point in time by construction (lagged regime, D-1 quotes, official settlement); holdout untouched;
+  the permutation test treats sessions as exchangeable although the percentile is persistent, so its p is
+  anti-conservative (a block permutation would be stricter), which only strengthens the kill.
+- Variant count: 15 of 20. Decision is Matteo's. No holdout run.
+- PowerShell note: the "NativeCommandError" in the console is PowerShell treating the module's stderr log line as
+  an error under `2>&1`; the run completed normally.
