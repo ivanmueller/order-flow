@@ -39,6 +39,7 @@ market:
   band_end: "15:00"        # ... to here
   tod_breaks: ["10:30", "14:00"]   # Stage 2 time-of-day buckets: open / midday / close
   minutes_per_year: 525600
+  option_multiplier: 100.0 # $ per SPX index point per option contract (study 4)
 
 # ---------------------------------------------------------------------------
 # Data sources
@@ -131,6 +132,10 @@ params:
   band_stop_s:        {value: 0.25,  nudges: [0.20, 0.35]}  # EM units: stop beyond the band (fade) / back inside (breakout)
   regime_threshold:   {value: 0.5}                          # gex_pct split; pre-registered, no nudge
   perm_draws:         {value: 1000}                         # permutation test draws
+  # Study 4 (RUNLOG 2026-10-07, approved): regime-conditioned 0DTE straddle at the D-1 close.
+  opt_cost_per_leg_usd: {value: 1.50, nudges: [3.00]}      # all-in per option leg (commission, exchange, regulatory, settlement); confirm with broker
+  s4_wing_em:         {value: 1.0,   nudges: [0.75, 1.5]}  # EM units: iron-fly wing distance from the ATM strike
+  s4_regime_lag:      {value: 1}                            # sessions: regime = gex_pct of D-1 (point in time at the 17:00 D-1 entry); fixed
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -146,6 +151,7 @@ gates:
   stage3_min_trades: 200
   stage3_min_expectancy_r: 0.10
   holdout_min_fraction: 0.5
+  study4_min_expectancy_em: 0.03   # study 4: after-cost expectancy per session in expected-move units (about one SPX point)
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 

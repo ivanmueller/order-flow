@@ -467,3 +467,47 @@ loaded; the permutation test guards against a time-trend in gex_pct masquerading
   s4_wing_em 1.0 [0.75, 1.5], s4_min_expectancy_em 0.03 (gate), s4_regime_lag 1 (fixed). Would bring
   the count to 15 of 20. Secondary: Study 5, last-30-minute hedging-flow trade (Baltussen et al.),
   two variants, 17 of 20. Not recommended: any further level/absorption/band variant, MBP-10 spend.
+
+## Study 4 pre-registration: regime-conditioned 0DTE straddle at the D-1 close (APPROVED by Matteo 2026-10-07, "lets run a test on study 4"; frozen as drafted in REVIEW.md section 5 before any run)
+- config diff (config.yaml): market.option_multiplier 100.0 (structural); params.opt_cost_per_leg_usd 1.50
+  [nudge 3.00] (all-in per leg: commission, exchange, regulatory, settlement; placeholder until confirmed
+  with the broker), params.s4_wing_em 1.0 [0.75, 1.5], params.s4_regime_lag 1 (fixed: point in time);
+  gates.study4_min_expectancy_em 0.03. regime_threshold 0.5 reused, no nudge.
+- hypothesis H4: conditional on the PRIOR session's gamma percentile, the D-expiring SPXW ATM straddle
+  sold at the D-1 17:00 close and held to the SPX settlement pays after costs on high-gamma sessions
+  (S4a), the long straddle pays on low-gamma sessions (S4b), and the defined-risk iron fly with wings
+  one EM out pays on high-gamma sessions (S4c); each with the regime contrast positive and the
+  permutation placebo beaten.
+- build: K = strike nearest F with both legs valid (the engine's atm_straddle rule; the chain's
+  straddle mid must equal gex_daily.em, mismatches counted); short sells at bid_C + bid_P, long buys at
+  ask_C + ask_P, wings bought at the ask at the valid strikes nearest K +/- s4_wing_em EM (skip the fly
+  when the nearest strike is more than 25% off the target width); settlement |S_T - K| at the FRED SPX
+  close; fees per leg; P&L in EM units (pnl_pts / em), also points and dollars. Regime = gex_pct of
+  session D-1 (its inputs were all published before the 17:00 D-1 entry); the D row's percentile uses
+  OI published the morning of D and is reported as a non-tradeable diagnostic only. Eligible sessions:
+  equity sessions, not half days, GEX row present, nearest expiry = the SPXW expiring on D, lagged
+  percentile present, settlement present, a both-valid ATM strike. All three structures on every
+  eligible session; the regime filter is applied in the report.
+- placebo and contrasts: permutation of the lagged percentile across sessions (perm_draws 1000, seed
+  bootstrap_seed); the complement regime; every structure on all sessions (variance premium baseline)
+  and by percentile tercile; the Stage 1 regression restated with pnl_em as the outcome (ln VIX and
+  ln EM/S0 controls, day-of-week dummies, Newey-West 5 lags).
+- gates per variant: n >= 200; mean pnl_em >= 0.03; day-bootstrap 90% CI lower > 0; regime contrast
+  CI lower > 0; permutation p < 0.05. Tail block reported, not gated: five worst and best days, their
+  share of the total, mean without the best five. S4c carries the decision if S4a and S4c disagree.
+- variants: S4a, S4b, S4c -> 15 of 20 once run.
+- rule-6 checks pre-committed: every entry input stamped <= 17:00 D-1; settlement is the official close;
+  holdout sessions never loaded (calendar is sealed; the holdout can serve this new hypothesis later);
+  half days excluded; no session double counted; em_mismatch count must be 0.
+
+## 2026-10-07 | Study 4 built tests-first; real-data run PENDING (this session's container has no data/)
+- commit: see git log (branch claude/affectionate-gauss-7nuqm8). Tests: tests/test_study4.py (hand-
+  verified ATM selection, short/long straddle and iron-fly payoffs incl. wing caps and tolerance,
+  regime lag, eligibility rules, generalised permutation test, report on synthetic frames) and a
+  synthetic end-to-end run in tests/test_pipeline.py (holdout excluded, em_mismatch 0, fly loss bounded
+  by max_loss, regime equals the prior session's percentile). src/study3.permutation_test gained
+  value/pct arguments (defaults unchanged).
+- config diff: the Study 4 entries above. No other change.
+- result: no real-data numbers yet. Run on the data machine: `python -m src.study4` (reads gex_daily,
+  the D-1 EOD files and data/raw/daily; writes data/derived/straddle_trades.parquet; prints the report
+  with verdict_vs_rules per variant). Zero Databento spend. Then log the headline here.

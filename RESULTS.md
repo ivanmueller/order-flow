@@ -180,3 +180,20 @@ contrast; a 1,000-draw permutation of the percentile across sessions is the plac
 - **Verdict.** KILL on all three. 12 of 20 variants used; no holdout.
 
 Study 3 decision: pending Matteo's call.
+
+## Study 4, regime-conditioned 0DTE straddle at the D-1 close (approved 2026-10-07; build complete, run pending)
+
+### How it is built
+One position per session, entered at the D-1 17:00 ET EOD quotes (the same report the engine's EM
+comes from) and held to the SPXW PM settlement (the SPX close on D, from FRED). K = the strike nearest
+the nearest-expiry forward with both legs valid, so the straddle mid equals gex_daily.em. Short
+straddle sells at the bids; long straddle buys at the asks; iron fly adds long wings bought at the ask
+at the valid strikes nearest K +/- one EM. Fees per leg (opt_cost_per_leg_usd). P&L in EM units.
+Regime = the PRIOR session's gex_pct (knowable at entry); the same-day percentile is a diagnostic
+only. Permutation placebo, complement contrast, all-sessions baseline, terciles, and the Stage 1
+regression restated on straddle P&L. Gates: n >= 200, mean >= 0.03 EM, CI lower > 0, contrast CI
+lower > 0, permutation p < 0.05; tail block reported. `python -m src.study4`.
+
+### S4a short straddle in high gamma / S4b long straddle in low gamma / S4c iron fly in high gamma
+- **Result.** Not yet run on real data (built and tested 2026-10-07 in a container without data/).
+- **Verdict.** Pending.
