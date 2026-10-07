@@ -42,8 +42,10 @@ Update this block at the end of every session.
   S5a -0.037 EM_V (CI -0.054..-0.020), S5b -0.031; timing contrast negative with CI below zero: the close
   REVERSES the day (slope t -2.3, strongest when net_gex >= 0). Momentum excluded. 17 of 20 variants.
   Mirror (fade) nets ~+0.009 EM_V, CI includes 0. KILL accepted by Matteo. Study 5f (fade with the S5b stop,
-  holdout only, 18 of 20) APPROVED and built; next: --fade-reference and --holdout-check on Matteo's
-  machine, then the one holdout run only on "run the holdout". Then: pure order-flow study (to be priced).
+  holdout only, 18 of 20) APPROVED and run: in-sample reference +0.0080 EM_V; holdout (2026-01..09, 184 sessions)
+  +0.0145 EM_V (CI -0.006..+0.036), timing contrast CI > 0, gate PASS. Reversal replicated; after-cost
+  edge small and unresolved (~0.4-0.5 pts/trade pooled). Holdout spent for this fade. Next per SPEC:
+  nudges/splits, NQ replication (to price), paper trading; then the pure order-flow study (to be priced).
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.

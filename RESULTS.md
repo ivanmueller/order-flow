@@ -240,3 +240,13 @@ CI, tail). `python -m src.study5`.
   sample; the mirror fade nets about +0.009 EM_V with an interval including zero and was not registered.
 
 Study 5 decision: pending Matteo's call.
+
+## Study 5f, fade the rest-of-day move into the close (holdout only; 18 of 20 variants)
+- **Build.** Study 5's S5b trade in the opposite direction; reference from the in-sample table, then one run
+  on the sealed holdout.
+- **Result.** In sample +0.0080 EM_V (CI -0.009..+0.025, timing contrast CI > 0, perm p 0.016 / 0.039, but
+  about zero without the best five days). Holdout 2026-01-02..09-30, 184 sessions: +0.0145 EM_V (CI
+  -0.006..+0.036), timing contrast +0.023 (CI > 0), perm p 0.037 / block 0.077.
+- **Verdict.** Holdout gate PASS (positive and at least half the in-sample mean). The reversal replicates;
+  the after-cost edge (about 0.4-0.5 points a trade) is not statistically resolved. Next by SPEC: nudges,
+  splits, NQ replication, paper trading. Decision pending Matteo.

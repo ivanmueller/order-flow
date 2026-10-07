@@ -921,3 +921,22 @@ Using the holdout here also spends its freshness for any later ES close-window h
 - Step 2 (`--holdout-check`): bar months 2026-01..2026-09 all present, daily file ends 2026-10-02, ok.
 - Next: step 4 only on Matteo's "run the holdout":
   GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study5 --fade-holdout 0.007964284240146915
+
+## 2026-10-07 | Study 5f holdout run (Matteo's machine, commit edd8698, GAMMA_EDGE_RUN_HOLDOUT=1, run by Matteo): gate PASS
+- 184 holdout sessions 2026-01-02..2026-09-30 (skipped: roll_day 3). One run; the holdout is now spent for
+  the closing-window fade.
+- S5f fade with the 0.5 EM_V stop: mean +0.0145 EM_V (CI -0.0061..+0.0357), win 52.7%, PF 1.25, max DD 1.5
+  EM_V; timing contrast +0.0233 (CI +0.0018..+0.0450); session perm p 0.037, block perm p 0.077; mean
+  without the best 5 +0.0022. Momentum direction -0.032 (in sample -0.031).
+- Gate (SPEC holdout rule, frozen): mean > 0 and >= 0.5 x 0.00796 = 0.00398 -> PASS.
+- Reading: the reversal replicated out of sample with the same size (timing contrast +0.023 vs +0.020 in
+  sample; momentum side -0.032 vs -0.031). The after-cost edge is still small and unresolved: the interval
+  includes zero in both samples. Pooled (802 sessions) the fade nets about +0.0095 EM_V, roughly 0.4-0.5
+  points or $20-25 per ES contract per trade, against in-sample drawdowns near 4 EM_V. As pre-registered,
+  a pass is a reason to keep watching, not to trade.
+- rule-6 checks: dates all in the holdout window; no in-sample session re-used (separate table
+  close_momentum_trades_holdout); the frozen reference was logged before the run; skips as expected for
+  Jan-Sep 2026 (three rolls, no half days); the gamma statistic is empty because gex_daily was never built
+  for the holdout, as intended (descriptive only).
+- Per SPEC after a pass: robustness nudges and splits on the in-sample data, the NQ replication (bars to be
+  priced), and paper trading before any spend. Decision is Matteo's. Variant count 18 of 20.
