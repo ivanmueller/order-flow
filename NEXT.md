@@ -21,6 +21,26 @@ the placebo, but 1.2 standard errors from zero on 266 sessions and absent in def
 not add variants to any of them; 15 of 20 pre-registered variants are used, and passing 20 requires
 an NQ replication before any Go. The holdout (2026-01-01 onward) is sealed and stays sealed.
 
+Two standing instructions from Matteo that override any attachment to the project's history:
+
+- The GEX regime is not required. It was the founding idea, and it is weak. If a candidate with
+  stronger quantitative reasoning does not use dealer gamma at all, choose it and say plainly that the
+  gamma framing is dropped. Keep the GEX engine only if a candidate genuinely needs one of its
+  outputs (forward, implied vols, expected move, strike-level open interest); do not include gamma as
+  a conditioning variable out of habit.
+- Trade frequency matters. A small edge is only worth having if it can be taken often enough for the
+  law of large numbers to do the work, as in blackjack: the per-decision expectancy is tiny, the
+  decision count is what makes the variance survivable and the edge bankable. So prefer, all else
+  equal, hypotheses that produce many independent decisions per month over ones that produce a few
+  large ones. But apply the project's own lesson honestly: frequency only helps when the edge per
+  decision survives the friction per decision. The tick-scale fades had thousands of decisions and
+  lost because 0.6 ticks of edge met 2.3 ticks of cost; the straddle had one decision a day and a
+  favourable cost ratio but too few decisions to resolve. The target is the product: net edge per
+  decision after costs, times the square root of the number of genuinely independent decisions in the
+  sample, which is what a t-statistic is. Say for every candidate how many independent decisions per
+  month it offers, what counts as independent (overlapping positions and same-day trades are not),
+  and what the net edge per decision would have to be for the gates to resolve on this sample.
+
 Your task has four steps. Do not write code before step 4 is approved.
 
 1. Inventory the data as it actually exists on disk, from the schemas in SPEC.md and the loaders in
@@ -43,19 +63,24 @@ Your task has four steps. Do not write code before step 4 is approved.
    think about the option surface itself (skew, term structure, day-over-day open-interest changes as
    a flow proxy, settlement-day behaviour near large strikes), the ES path at horizons other than the
    ones already tested (overnight versus day session, time-of-day structure, variance ratios at longer
-   lags), and cross-signals between the two (implied versus realised at matched horizons). Candidates
-   that reuse study 4's volatility expression are allowed if the conditioning variable is new.
-   Candidates that need data not on disk are allowed if the pull is priced and small.
+   lags, systematic intraday seasonality that can be traded every session), and cross-signals between
+   the two (implied versus realised at matched horizons). Candidates that reuse study 4's volatility
+   expression are allowed if the conditioning variable is new; candidates with no gamma input at all
+   are welcome. Candidates that need data not on disk are allowed if the pull is priced and small; say
+   what the 110 sessions of tick data can and cannot support at the decision frequency you propose.
 
-3. Score the candidates on five things, each argued in a sentence, not a number pulled from the air:
+3. Score the candidates on six things, each argued in a sentence, not a number pulled from the air:
    strength of the prior from published evidence and from what this project has already measured;
    whether the payoff can be expressed with the data's own prices (quoted bid and ask, official
    settlement, bars with SPEC rule-5 fills) rather than a model; expected signal-to-friction ratio,
    using this project's measured costs (half-spread plus fees in option premium, 2.3 ticks per ES
-   round trip); statistical power on the available sample, with overlapping positions and tail days
-   counted honestly; and independence from the closed theses. Rank them. Say which you would run and
-   which you would not, and why. Prefer the candidate with the best chance of a clean answer either
-   way over the one with the most upside if it works.
+   round trip); decision frequency, counted as independent decisions per month after removing overlap
+   and same-day clustering; statistical power on the available sample, which is the net edge per
+   decision times the square root of the independent decision count, with tail days counted honestly;
+   and independence from the closed theses. Rank them. Say which you would run and which you would not,
+   and why. Prefer the candidate with the best chance of a clean answer either way over the one with
+   the most upside if it works, and prefer many small independent decisions over few large ones when
+   the net edge per decision is comparable.
 
 4. Pre-register the top candidate in RUNLOG.md in the same form as studies 3 and 4: hypothesis,
    build rules stamped at the decision time, eligibility, variants (count them against the 20),
