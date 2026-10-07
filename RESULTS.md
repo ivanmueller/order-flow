@@ -221,3 +221,22 @@ lower > 0, permutation p < 0.05; tail block reported. `python -m src.study4`.
   +0.19, p=0.17 (same-day, non-tradeable: +0.35, p=0.001). Friction is 0.02 EM against a 0.13 EM contrast;
   the per-session sd of 0.77 EM is what fails the gate (about 460 high-gamma sessions would be needed).
   Pooled S4a+S4b switching (not pre-registered): +0.047 EM, 90% lower bound about -0.01. 15 of 20 variants.
+
+## Study 5, last-30-minute ES momentum into the close (approved 2026-10-07, sample A; 17 of 20 variants)
+
+### How it is built
+At 15:30 ET, one ES contract in the direction of the move from the prior 16:00 close to the 15:29 bar's
+close; entry at the 15:30 bar's open plus a tick, exit at the 16:00 bar's open minus a tick, $3.98 round
+trip. S5b adds a stop 0.5 EM_V from entry on the tick grid. Unit EM_V = 0.75 x VIX(D-1)/sqrt(252) x prior
+close. Gates split into existence (timing contrast CI, session and block permutations) and economics (mean,
+CI, tail). `python -m src.study5`.
+
+### S5a and S5b (618 sessions)
+- **Result.** S5a -0.037 EM_V (-1.66 pts, -$83 per contract), CI -0.054..-0.020; S5b -0.031, CI
+  -0.046..-0.015. Timing contrast -0.024 / -0.020 with the whole interval below zero; permutation p 0.99.
+  The close reverses the day: slope -0.028 (t -2.3), negative every year, strongest when net_gex >= 0
+  (descriptive).
+- **Verdict.** KILL on both (existence and economics fail). The published momentum is excluded in this
+  sample; the mirror fade nets about +0.009 EM_V with an interval including zero and was not registered.
+
+Study 5 decision: pending Matteo's call.

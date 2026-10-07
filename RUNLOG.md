@@ -820,3 +820,37 @@ gate call is Matteo's.
   descriptive fields; writes data/derived/close_momentum_trades.parquet; prints the report with
   verdict_vs_rules per variant, the existence and economics halves, and decision_vs_rules). Zero spend.
   Then log the headline here.
+
+## 2026-10-07 | Study 5 first run on real data (Matteo's machine, commit c7c2c68, config as approved, sample A): KILL on both variants
+- run: `python -m src.study5`; 618 sessions 2023-06-02..2025-12-31. Skipped: roll_day 11, half_day 8,
+  prev_half_day 8, flat_predictor 3. Sanity: 0 sessions with missing minutes in 15:29-16:00, 0 duplicate
+  bars, no |r_L30| > 3 EM_V. pytest on that machine: all passed.
+- S5a momentum, no stop: mean -0.037 EM_V (-1.66 pts, -3.0 bp, -$83/contract), 90% CI -0.054..-0.020;
+  win 44.3%, PF 0.67; timing contrast -0.024 (CI -0.041..-0.006); session perm p 0.994, block p 0.974;
+  mean without best 5 -0.044. Existence FAIL, economics FAIL, KILL.
+- S5b with 0.5 EM_V stop (stopped 6.6%): mean -0.031 (CI -0.046..-0.015); timing contrast -0.020 (CI
+  -0.036..-0.003); perm p 0.985 / block 0.962. Existence FAIL, economics FAIL, KILL. Decision (S5b
+  carries it): KILL. Variant count 17 of 20.
+- Reading: the published momentum is excluded, and the sign is the opposite. The timing contrast's whole
+  interval is below zero: going with the rest-of-day move does worse than random directions with the same
+  long/short mix. Descriptive slope of r_L30 on r_ROD -0.028 (t -2.3; -0.037, t -3.5 without the 5
+  largest |r_ROD|); negative in every year (2023 -0.029, 2024 -0.050, 2025 -0.030 EM); strongest in the
+  top |r_ROD| tercile (-0.074); both other predictors negative (Gao first half-hour t -1.4, open-to-15:30
+  t -2.0). Gamma split (descriptive only): reversal slope -0.042 (t -2.8, n 374) when net_gex >= 0, -0.013
+  (t -0.7, n 244) when < 0, the direction the dealer-hedging mechanism predicts (long gamma damps moves),
+  consistent with Adams et al. 2025. Most of it is 15:30-15:50 (-0.021) rather than 15:50-16:00 (-0.002).
+  Always-long -0.009, always-short -0.020 (friction 0.014 EM_V a trade).
+- The mirror (fade the rest-of-day move) would net about +0.009 EM_V a session (gross +0.023 less 0.028 of
+  round-trip friction difference... computed as -mean - 2 x friction = +0.0374 - 0.0284), with an interval
+  that includes zero. It was not pre-registered, and by the registration no trade suggested by this data may
+  be registered on it; testing it would need new data (the holdout or sample B) and a variant.
+- rule-6 checks on the strong (negative) result: sign logic verified by the hand tests (long when the day is
+  up, pnl = X - E) and by the injected-momentum test, which passes with a positive mean; friction cancels in
+  the timing contrast, so fills cannot create it; the decision bar (15:29 close) and entry (15:30 open) are
+  adjacent prints, and a quarter-point bounce is small against a 0.36 EM_V (about 15 points) window; same
+  sign in every year, in option-EM units (S5a -0.047, S5b -0.040 option EM on 616 sessions) and in both
+  predictor variants; no holdout date loaded (last 2025-12-31).
+- Unit note: median option EM / EM_V = 0.757, so the frozen 0.75 factor (from the 33-day pilot) makes EM_V
+  about 1.32 option EMs. A pure scale: it changes no sign, interval or p-value; it makes the 0.5 EM_V stop
+  about 0.66 option EM and gate 2 about 0.026 option EM. No verdict depends on it.
+- Decision is Matteo's. No holdout run.
