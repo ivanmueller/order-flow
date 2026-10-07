@@ -16,6 +16,12 @@ Update this block at the end of every session.
 - Study 3 run twice 2026-10-07 (first run superseded by a fill-realism fix): R1 -0.24R, R2 -0.06R,
   R3 -0.22R, regime contrasts negative, permutation p > 0.9. KILL on all; 12 of 20 variants used.
   Awaiting Matteo's call on study 3 and on the project. WRITEUP.md and RESULTS.md are current.
+- Review 2026-10-07 (REVIEW.md, RUNLOG same date): studies 1-3 audited in code and logs, every kill
+  stands; intraday level/flow thesis closed. Three report-only re-checks of the regime variable are
+  recommended (sign convention, business-time clock, S0^2-normalised percentile). Proposed Study 4
+  (regime-conditioned 0DTE straddle at the D-1 close, zero spend, 3 variants -> 15 of 20) and Study 5
+  (last-30-minute hedging-flow trade, 2 variants) are DRAFTS awaiting Matteo's approval; no code
+  written, no config change, holdout still sealed.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.

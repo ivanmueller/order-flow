@@ -448,3 +448,22 @@ loaded; the permutation test guards against a time-trend in gex_pct masquerading
   reaching the band).
 - Rule 6 on the breakout: after the fill fix it is +0.03R with the interval straddling zero; not a
   result. Study 3 verdict vs rules: KILL on every variant. 12 of 20 variants used. No holdout.
+
+## 2026-10-07 | review of studies 1-3 and Study 4 pre-registration DRAFT (not a run; awaiting Matteo)
+- commit: 77f9ed6 reviewed; this entry committed on branch claude/affectionate-gauss-7nuqm8.
+- change: code and log audit (REVIEW.md). No data on this machine; nothing re-run. pytest: 77 passed.
+- config diff: none. Variant count unchanged at 12 of 20.
+- result: every kill in studies 1-3 stands as scored; point-in-time, holdout seal, roll handling and
+  fill conservatism verified in code; the 0.6-tick naive residual is the only positive signal and it
+  is a quarter of the friction. Three report-only caveats on the regime variable (sign convention is
+  an assumption; calendar-time clock overweights 0DTE ATM gamma; the percentile ranks raw dollar GEX,
+  which drifts with S0^2) do not change any verdict but should be re-checked before anything
+  conditions on the regime again.
+- proposed next (REVIEW.md section 5), needs approval before any code runs: Study 4, regime-conditioned
+  D-expiring SPXW ATM straddle at the D-1 17:00 close held to settlement (S4a short in high gamma,
+  S4b long in low gamma, S4c iron fly with 1 EM wings), regime = gex_pct of session D-1 (point in
+  time), entry at the quoted bid/ask, settlement = FRED SPX close, permutation placebo, Stage 1
+  regression restated on straddle P&L. New params proposed: opt_cost_per_leg_usd 1.50 [3.00],
+  s4_wing_em 1.0 [0.75, 1.5], s4_min_expectancy_em 0.03 (gate), s4_regime_lag 1 (fixed). Would bring
+  the count to 15 of 20. Secondary: Study 5, last-30-minute hedging-flow trade (Baltussen et al.),
+  two variants, 17 of 20. Not recommended: any further level/absorption/band variant, MBP-10 spend.
