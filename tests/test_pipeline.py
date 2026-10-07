@@ -245,3 +245,20 @@ def test_study5_end_to_end(synth_env):
     analysis.to_json(out)
     with pytest.raises(calm.HoldoutSealed):
         study5.run(cfg, save=False, include_holdout=True)
+
+
+def test_study5f_holdout_path(synth_env, monkeypatch):
+    """The fade's holdout run is refused without the flag, reads only holdout sessions with it, and the
+    input check looks at file names and the daily file's last date only."""
+    from src import study5
+    cfg, _ = synth_env
+    chk = study5.holdout_check(cfg)
+    assert set(chk) >= {"bar_months_expected", "bar_months_missing", "daily_last_date", "ok"}
+    with pytest.raises(calm.HoldoutSealed):
+        study5.run_fade_holdout(cfg, reference=0.01)
+    monkeypatch.setenv(calm.HOLDOUT_ENV, "1")
+    out, T = study5.run_fade_holdout(cfg, reference=0.01, save=False)
+    assert not T.empty and (T["date"] >= calm.holdout_start(cfg)).all()
+    assert out["gate"] in ("PASS", "FAIL") and out["reference_in_sample_mean_em"] == 0.01
+    out0, _ = study5.run_fade_holdout(cfg, reference=-0.01, save=False)
+    assert out0["gate"] == "VOID"

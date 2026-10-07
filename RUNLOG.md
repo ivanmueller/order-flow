@@ -855,7 +855,7 @@ gate call is Matteo's.
   about 0.66 option EM and gate 2 about 0.026 option EM. No verdict depends on it.
 - Decision is Matteo's. No holdout run.
 
-## Study 5f pre-registration: fade the rest-of-day move into the close, holdout only (DRAFT, awaiting Matteo's approval; frozen before any run)
+## Study 5f pre-registration: fade the rest-of-day move into the close, holdout only (APPROVED by Matteo 2026-10-07, "Yes"; frozen before any run)
 Origin: the study 5 run (above) found the close reverses the day in 2023-06..2025-12 (timing contrast -0.024
 EM_V, CI below zero; slope t -2.3). By study 5's own registration, a trade suggested by that data may not be
 tested on it, so this is tested once on the sealed holdout (2026-01-01 to sample.end 2026-09-30) and nowhere
@@ -895,3 +895,16 @@ standard error is about 0.027 EM_V. The in-sample fade nets about +0.009 EM_V, s
 if it is +0.009, about 57%. This holdout can kill a fade that has turned clearly negative; it cannot confirm
 an edge this small. A pass is a reason to keep watching (paper trading, or the 2019 extension), not to trade.
 Using the holdout here also spends its freshness for any later ES close-window hypothesis.
+
+## 2026-10-07 | Study 5f approved ("Yes") and built tests-first; nothing run on real data
+- code: src/study5.py gains fade(), fade_gate(), fade_report(), holdout_check() and run_fade_holdout(), and
+  CLI flags --fade-reference (step 1, in-sample, from the saved table), --holdout-check (step 2, file names
+  and the daily file's last date only) and --fade-holdout MEAN (step 4, refused without
+  GAMMA_EDGE_RUN_HOLDOUT=1, and returns VOID without opening the holdout if MEAN is not positive). Holdout
+  trades go to close_momentum_trades_holdout, never over the in-sample table.
+- tests: fade side swap and gate (hand values, including exactly half, and VOID), a fade report on injected
+  momentum (negative), and a synthetic holdout path (refused without the flag, holdout dates only with it,
+  VOID with a negative reference). pytest: all pass.
+- config diff: none (reuses study 5's values and gates.holdout_min_fraction 0.5). Variant count 18 of 20.
+- Next, on Matteo's machine: step 1 `python -m src.study5 --fade-reference`, then step 2
+  `python -m src.study5 --holdout-check`; log both here. Step 4 only after "run the holdout".

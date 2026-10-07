@@ -290,3 +290,31 @@ def test_report_existence_passes_with_injected_momentum_and_fails_without(cfg):
 def test_sample_b_is_refused_until_the_stage3_day_set_is_frozen(cfg):
     with pytest.raises(RuntimeError, match="stage-3"):
         study5.run(with_params(cfg, s5_sample="B"), save=False)
+
+
+# ---------------------------------------------------------------------------
+# Study 5f: the fade, holdout only (RUNLOG 2026-10-07, approved)
+# ---------------------------------------------------------------------------
+def test_fade_takes_the_other_side():
+    f = study5.fade(frame4())
+    # momentum d = (+1, -1, +1, +1) -> fade d = (-1, +1, -1, -1): short, long, short, short outcomes
+    assert list(f["d"]) == [-1, 1, -1, -1]
+    assert list(f["pnl_em"]) == pytest.approx([-1.2, -1.0, -2.2, -0.2])
+
+
+def test_fade_gate():
+    assert study5.fade_gate(0.005, 0.009, 0.5) == "PASS"       # positive and >= half the reference
+    assert study5.fade_gate(0.0045, 0.009, 0.5) == "PASS"      # exactly half
+    assert study5.fade_gate(0.004, 0.009, 0.5) == "FAIL"
+    assert study5.fade_gate(-0.01, 0.009, 0.5) == "FAIL"
+    assert study5.fade_gate(0.02, 0.0, 0.5) == "VOID"          # reference not positive: holdout never opened
+    assert study5.fade_gate(0.02, -0.01, 0.5) == "VOID"
+
+
+def test_fade_report_on_momentum_sessions_is_negative(cfg):
+    fast = with_params(cfg, bootstrap_draws=300, perm_draws=200)
+    T = random_sessions(fast, 300, momentum_pts=4.0, seed=8)
+    out = study5.fade_report(fast, T)
+    assert out["n"] == len(T) and out["mean_em"] < 0
+    assert out["momentum_direction_mean_em"] > 0
+    assert {"ci_lo", "ci_hi", "timing_contrast", "permutation", "block_permutation", "tail"} <= set(out)

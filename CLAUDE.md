@@ -42,7 +42,8 @@ Update this block at the end of every session.
   S5a -0.037 EM_V (CI -0.054..-0.020), S5b -0.031; timing contrast negative with CI below zero: the close
   REVERSES the day (slope t -2.3, strongest when net_gex >= 0). Momentum excluded. 17 of 20 variants.
   Mirror (fade) nets ~+0.009 EM_V, CI includes 0. KILL accepted by Matteo. Study 5f (fade with the S5b stop,
-  holdout only, 18 of 20) pre-registered as a DRAFT awaiting approval; holdout still sealed.
+  holdout only, 18 of 20) APPROVED and built; next: --fade-reference and --holdout-check on Matteo's
+  machine, then the one holdout run only on "run the holdout". Then: pure order-flow study (to be priced).
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
@@ -102,5 +103,7 @@ See README.md for the full runbook in order.
 - Study 3 band trades: `python -m src.study3 [--report-only]`
 - Study 4 straddles: `python -m src.study4 [--report-only]`
 - Study 5 close momentum: `python -m src.study5 [--report-only]`
+- Study 5f fade: `python -m src.study5 --fade-reference`, `--holdout-check`, then (holdout only)
+  `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study5 --fade-holdout <step-1 mean_em>`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`

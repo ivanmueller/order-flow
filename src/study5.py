@@ -19,6 +19,10 @@ day set is frozen (RUNLOG prerequisite). Gates and descriptive statistics: RUNLO
 
   python -m src.study5              # simulate and report
   python -m src.study5 --report-only
+Study 5f (the fade, holdout only; RUNLOG 2026-10-07):
+  python -m src.study5 --fade-reference            # step 1, in-sample, from the saved table
+  python -m src.study5 --holdout-check             # step 2, file names and the daily file's last date
+  GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study5 --fade-holdout <step-1 mean_em>   # step 4, once
 """
 from __future__ import annotations
 
@@ -200,9 +204,11 @@ def _sample_start(cfg):
     return pd.Timestamp(cfg["sample"]["s5_starts"][s]).date()
 
 
-def run(cfg=None, save: bool = True, include_holdout: bool = False) -> pd.DataFrame:
+def run(cfg=None, save: bool = True, include_holdout: bool = False, holdout_only: bool = False) -> pd.DataFrame:
     cfg = cfg or load_config()
     start = _sample_start(cfg)
+    if holdout_only:
+        start = calm.holdout_start(cfg)
     cal = store.load_calendar(cfg, include_holdout)
     bars = store.load_bars(cfg, include_holdout)
     daily = store.load_daily(cfg, include_holdout).set_index("date")
@@ -213,9 +219,10 @@ def run(cfg=None, save: bool = True, include_holdout: bool = False) -> pd.DataFr
     p = store.derived_path(cfg, "gex_daily")
     if p.exists():
         gx = store.load_derived("gex_daily", cfg, include_holdout).set_index("date")
+    end = pd.Timestamp(cfg["sample"]["end"]).date()
     rows, skipped = [], {}
     for r in cal.itertuples():
-        if r.date < start or pd.isna(r.prev_date):
+        if r.date < start or pd.isna(r.prev_date) or (holdout_only and r.date > end):
             continue
         why = eligibility(r, bool(half.get(r.prev_date, False)))
         out = None
@@ -232,7 +239,7 @@ def run(cfg=None, save: bool = True, include_holdout: bool = False) -> pd.DataFr
     log.info("study 5: %d sessions, skipped %s", len(T), skipped)
     T.attrs["skipped"] = skipped
     if save and not T.empty:
-        store.save_derived(T, "close_momentum_trades", cfg)
+        store.save_derived(T, "close_momentum_trades_holdout" if holdout_only else "close_momentum_trades", cfg)
     return T
 
 
@@ -457,17 +464,103 @@ def report(cfg=None, trades: pd.DataFrame | None = None) -> dict:
     return out
 
 
+# ---------------------------------------------------------------------------
+# Study 5f: the fade, tested once on the holdout (RUNLOG 2026-10-07, approved)
+# ---------------------------------------------------------------------------
+FADE_MODE = "momentum_stop"            # the fade is S5b's trade in the opposite direction
+
+
+def fade(f: pd.DataFrame) -> pd.DataFrame:
+    """The opposite direction on the same precomputed long and short outcomes."""
+    f = f.copy()
+    f["d"] = -f["d"].to_numpy(int)
+    return choose(f)
+
+
+def fade_gate(holdout_mean: float, reference: float, min_fraction: float) -> str:
+    """SPEC holdout rule: positive and at least min_fraction of the in-sample mean. VOID when the
+    in-sample reference is not positive (then the holdout is never opened)."""
+    if not (np.isfinite(reference) and reference > 0):
+        return "VOID"
+    return "PASS" if holdout_mean > 0 and holdout_mean >= min_fraction * reference - 1e-15 else "FAIL"
+
+
+def fade_report(cfg, T: pd.DataFrame) -> dict:
+    draws, seed, lvl = param(cfg, "bootstrap_draws"), param(cfg, "bootstrap_seed"), param(cfg, "ci_level")
+    f = fade(variant_frame(T, FADE_MODE))
+    s = _summary(f, cfg)
+    s["timing_contrast"] = timing_contrast(f, draws, seed, lvl)
+    s["permutation"] = permutation_p(f, param(cfg, "perm_draws"), seed)
+    s["block_permutation"] = block_permutation_p(f, param(cfg, "s5_perm_block"), param(cfg, "perm_draws"), seed + 1)
+    s["momentum_direction_mean_em"] = float(variant_frame(T, FADE_MODE)["pnl_em"].mean())
+    s["first"], s["last"] = str(T["date"].min()), str(T["date"].max())
+    gam = T.dropna(subset=["net_gex"]) if "net_gex" in T else T.iloc[0:0]
+    lags = param(cfg, "nw_lags")
+    s["gamma_slopes_descriptive"] = {
+        "net_gex_negative": nw_slope(gam[gam["net_gex"] < 0], "r_l30_em", "r_rod_em", lags) if len(gam) else {"n": 0},
+        "net_gex_non_negative": nw_slope(gam[gam["net_gex"] >= 0], "r_l30_em", "r_rod_em", lags) if len(gam) else {"n": 0}}
+    return s
+
+
+def holdout_check(cfg) -> dict:
+    """Step 2: do the holdout inputs exist? File names and the daily file's last date only; no holdout
+    row is loaded into any analysis."""
+    months = [str(m) for m in pd.period_range(calm.holdout_start(cfg), pd.Timestamp(cfg["sample"]["end"]), freq="M")]
+    missing = [m for m in months if not store.bars_path(cfg, m).exists()]
+    p = store.daily_path(cfg)
+    last = pd.to_datetime(pd.read_parquet(p, columns=["date"])["date"]).max().date() if p.exists() else None
+    end = pd.Timestamp(cfg["sample"]["end"]).date()
+    return {"bar_months_expected": months, "bar_months_missing": missing, "daily_last_date": str(last),
+            "ok": not missing and last is not None and last >= end,
+            "note": "if bar months are missing, price them first (rule 7): python -m src.ingest_futures bars "
+                    "--start <first missing month>-01 --end <sample.end> --price-only; if the daily file ends "
+                    "early: python -m src.ingest_daily --force (free)"}
+
+
+def run_fade_holdout(cfg=None, reference: float = np.nan, save: bool = True):
+    """Step 4: one run on holdout sessions only. Refused unless GAMMA_EDGE_RUN_HOLDOUT=1; never opens the
+    holdout when the in-sample reference is not positive."""
+    cfg = cfg or load_config()
+    frac = cfg["gates"]["holdout_min_fraction"]
+    if fade_gate(0.0, reference, frac) == "VOID":
+        return {"gate": "VOID", "reference_in_sample_mean_em": reference,
+                "note": "in-sample fade mean not positive: holdout not opened"}, pd.DataFrame()
+    if not calm.holdout_unsealed():
+        raise calm.HoldoutSealed(f"Study 5f holdout run needs {calm.HOLDOUT_ENV}=1 (and Matteo's 'run the holdout').")
+    T = run(cfg, save=save, include_holdout=True, holdout_only=True)
+    out = fade_report(cfg, T)
+    out["reference_in_sample_mean_em"] = reference
+    out["gate"] = fade_gate(out["mean_em"], reference, frac)
+    out["gate_rule"] = f"holdout mean > 0 and >= {frac} x in-sample mean"
+    out["skipped"] = T.attrs.get("skipped", {})
+    return out, T
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--report-only", action="store_true")
+    ap.add_argument("--fade-reference", action="store_true", help="study 5f step 1: in-sample fade from the saved table")
+    ap.add_argument("--holdout-check", action="store_true", help="study 5f step 2: do the holdout input files exist?")
+    ap.add_argument("--fade-holdout", type=float, metavar="IN_SAMPLE_MEAN_EM",
+                    help="study 5f step 4: one holdout run (needs GAMMA_EDGE_RUN_HOLDOUT=1)")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
+    from src.analysis import to_json
+    if a.fade_reference:
+        print(to_json(fade_report(cfg, store.load_derived("close_momentum_trades", cfg))))
+        return
+    if a.holdout_check:
+        print(to_json(holdout_check(cfg)))
+        return
+    if a.fade_holdout is not None:
+        out, _ = run_fade_holdout(cfg, a.fade_holdout)
+        print(to_json(out))
+        return
     T = store.load_derived("close_momentum_trades", cfg) if a.report_only else run(cfg)
     if T.empty:
         print("no study 5 trades")
         return
-    from src.analysis import to_json
     print(to_json(report(cfg, T)))
 
 
