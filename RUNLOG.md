@@ -908,3 +908,16 @@ Using the holdout here also spends its freshness for any later ES close-window h
 - config diff: none (reuses study 5's values and gates.holdout_min_fraction 0.5). Variant count 18 of 20.
 - Next, on Matteo's machine: step 1 `python -m src.study5 --fade-reference`, then step 2
   `python -m src.study5 --holdout-check`; log both here. Step 4 only after "run the holdout".
+
+## 2026-10-07 | Study 5f steps 1 and 2 (Matteo's machine, commit edd8698; in-sample only, holdout not opened)
+- pytest: all passed.
+- Step 1, in-sample reference (`--fade-reference`, 618 sessions 2023-06-02..2025-12-31): S5f mean +0.00796
+  EM_V (CI -0.0093..+0.0246), win 50.0%, PF 1.09, max DD 3.9 EM_V; timing contrast +0.0199 (CI
+  +0.0030..+0.0356); session perm p 0.016, block perm p 0.039; mean without the best 5 sessions -0.0015
+  (the best five, 2024-05-01, 2024-05-31, 2024-07-25, 2024-02-13, 2024-07-12, sum +5.8 EM_V). Reference is
+  positive, so the holdout may be opened. Holdout gate: mean > 0 and >= 0.5 x 0.00796 = 0.00398 EM_V.
+- Reading of the reference (not a gate): the timing is real in sample, but the after-cost edge rests on a
+  handful of large reversal days; without them it is about zero.
+- Step 2 (`--holdout-check`): bar months 2026-01..2026-09 all present, daily file ends 2026-10-02, ok.
+- Next: step 4 only on Matteo's "run the holdout":
+  GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study5 --fade-holdout 0.007964284240146915
