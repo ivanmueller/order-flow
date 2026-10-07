@@ -1,5 +1,9 @@
 # Next study: data inventory, candidates, scoring
 
+> Status 2026-10-07: this inventory and ranking led to study 5. Studies 5, 5f, 6 and 7 have since been
+> run or built; NEXT.md carries the current state, the data and budget, and the prompt for the next choice.
+
+
 2026-10-07. Written from NEXT.md (steps 1 to 3); the pre-registration that step 4 asks for is in RUNLOG.md
 under the same date. Read in NEXT.md's order: CLAUDE.md, WRITEUP.md, RESULTS.md, REVIEW.md, SPEC.md, the
 last six RUNLOG entries, config.yaml, and the code (`store.py`, `ingest_*.py`, `calendar.py`, `gex.py`,

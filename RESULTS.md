@@ -185,7 +185,7 @@ contrast; a 1,000-draw permutation of the percentile across sessions is the plac
 
 Study 3 decision: pending Matteo's call.
 
-## Study 4, regime-conditioned 0DTE straddle at the D-1 close (approved 2026-10-07; build complete, run pending)
+## Study 4, regime-conditioned 0DTE straddle at the D-1 close (approved and run 2026-10-07; KILL)
 
 ### How it is built
 One position per session, entered at the D-1 17:00 ET EOD quotes (the same report the engine's EM
@@ -265,3 +265,11 @@ Study 5 decision: pending Matteo's call.
   zero. Imbalance vs forward return: corr 0.009 (5 min) and 0.020 (15 min), t < 1, deciles flat.
 - **Verdict.** KILL on all four; no confirmation run. Aggressor imbalance carries no usable direction at
   5-15 minutes; friction is about ten times the best gross edge.
+
+## Study 7, last-30-minute momentum into settlement on CL, GC, ZN, 6E (family budget 4 of 4)
+- **Build.** Study 5's S5a (no stop) with each overlay's clock: P_prev = D-1 settlement-minute close,
+  decision 30 minutes before settlement, entry next bar + 1 tick, time exit at settlement - 1 tick, $3.98;
+  unit EM_R = 20-session realized volatility x P_prev; Study 5 gates per market. Direction chosen from the
+  literature (Baltussen et al. 2021) before any of these markets' data was read.
+- **Result.** Running on Matteo's machine (RUNLOG 2026-10-07).
+

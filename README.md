@@ -72,6 +72,29 @@ python -m src.analysis stage3 --carry gamma_only,both,structural_only
 #     gex_daily, the EOD quote files and the FRED closes already on disk (no spend)
 python -m src.study4
 
+# 7c. Study 5 close momentum, then the 5f fade (holdout steps only when you say "run the holdout")
+python -m src.study5
+python -m src.study5 --fade-reference
+python -m src.study5 --holdout-check
+GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study5 --fade-holdout <step-1 mean_em>
+python -m src.study5 --fade-robustness
+#     NQ replication: GAMMA_EDGE_CONFIG=config.nq.yaml, ingest_daily, bars (price, approve), then
+python -m src.study5 --fade-replication
+
+# 7d. Price menu (quotes only, nothing pulled)
+python -m src.price_menu --start 2023-06-01 --end 2025-12-31
+
+# 7e. Study 6 pure order flow pilot on the on-disk ticks (no spend)
+python -m src.study6 --count
+python -m src.study6
+
+# 7f. Study 7 cross-market momentum: per market with GAMMA_EDGE_CONFIG=config.<cl|gc|zn|6e>.yaml,
+#     ingest_daily, bars 2023-04-01..2025-12-31 (price, approve), then
+python -m src.study7 --market
+#     then with no overlay set:
+python -m src.study7 --cross config.cl.yaml config.gc.yaml config.zn.yaml config.6e.yaml
+python -m src.study7 --bridge
+
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges
 python -m src.robustness splits

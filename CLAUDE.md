@@ -57,6 +57,8 @@ Update this block at the end of every session.
   Study 7 APPROVED as MOMENTUM (S5a, no stop) on CL, GC, ZN, 6E anchored to each settlement, unit EM_R
   (20-session realized vol), Study 5 gates per market, ~$13.7 of bars (ledger -> ~$98.3). Built tests-first
   (src/study7.py, overlays config.cl/gc/zn/6e.yaml). Awaiting Matteo's pulls and runs.
+  Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),
+  WRITEUP, RESULTS, README and CANDIDATES brought up to date.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
