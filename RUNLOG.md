@@ -840,8 +840,8 @@ gate call is Matteo's.
   (t -0.7, n 244) when < 0, the direction the dealer-hedging mechanism predicts (long gamma damps moves),
   consistent with Adams et al. 2025. Most of it is 15:30-15:50 (-0.021) rather than 15:50-16:00 (-0.002).
   Always-long -0.009, always-short -0.020 (friction 0.014 EM_V a trade).
-- The mirror (fade the rest-of-day move) would net about +0.009 EM_V a session (gross +0.023 less 0.028 of
-  round-trip friction difference... computed as -mean - 2 x friction = +0.0374 - 0.0284), with an interval
+- The mirror (fade the rest-of-day move) would net about +0.009 EM_V a session (each session's two
+  directions sum to minus twice the friction, so the mirror mean is +0.037 - 2 x 0.014), with an interval
   that includes zero. It was not pre-registered, and by the registration no trade suggested by this data may
   be registered on it; testing it would need new data (the holdout or sample B) and a variant.
 - rule-6 checks on the strong (negative) result: sign logic verified by the hand tests (long when the day is
