@@ -116,6 +116,14 @@ params:
   time_exit:          {value: 30,    nudges: [20, 45]}       # minutes
   # All-in round trip per contract (commission + exchange + NFA), the user's broker, set 2026-10-05.
   cost_rt_usd:        {value: 3.98,  nudges: [5.97]}   # nudge = +50%
+  # Study 2 (RUNLOG 2026-10-07, approved): tape-footprint confirmation and at-level entries.
+  q_big:              {value: 50,    nudges: [25, 100]}    # contracts: a "big lot" print
+  s2_delta_min:       {value: 150,   nudges: [100, 250]}   # contracts absorbed at the level (delta_at_level) for S2
+  entry_offset:       {value: 1}                           # ticks: E1 limit sits this far inside the level
+  fill_window:        {value: 10,    nudges: [5, 15]}      # minutes the E1 limit stays working after t_dec
+  retest_window:      {value: 15,    nudges: [10, 20]}     # minutes after a break to wait for the E2 retest
+  s2h_target_mult:    {value: 2.5}                         # S2h longer-horizon variant
+  s2h_time_exit:      {value: 60}                          # minutes
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}

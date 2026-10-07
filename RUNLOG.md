@@ -294,7 +294,7 @@ Variant count so far: 5 of 20.
 - Stage 3 verdict vs rules: KILL, robust to nudges and splits. Per SPEC: no holdout run on a Stage 3
   kill; write up what was learned. Decision is Matteo's.
 
-## Study 2 pre-registration: tape-footprint confirmation and at-level entries (DRAFT 2026-10-07, awaiting Matteo's approval; no run before approval)
+## Study 2 pre-registration: tape-footprint confirmation and at-level entries (APPROVED by Matteo 2026-10-07, params approved; frozen before any run)
 Status of study 1: Stage 3 KILL, robust. Pre-cost finding that motivates study 2: naive fades at
 touched levels beat a driftless walk by ~+0.10R (win 34.9% vs 31%), i.e. about 0.6 ticks per trade at
 a 6-tick risk, against ~2.3 ticks of friction (1 tick slippage, 1 tick stop-through, $3.98 RT).
@@ -337,3 +337,11 @@ New config params proposed (need approval before any code runs): q_big 50, s2_de
 entry_offset 1 tick, fill_window 10 min, retest_window 15 min. Nudges: q_big [25, 100],
 s2_delta_min [100, 250], fill_window [5, 15], retest_window [10, 20].
 Tests first: every new feature and both entries on synthetic prints with hand-verified answers.
+
+Specification corrections made before any run (2026-10-07): tape_speed cannot use prior sessions
+(trade data exists only for the sampled windows), so it is prints per minute in the abs_window over
+prints per minute in the 10-minute approach window (point-in-time). big_lot_share and tape_speed are
+measured over the whole abs_window; delta_at_level and at_level_share use prints within proximity_b
+of L. E1 fills at the limit price (no slippage on a resting order; the one-tick-through rule stays).
+The E1 stop extreme covers [t0, fill]. E2 evaluates the first clock minute that ends after the retest
+print; a close that reclaims L means no trade (skip "reclaimed").
