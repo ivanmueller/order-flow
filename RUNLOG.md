@@ -430,3 +430,21 @@ loaded; the permutation test guards against a time-trend in gex_pct masquerading
   beyond a band when the window opens -> no trade that session; a breakout stop order fills at the
   bar's open when the bar opened through the band. Tests added. Re-run required; the numbers above
   are not a result.
+
+## 2026-10-07 Study 3 second run (clean-touch and gapped-open rules), 397 sessions: KILL on all variants
+- 82 sessions dropped as "already beyond the band at 10:00" (113 no-touch vs 31 before): those were
+  the sessions inflating the first run's breakout number.
+- R1 fade high gamma: n=207, -0.24R (CI -0.38..-0.09); complement -0.02R; regime contrast -0.21R
+  (CI -0.44..+0.01); permutation p=0.95; market share -0.11R. KILL.
+- R2 breakout low gamma: n=190, -0.06R (CI -0.22..+0.10); complement (breakout high gamma) +0.12R
+  (CI -0.04..+0.28); contrast -0.18R; permutation p=0.91; market share +0.03R. INDICATIVE, fails.
+- R3 fade high gamma above flip: n=204, -0.22R; complement +0.04R; contrast -0.26R (CI -0.53..-0.00);
+  permutation p=0.95. KILL.
+- Contrasts: fade all sessions -0.13R (market share -0.03R); breakout all sessions +0.03R
+  (CI -0.08..+0.15, PF 1.05, market share +0.14R, win 37.8% vs 33% baseline). By tercile the fade
+  goes +0.01 / -0.13 / -0.28 from low to high gamma and the breakout -0.06 / +0.06 / +0.10: at the
+  trade level the regime runs the OPPOSITE way to H (a session that reaches 0.5 EM on a high-gamma
+  day is a trend day; the compressed-range result of Stage 1 is unconditional, this is conditional on
+  reaching the band).
+- Rule 6 on the breakout: after the fill fix it is +0.03R with the interval straddling zero; not a
+  result. Study 3 verdict vs rules: KILL on every variant. 12 of 20 variants used. No holdout.

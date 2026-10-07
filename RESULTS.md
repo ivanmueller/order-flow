@@ -171,3 +171,12 @@ contrast; a 1,000-draw permutation of the percentile across sessions is the plac
 - **Rule 6 outcome.** The breakout number was inflated by a fill bug: sessions already beyond the
   band at 10:00 entered at the band price. Fixed (clean touches only, gapped opens fill at the open);
   re-run pending. Not a result.
+
+### S3 second run (clean touches, gapped opens fill at the open; 397 sessions)
+- **Result.** R1 fade high gamma -0.24R (207), R2 breakout low gamma -0.06R (190), R3 fade above
+  flip -0.22R (204). Every regime contrast negative, permutation p > 0.9. Unconditioned breakout
+  +0.03R (CI -0.08..+0.15). By tercile the fade worsens and the breakout improves as gamma rises:
+  conditional on reaching the band, high-gamma sessions trend.
+- **Verdict.** KILL on all three. 12 of 20 variants used; no holdout.
+
+Study 3 decision: pending Matteo's call.

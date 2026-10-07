@@ -13,9 +13,9 @@ Update this block at the end of every session.
   holdout run. Databento spend ~$81 of $125.
 - Study 2 run 2026-10-07: KILL on every variant, accepted by Matteo; intraday level thesis closed
   (WRITEUP.md, RESULTS.md). 9 of 20 variants used.
-- Study 3 (RUNLOG 2026-10-07, approved and frozen): session-level gamma regime, expected-move band
-  trades on 1-minute bars (src/study3.py, tests/test_study3.py). R1 fade high gamma, R2 breakout low
-  gamma, R3 R1 above flip; permutation test as placebo. First run pending: `python -m src.study3`.
+- Study 3 run twice 2026-10-07 (first run superseded by a fill-realism fix): R1 -0.24R, R2 -0.06R,
+  R3 -0.22R, regime contrasts negative, permutation p > 0.9. KILL on all; 12 of 20 variants used.
+  Awaiting Matteo's call on study 3 and on the project. WRITEUP.md and RESULTS.md are current.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.

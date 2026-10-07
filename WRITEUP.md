@@ -13,6 +13,7 @@ credit; ThetaData free tier. Every run, config change and gate decision is in RU
 | 2 | Do gamma levels hold more than random levels? | after the labeler fix: placebo 46.5%, gamma-only 45.4%, both 44.4%, structural 42.8%; gamma x regime interaction p=0.044 | not a kill; no group beats placebo |
 | 3 | Does flow confirmation at a level pay after costs? | confirmed -0.33R on 446 trades, naive -0.29R, placebo -0.30R; all 44 nudges and every split negative | kill |
 | study 2 | Do at-level tape features and at-level entries pay? | S2 -0.48R (254), S2r -0.31R (95), S2c -0.45R (77), S2h -0.54R (254); no variant above a driftless walk by 0.15R | kill |
+| study 3 | Does the gamma regime pay as a session-scale band trade? | fade in high gamma -0.24R (207), breakout in low gamma -0.06R (190), fade above flip -0.22R (204); every regime contrast negative, permutation p > 0.9 | kill |
 
 ## What held up
 
@@ -50,11 +51,14 @@ credit; ThetaData free tier. Every run, config change and gate decision is in RU
 - My first simulator-fairness baseline ignored that every entry print sits one tick inside the entry
   price; the corrected formula is verified on a synthetic driftless walk.
 
-## Where the surviving lead points
+## Where the regime lead went (study 3)
 
-The regime effect is daily, not intraday: it says how much a session will range and whether levels
-of any kind hold, not where to enter. A study built on that would trade session-level range or
-volatility conditioned on dealer gamma, at a horizon where 2 ticks of friction do not matter. It is a
-different hypothesis and would need its own pre-registration. True absorption needs the order book
-(MBP-10), which this study never bought; the tape-only result does not justify buying it for the
-intraday level thesis.
+The session-scale version was tested: fade the half-expected-move band toward the open on high-gamma
+sessions, trade the breakout on low-gamma sessions, one trade a day, 28 to 43 ticks of risk so
+friction was about 0.1R. It failed in the direction opposite to the hypothesis. Conditional on
+reaching the band, high-gamma sessions trend (fade -0.28R in the top tercile, breakout +0.10R) and
+low-gamma sessions do not (fade +0.01R, breakout -0.06R). The unconditional Stage 1 finding, that
+high-gamma sessions range less, is consistent with this: on most high-gamma days the band is never
+reached, and the ones that reach it are the trend days. Nothing in the three studies converts the
+regime into a trade. True absorption needs the order book (MBP-10), which was never bought; the
+tape-only results do not justify buying it for the intraday level thesis.
