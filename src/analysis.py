@@ -285,6 +285,74 @@ def variants(cfg=None, sim_trades: pd.DataFrame | None = None, features: pd.Data
     return out
 
 
+STUDY2 = {   # RUNLOG 2026-10-07 (approved): name -> (mode, eligibility rule on the trade rows)
+    "S2_delta_at_level_limit_entry": ("s2_limit", lambda t: pd.Series(True, index=t.index)),
+    "S2r_positive_gamma_only": ("s2_limit", lambda t: t["gex_pct"] >= 0.5),
+    "S2c_retest_continuation_low_gamma": ("s2_retest", lambda t: (t["gex_pct"] < 0.5) | (t["above_flip"] == False)),  # noqa: E712
+    "S2h_longer_horizon": ("s2_limit_h", lambda t: pd.Series(True, index=t.index)),
+}
+S2_MIN_MARKET_SHARE_R = 0.15     # pre-registered pre-cost diagnostic threshold
+
+
+def _rw_baseline(g: pd.DataFrame, cfg, tm: float) -> dict:
+    """Driftless-walk baseline for these trades (see fairness) and the market's share of expectancy."""
+    tick = cfg["market"]["tick"]
+    if g.empty:
+        return {}
+    wins, losses = g[g["pnl_r"] > 0], g[g["pnl_r"] <= 0]
+    rw_p = float(((g["R_k"] - tick) / (g["R_k"] * (1 + tm) + tick)).mean())
+    aw = float(wins["pnl_r"].mean()) if len(wins) else 0.0
+    al = float(-losses["pnl_r"].mean()) if len(losses) else 0.0
+    rw_exp = rw_p * aw - (1 - rw_p) * al
+    share = float(g["pnl_r"].mean()) - rw_exp
+    return {"rw_win_rate": rw_p, "rw_expectancy_r": rw_exp, "market_share_r": share,
+            "market_share_ticks": float(share * (g["R_k"] / tick).median()),
+            "R_k_ticks_median": float((g["R_k"] / tick).median())}
+
+
+def study2(cfg=None, sim_trades: pd.DataFrame | None = None, features: pd.DataFrame | None = None,
+           carry: list[str] | None = None) -> dict:
+    """Study 2 variants S2, S2r, S2c, S2h against the Stage 3 rules, each with its per-group table,
+    the naive baseline on the same touches (paired by day) and the pre-cost market share."""
+    cfg = cfg or load_config()
+    if sim_trades is None:
+        sim_trades = store.load_derived("sim_trades", cfg)
+    draws, seed, lvl = _boot(cfg)
+    g = cfg["gates"]
+    carry = carry or ["structural_only", "gamma_only", "both"]
+    done = sim_trades[sim_trades["pnl_r"].notna()].copy()
+    done["above_flip"] = done["above_flip"].astype(object)
+    sampled_days = int(features["date"].nunique()) if features is not None and not features.empty else None
+    naive_all = done[done["mode"] == "naive"]
+    out = {"carry_groups": carry, "variants": {}, "variant_count_note": "study 1 used V1-V5 (5); study 2 adds 4 -> 9 of 20"}
+    for name, (mode, rule) in STUDY2.items():
+        tm = param(cfg, "s2h_target_mult") if mode == "s2_limit_h" else param(cfg, "target_mult")
+        pool = done[(done["mode"] == mode) & rule(done).fillna(False).astype(bool)]
+        sub = pool[pool["group"].isin(carry)]
+        s = stats.trade_summary(sub, draws, seed, lvl, sampled_days)
+        naive = naive_all[naive_all["touch_id"].isin(sub["touch_id"])]
+        dd = stats.day_bootstrap_diff(sub, naive, "pnl_r", draws, seed, lvl)
+        s["vs_naive_same_touches"] = {**dd, "n_naive": int(len(naive))}
+        s["pre_cost"] = _rw_baseline(sub, cfg, tm)
+        s["by_group"] = {}
+        for grp in ["structural_only", "gamma_only", "both", "placebo"]:
+            gg = pool[pool["group"] == grp]
+            s["by_group"][grp] = {**stats.trade_summary(gg, draws, seed, lvl, sampled_days), **_rw_baseline(gg, cfg, tm)}
+        checks = {f"n>={g['stage3_min_trades']}": s.get("n", 0) >= g["stage3_min_trades"],
+                  f"expectancy>={g['stage3_min_expectancy_r']}R": s.get("expectancy_r", -1) >= g["stage3_min_expectancy_r"],
+                  "ci_lower>0": s.get("ci_lo", -1) > 0,
+                  "minus_naive_ci_lower>0": dd["lo"] > 0}
+        s["checks"] = checks
+        s["verdict_vs_rules"] = "PASS" if all(checks.values()) else ("INDICATIVE" if s.get("n", 0) < g["stage3_min_trades"] else "KILL")
+        ms = s["pre_cost"].get("market_share_r", np.nan)
+        s["pre_cost_verdict"] = "no pre-cost edge" if not np.isfinite(ms) or ms < S2_MIN_MARKET_SHARE_R else f"pre-cost edge >= {S2_MIN_MARKET_SHARE_R}R"
+        out["variants"][name] = s
+    skips = sim_trades[sim_trades["mode"].isin(["s2_limit", "s2_limit_h", "s2_retest"])]
+    out["skips"] = {m: skips[skips["mode"] == m]["skip"].value_counts().to_dict() for m in ("s2_limit", "s2_limit_h", "s2_retest")} if "skip" in skips else {}
+    out["exit_reasons"] = {f"{k[0]}:{k[1]}": v for k, v in done[done["mode"].str.startswith("s2_")].groupby(["mode", "exit_reason"]).size().to_dict().items()}
+    return out
+
+
 def holdout(in_sample_expectancy: float, cfg=None, sim_trades: pd.DataFrame | None = None,
             carry: list[str] | None = None) -> dict:
     cfg = cfg or load_config()
@@ -311,7 +379,7 @@ def to_json(x) -> str:
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["stage1", "stage2", "stage3", "variants"])
+    ap.add_argument("stage", choices=["stage1", "stage2", "stage3", "variants", "study2"])
     ap.add_argument("--carry", nargs="+", help="level groups carried from Stage 2 (space- or comma-separated)")
     a = ap.parse_args(argv)
     cfg = load_config()
@@ -323,6 +391,9 @@ def main(argv=None):
     elif a.stage == "stage3":
         feats = store.load_derived("features", cfg)
         out = stage3(cfg, features=feats, carry=carry)
+    elif a.stage == "study2":
+        feats = store.load_derived("features", cfg)
+        out = study2(cfg, features=feats, carry=carry)
     else:
         feats = store.load_derived("features", cfg)
         out = variants(cfg, features=feats, carry=carry)

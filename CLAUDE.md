@@ -6,24 +6,20 @@ Batch research code that tests whether SPX gamma levels plus ES order flow confi
 
 Update this block at the end of every session.
 
-- Stage: Week 2. Full in-sample run done through Stage 2 on the main config (RUNLOG.md 2026-10-06):
-  GEX on 642 sessions, Gate 0 re-check passes (checks 1, 2, 4), Stage 1 verdict vs rules KILL
-  (RR beta right sign p=0.029 but quintile gap 7.5% < 15%), Stage 2 no real level group beats placebo
-  (carry structural_only + both). Awaiting Matteo's Stage 1/2 gate calls before the Stage 3 trades
-  pull (~$52 on the 120 sampled days, config stage3_sample, placebo_per_day 2). Databento spend ~$48
-  of $125.
-- Open data checks: six post-half-day sessions have no GEX row (`python -m src.gex --why DATE`),
-  2024-12-03 em=112.9 looks wrong, 2025-01-27 has no levels.
-- Pre-registered Stage 3 variants V1-V5 in RUNLOG.md; V5 unconditional. Run after the main Stage 3.
-- Pilot: `config.pilot.yaml` (Mar-May 2025, gex_pct_min_periods 20); activate via .env. Pilot output
-  is not a gate decision. Pilot numbers are in RUNLOG.md.
-- Gates passed: Gate 0 (accepted 2026-10-06 on the pilot; re-checked on the full run, passes).
-- Data facts: ThetaData free tier serves EOD from 2023-06-01 (403 before); EOD quotes are the 17:00 ET
-  Cboe curb close (quote_time 17:00); OPRA parent symbology returns OSI symbols; ES trades on equity
-  holidays, the calendar carries `equity_session` and research loads use equity sessions only.
-  Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126. Check 3 (public GEX chart
-  comparison) was accepted qualitatively.
-- Open issues: sign off the decisions listed in README.md, then set status.frozen in config.yaml.
+- Stage: study 1 complete on the main config (RUNLOG.md 2026-10-06/07). Gate 0 passes; Stage 1 KILL
+  (regime sign right, p=0.029, quintile gap 7.5% < 15%); Stage 2 after the labeler fix: no level group
+  beats placebo, gamma x regime interaction p=0.044; Stage 3 KILL, robust to all nudges and splits
+  (confirmed -0.33R; pre-cost naive-fade edge ~+0.10R = 0.6 ticks vs ~2.3 ticks of friction). No
+  holdout run. Databento spend ~$81 of $125.
+- Study 2 (RUNLOG 2026-10-07, approved and frozen): tape-footprint features (delta_at_level,
+  at_level_share, big_lot_share, tape_speed, delta_div), E1 limit entry at the level, E2 retest
+  continuation in low gamma; variants S2/S2r/S2c/S2h (9 of 20 used). Code and tests in place; first run
+  pending: `python -m src.stage3` then `python -m src.analysis study2`. Same trades, no spend.
+- Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
+  bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
+  are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
+- Pilot: `config.pilot.yaml`; activate via .env. Pilot output is not a gate decision.
+- Open issues: README decisions sign-off, then status.frozen in config.yaml.
 
 ## Non-negotiable rules
 
@@ -74,6 +70,6 @@ See README.md for the full runbook in order.
 - Build GEX table: `python -m src.gex --start YYYY-MM-DD --end YYYY-MM-DD`
 - Levels and touches: `python -m src.levels`, `python -m src.touches`
 - Stage 3 trades: `python -m src.ingest_futures trades [--price-only | --approve-usd X]`, then `python -m src.stage3`
-- Gate reports: `python -m src.analysis stage1|stage2|stage3 [--carry ...]`
+- Gate reports: `python -m src.analysis stage1|stage2|stage3|variants|study2 [--carry ...]`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`

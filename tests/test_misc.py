@@ -317,3 +317,29 @@ def test_stage3_secondary_regression_merge():
     out = analysis.stage3(cfg, sim_trades=trades, features=feats, carry=["structural_only"])
     assert out["secondary_regression"] is not None
     assert {r["term"] for r in out["secondary_regression"]} >= {"abs_ratio", "is_gamma"}
+
+
+def test_study2_report_on_synthetic_frames():
+    from src import analysis
+    from src.config import load_config
+    cfg = load_config()
+    rng = np.random.default_rng(3)
+    rows = []
+    for i in range(240):
+        tid, d = f"t{i}", dt.date(2024, 1, 2) + dt.timedelta(days=i // 4)
+        base = {"touch_id": tid, "date": d, "group": ["structural_only", "gamma_only", "both", "placebo"][i % 4],
+                "d": 1, "R_k": 2.0, "gex_pct": (i % 10) / 10, "above_flip": True, "exit_reason": "stop",
+                "entry_ts": pd.Timestamp(f"{d} 15:00", tz="UTC")}
+        rows.append({**base, "mode": "naive", "pnl_r": rng.normal(-0.2, 1)})
+        rows.append({**base, "mode": "s2_limit", "pnl_r": rng.normal(0.3, 1)})
+        rows.append({**base, "mode": "s2_limit_h", "pnl_r": rng.normal(0.0, 1)})
+        rows.append({**base, "mode": "s2_retest", "pnl_r": rng.normal(-0.3, 1)})
+    T = pd.DataFrame(rows)
+    out = analysis.study2(cfg, sim_trades=T, features=T[T["mode"] == "naive"][["touch_id", "date"]])
+    assert set(out["variants"]) == set(analysis.STUDY2)
+    s2 = out["variants"]["S2_delta_at_level_limit_entry"]
+    assert s2["n"] == 180 and set(s2["by_group"]) == {"structural_only", "gamma_only", "both", "placebo"}
+    assert "market_share_r" in s2["pre_cost"] and s2["vs_naive_same_touches"]["n_naive"] == 180
+    assert out["variants"]["S2r_positive_gamma_only"]["n"] == 84      # i%10>=5 and i%4!=3 within each block of 20: 7 of 20
+    assert all(v["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") for v in out["variants"].values())
+    analysis.to_json(out)

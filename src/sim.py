@@ -163,3 +163,96 @@ def mirror_trade(trades: pd.DataFrame, t0: pd.Timestamp, L: float, d: int, em: f
         return {"skip": why}
     return {"entry_ts": ts.iat[i], "E": E, "S": S, "T": T, "R_k": R_k, "X": X, "exit_reason": why,
             "exit_ts": t_x, "pnl_r": pnl_r(X, E, R_k, dm, cfg)}
+
+
+def _risk_and_target(E, S, d, em, cfg, tm):
+    """Shared risk floor/cap and target. Returns (S, R_k, T) or a skip dict."""
+    tick = cfg["market"]["tick"]
+    R_k = d * (E - S)
+    if R_k > param(cfg, "max_risk") * em:
+        return {"skip": "risk_too_wide", "R_k": R_k}
+    min_r = param(cfg, "min_risk") * tick
+    if R_k < min_r:
+        S, R_k = E - d * min_r, min_r
+    return S, R_k, E + d * tm * R_k
+
+
+def limit_trade(trades: pd.DataFrame, feat: dict, L: float, d: int, em: float, day, cfg,
+                target_mult: float | None = None, time_exit: float | None = None) -> dict | None:
+    """Study 2 E1: at t_dec a limit at L + d*entry_offset ticks works for fill_window minutes and
+    fills only on a print one tick through it (no slippage on a resting order). Stop stop_buffer
+    ticks beyond the lowest/highest print seen from t0 to the fill; target target_mult R; time exit
+    from the fill. The caller decides eligibility (confirmed_s2)."""
+    if not feat.get("reclaim"):
+        return None
+    tick = cfg["market"]["tick"]
+    tm = param(cfg, "target_mult") if target_mult is None else target_mult
+    tx = param(cfg, "time_exit") if time_exit is None else time_exit
+    trades = trades.reset_index(drop=True)
+    ts, px = trades["ts_event_utc"], trades["price"].to_numpy(float)
+    P = L + d * param(cfg, "entry_offset") * tick
+    live = (ts > feat["t_dec"]) & (ts <= feat["t_dec"] + pd.Timedelta(minutes=param(cfg, "fill_window")))
+    fills = np.where(live.to_numpy() & (d * (P - px) >= tick - 1e-9))[0]
+    if len(fills) == 0:
+        return {"skip": "no_fill"}
+    i = int(fills[0])
+    if ts.iat[i] >= _flat(day, cfg):
+        return {"skip": "too_late"}
+    path = trades[(ts >= feat["t0_trade"]) & (ts <= ts.iat[i])]["price"]
+    p_ext = float(path.min() if d == 1 else path.max())
+    E = P
+    S = p_ext - d * param(cfg, "stop_buffer") * tick
+    r = _risk_and_target(E, S, d, em, cfg, tm)
+    if isinstance(r, dict):
+        return r
+    S, R_k, T = r
+    t_exit = min(ts.iat[i] + pd.Timedelta(minutes=tx), _flat(day, cfg))
+    X, why, t_x = walk(trades, i + 1, E, S, T, d, t_exit, tick)
+    if not np.isfinite(X):
+        return {"skip": why}
+    return {"entry_ts": ts.iat[i], "E": E, "S": S, "T": T, "R_k": R_k, "X": X, "exit_reason": why,
+            "exit_ts": t_x, "pnl_r": pnl_r(X, E, R_k, d, cfg)}
+
+
+def retest_trade(trades: pd.DataFrame, feat: dict, L: float, d: int, em: float, day, cfg) -> dict | None:
+    """Study 2 E2 (low-gamma continuation): after a V5 break, wait up to retest_window minutes for a
+    print back within proximity_b of L. Look at the first clock minute that ends after that print:
+    if its close fails to reclaim L (d*(close-L) < reclaim_ticks), enter with the break direction on
+    the first print after that minute, one tick of slippage; stop stop_buffer ticks back on the
+    original side of L; target target_mult R; time exit from entry."""
+    if not feat.get("broke"):
+        return None
+    tick = cfg["market"]["tick"]
+    b = param(cfg, "proximity_b") * tick
+    trades = trades.reset_index(drop=True)
+    ts, px = trades["ts_event_utc"], trades["price"].to_numpy(float)
+    t_b = feat["t_break"]
+    t_end = t_b + pd.Timedelta(minutes=param(cfg, "retest_window"))
+    cand = np.where(((ts > t_b) & (ts <= t_end)).to_numpy() & (np.abs(px - L) <= b + 1e-9))[0]
+    if len(cand) == 0:
+        return {"skip": "no_retest"}
+    t_rt = ts.iat[int(cand[0])]
+    bar_end = t_rt.floor("1min") + pd.Timedelta(minutes=1)
+    bar = trades[(ts >= t_rt.floor("1min")) & (ts < bar_end)]
+    close = float(bar["price"].iloc[-1])
+    if d * (close - L) >= param(cfg, "reclaim_ticks") * tick - 1e-9:
+        return {"skip": "reclaimed"}
+    after = np.where((ts >= bar_end).to_numpy())[0]
+    if len(after) == 0:
+        return {"skip": "no_entry_trade"}
+    i = int(after[0])
+    if ts.iat[i] >= _flat(day, cfg):
+        return {"skip": "too_late"}
+    dm = -d
+    E = px[i] + dm * param(cfg, "entry_slippage") * tick
+    S = L + d * param(cfg, "stop_buffer") * tick
+    r = _risk_and_target(E, S, dm, em, cfg, param(cfg, "target_mult"))
+    if isinstance(r, dict):
+        return r
+    S, R_k, T = r
+    t_exit = min(ts.iat[i] + pd.Timedelta(minutes=param(cfg, "time_exit")), _flat(day, cfg))
+    X, why, t_x = walk(trades, i + 1, E, S, T, dm, t_exit, tick)
+    if not np.isfinite(X):
+        return {"skip": why}
+    return {"entry_ts": ts.iat[i], "E": E, "S": S, "T": T, "R_k": R_k, "X": X, "exit_reason": why,
+            "exit_ts": t_x, "pnl_r": pnl_r(X, E, R_k, dm, cfg)}

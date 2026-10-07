@@ -43,7 +43,7 @@ def test_end_to_end(synth_env):
     assert np.isfinite(done["pnl_r"]).all()
     # Exits respect the fill rules: no exit ever better than target, R_k always positive
     assert (done["R_k"] > 0).all()
-    trade_dir = np.where(done["mode"].isin(["continuation", "mirror"]), -done["d"], done["d"])   # V5 and the mirror diagnostic trade against d
+    trade_dir = np.where(done["mode"].isin(["continuation", "mirror", "s2_retest"]), -done["d"], done["d"])   # V5, the mirror diagnostic and the E2 retest trade against d
     assert (trade_dir * (done["X"] - done["T"]) <= 1e-9).all()
 
     s1 = analysis.stage1(cfg)
