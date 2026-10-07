@@ -90,3 +90,28 @@ def test_permutation_test_detects_a_regime_gap():
     t["pnl_r"] = rng.normal(0, 1, n)
     res = study3.permutation_test(t, high_is_variant=True, thr=0.5, draws=300, seed=1)
     assert res["p"] > 0.05
+
+
+def test_price_already_beyond_the_band_at_band_start_is_not_a_touch(cfg):
+    # Price crossed the upper band at 09:40 and is still above it at 10:00: no clean touch, skip.
+    c = [5000.0] * 10 + [5020.0] * 40
+    bars = make_bars(DAY, c, start="09:30")
+    assert study3.find_band_touch(bars, O, EM, cfg) is None
+    # Came back inside before 10:00 and touched again at 10:05: that counts, from inside.
+    c = [5000.0] * 10 + [5020.0] * 5 + [5005.0] * 20 + [5016.0] + [5005.0] * 10
+    bars = make_bars(DAY, c, start="09:30")
+    assert study3.find_band_touch(bars, O, EM, cfg) == (35, 1)
+
+
+def test_breakout_fills_at_the_open_when_the_bar_gaps_through(cfg):
+    # 10:03 bar opens at 5014.5 (inside), prints 5018: a stop at the band fills at the band plus slippage.
+    bars = make_bars(DAY, path([5012, 5008, 5003, 4999, 4999]), start="09:30")
+    assert study3.breakout_trade(bars, 33, 1, O, EM, DAY, cfg)["E"] == 5015.25
+    # Make the 10:03 bar open above the band (previous close inside at 5014.5 -> open 5014.5 is inside;
+    # force an open of 5018.0): the stop order fills at the open, not at the band.
+    bars.loc[33, "open"] = 5018.0
+    bars.loc[33, "high"] = 5019.0
+    r = study3.breakout_trade(bars, 33, 1, O, EM, DAY, cfg)
+    assert r["E"] == 5018.0 and r["S"] == 5007.5 and r["R_k"] == 10.5
+    # The fade's limit at the band fills at the band less slippage regardless.
+    assert study3.fade_trade(bars, 33, 1, O, EM, DAY, cfg)["E"] == 5014.75

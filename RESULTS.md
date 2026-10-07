@@ -153,7 +153,21 @@ Study 2 decision (Matteo, 2026-10-07): kill accepted; intraday level thesis clos
 
 ## Planned
 
-### Study 3 (draft pre-registration in RUNLOG.md, awaiting approval)
-Session-level gamma regime: fade the expected-move band toward the open on high-gamma sessions (R1),
-trade the band breakout on low-gamma sessions (R2), R1 above the flip (R3). One trade per session,
-1-minute bars, risk 0.25 EM, permutation test on the regime split. 12 of 20 variants if run.
+## Study 3, session-level gamma regime (approved 2026-10-07; 12 of 20 variants)
+
+### How it is built
+One trade per session on 1-minute bars (no tick data). O = the 09:30 open on the session's front
+contract; bands at O +/- 0.50 EM (EM from the prior close's straddle). The first bar between 10:00
+and 15:00 that reaches a band from inside it is the touch; a bar touching both bands, or price already
+beyond a band at 10:00, skips the session. Fade (R1, R3): against the move, stop 0.25 EM beyond the
+band, target the open (2:1). Breakout (R2): with the move, stop 0.25 EM back inside, target a further
+0.50 EM (2:1); a stop order fills at the bar's open if the bar opened through the band. One tick of
+slippage, costs, flat at 15:55. Regime split at the 0.5 GEX percentile; the complement is the
+contrast; a 1,000-draw permutation of the percentile across sessions is the placebo.
+
+### S3 first run (superseded)
+- **Result.** R1 -0.34R (250), R2 +0.12R (229), R3 -0.32R (244); every regime contrast negative,
+  permutation p > 0.8. The unconditioned breakout on all 479 sessions showed +0.19R, PF 1.32.
+- **Rule 6 outcome.** The breakout number was inflated by a fill bug: sessions already beyond the
+  band at 10:00 entered at the band price. Fixed (clean touches only, gapped opens fill at the open);
+  re-run pending. Not a result.

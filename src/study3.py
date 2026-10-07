@@ -4,7 +4,10 @@ For each in-sample session D with a GEX row (EM and gex_pct are D-1 quantities):
   O     = open of the first RTH bar (09:30 ET) on D's front contract
   bands B_up = O + a*EM, B_dn = O - a*EM           (a = band_a)
   touch = first RTH bar from band_start to band_end whose high >= B_up (side +1) or low <= B_dn
-          (side -1); a bar touching both bands is ambiguous -> no trade that session
+          (side -1) with the previous bar's close inside the band; a bar touching both bands is
+          ambiguous -> no trade; price already beyond a band when the window opens -> no trade
+          (fill-realism rule added 2026-10-07 before the second run, see RUNLOG)
+  breakout fill: if the touch bar opened through the band, the stop order fills at the open
   fade     (R1/R3): direction -side, E = B - side*slip ticks, S = B + side*s*EM, T = O
   breakout (R2):    direction +side, E = B + side*slip ticks, S = B - side*s*EM, T = B + side*a*EM
   R_k = |E - S| (about s*EM); costs cost_rt_usd; time exit flat_time.
@@ -65,11 +68,18 @@ def find_band_touch(bars: pd.DataFrame, O: float, em: float, cfg):
     up, dn = O + a, O - a
     mod = calm.minutes_of_day_et(b["ts_open_utc"]).to_numpy()
     s, e = calm.hhmm_to_min(cfg["market"]["band_start"]), calm.hhmm_to_min(cfg["market"]["band_end"])
-    hi, lo = b["high"].to_numpy(float), b["low"].to_numpy(float)
+    hi, lo, cl = b["high"].to_numpy(float), b["low"].to_numpy(float), b["close"].to_numpy(float)
     for i in np.where((mod >= s) & (mod <= e))[0]:
+        if i == 0:
+            continue
+        inside = dn < cl[i - 1] < up          # a clean touch starts from inside the band
         u, d = hi[i] >= up - 1e-9, lo[i] <= dn + 1e-9
         if u and d:
             return None                    # ambiguous bar: skip the session
+        if not inside:
+            if u or d:
+                return None                # price already beyond the band at band_start: no clean touch
+            continue
         if u:
             return int(i), 1
         if d:
@@ -112,6 +122,9 @@ def _trade(bars, touch_idx, side, O, em, day, cfg, mode: str) -> dict:
     else:
         d = side
         E, S, T = B + side * slip, B - side * s, B + side * a
+        op = float(b["open"].iat[touch_idx])
+        if side * (op - B) > 0:            # the bar opened through the band: a stop order fills at the open
+            E = op
     R_k = d * (E - S)
     t_exit = calm.et_time(day, cfg["market"]["flat_time"])
     X, why, t_x = bar_walk(b, touch_idx + 1, E, S, T, d, t_exit, tick, entry_bar=touch_idx)

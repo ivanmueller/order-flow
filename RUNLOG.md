@@ -410,3 +410,23 @@ test on synthetic frames.
 Rule-6 checks pre-committed: EM and gex_pct are D-1 quantities (point-in-time); no roll day inside a
 session; the open O is the first RTH bar, not a later bar; one trade per session; holdout dates never
 loaded; the permutation test guards against a time-trend in gex_pct masquerading as regime.
+
+## 2026-10-07 Study 3 first run (commit 9c1a0f2 code, config as approved): 479 sessions, SUPERSEDED
+- R1 fade high gamma: n=250, -0.34R (CI -0.46..-0.21); complement (fade low gamma) -0.16R; regime
+  contrast -0.18R; permutation p=0.93. KILL. The fade is WORSE in high gamma, the opposite of H.
+- R2 breakout low gamma: n=229, +0.12R (CI -0.03..+0.27); complement (breakout high gamma) +0.25R
+  (CI +0.11..+0.41); contrast -0.13R; permutation p=0.86. KILL as a regime claim.
+- R3 fade high gamma above flip: n=244, -0.32R. KILL.
+- Contrast "breakout_all_sessions": n=479, win 42.8% vs a 33% driftless baseline, +0.19R
+  (CI +0.08..+0.30), PF 1.32, market share +0.28R. This is a strong-looking result and rule 6
+  applies. Checked so far: EM and gex_pct are D-1 values; O is the 09:30 bar on the session's own
+  contract (no roll inside a session); one trade per session; holdout never loaded; the touch bar
+  pays no target; a bar touching both barriers is a loss.
+- BUG FOUND by that check (fill realism, SPEC rule 5): when price was already beyond the band at
+  10:00 (crossed before band_start), the first eligible bar counted as the touch and the breakout
+  entered at the band plus one tick although the market was already well past it: a free head start
+  for breakouts and a handicap for fades, i.e. exactly the asymmetry seen. Fixed before any
+  interpretation: a touch must start from inside the band (previous bar close inside); price already
+  beyond a band when the window opens -> no trade that session; a breakout stop order fills at the
+  bar's open when the bar opened through the band. Tests added. Re-run required; the numbers above
+  are not a result.
