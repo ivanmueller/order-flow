@@ -1151,3 +1151,49 @@ $100 line (~$0.41 a session; the $40.39 of credit left buys ~65 sessions after t
   at or after the decision minute (asserted); thresholds from earlier sessions only (unit-tested). Nothing
   looked strong, so no further rule-6 search.
 - Gate call is Matteo's. Ledger unchanged at $84.61.
+
+## 2026-10-07 | Study 7 pre-registration DRAFT: the 5f fade on four non-equity markets -- awaiting approval
+Family: cross-market fade (new family; 4 gated variants = 4 markets; own out-of-sample before any Go).
+Purpose (Matteo): find whether the close reversal exists outside equity indices, so independent copies could
+be combined. CL, GC, ZN, 6E are weakly correlated with ES and with each other, unlike NQ.
+
+Prior, stated before any data: Baltussen, Da, Lammers and Martens (JFE 2021) report intraday MOMENTUM, not
+reversal, in the last 30 minutes across 60+ futures (equities, bonds, commodities, currencies, 1974-2020),
+tied to gamma hedging. Our ES/NQ reversal in 2023-25 fits the 0DTE-era dampening that is specific to equity
+index options. So the fade is not expected to generalize; expected outcome KILL on all four. The momentum
+direction is reported as a descriptive number (momentum_direction_mean_em), not gated.
+
+Rules: Study 5f frozen rules with the clock anchored to each market's settlement instead of the 16:00 equity
+close (P_prev = D-1 settlement-minute close; decision 30 minutes before settlement; time exit at settlement;
+stop 0.5 EM; entry and exit one tick adverse; $3.98 a round trip, nudge $5.97; roll, half-day and
+after-half-day sessions skipped):
+  X1 CL.v.0 settle 14:30 ET (decision 14:00)   tick 0.01,     $1,000/pt   friction ~0.024 pts
+  X2 GC.v.0 settle 13:30 ET (decision 13:00)   tick 0.10,     $100/pt     friction ~0.24 pts
+  X3 ZN.v.0 settle 15:00 ET (decision 14:30)   tick 1/64,     $1,000/pt   friction ~0.035 pts
+  X4 6E.v.0 settle 15:00 ET (decision 14:30)   tick 0.00005,  $125,000/pt friction ~0.00013
+Unit: VIX does not describe these markets, and two of their own vol indexes (TYVIX, EVZ) were discontinued,
+so all four use one rule: EM_R = s5_rv_factor x SD of the last s5_rv_sessions daily log returns of the
+settlement-minute closes (strictly before D) x P_prev, factor 1.0, 20 sessions (point in time; EM_V on ES
+is about one daily SD, so the units are comparable). Bridge check (descriptive): ES 5f rerun with EM_R.
+Friction in EM units is ES-like for CL, GC, 6E (~0.01-0.025) but ~0.07 for ZN, so ZN starts handicapped.
+
+Gates per market (the Study 5 in-sample gates, unchanged): sessions >= 400; fade mean >= 0.02 EM and 90%
+session-bootstrap CI lower bound > 0; timing contrast CI lower bound > 0 with session and 21-block
+permutation p < 0.05; mean without the best 5 sessions > 0. Reported, not gated: the NQ-style replication
+read (mean > 0 and contrast > 0), years, pooled equal-weight fade across the four markets, cross-market
+correlation of daily fade PnL. A market that passes may go to its own holdout, 2026-01..09 (never looked at
+for these markets), only after Matteo says "run the holdout"; holdout rule as 5f (positive and >= half the
+in-sample mean).
+Power: the ES fade had SE ~0.010 EM at ~620 sessions; passing needs a true effect near 0.03 EM or more.
+
+Data and cost: 1-minute bars 2023-04-01..2025-12-31 per market (April-May for the 20-session vol warm-up),
+~$3.4 each from the price menu, ~$13.7 in four pulls of under $5 each, each priced with get_cost first;
+ledger $84.61 -> ~$98.3, under the $100 line. A later holdout pull (~$1 a market) would cross the line, so ask.
+Free inputs: FRED SPX/VIX daily under each overlay (only for the equity-session calendar).
+
+Proposed config (needs approval): params s5_em_unit {value: "vix"} (overlays set "realized"),
+s5_rv_sessions {value: 20}, s5_rv_factor {value: 1.0}; overlays config.cl.yaml, config.gc.yaml, config.zn.yaml,
+config.6e.yaml (data root data_<mkt>, symbol, tick, point_value, rth_close = settlement time, s5_decision_time
+and s5_exit_time as above, s5_em_unit "realized", shared ledger). config.yaml values otherwise unchanged.
+Build: tests first (settlement anchors per overlay, EM_R by hand, tick grids for 1/64 and 0.00005, the ES
+VIX path unchanged), then price, approve, pull, run --fade-replication per market plus a cross-market report.

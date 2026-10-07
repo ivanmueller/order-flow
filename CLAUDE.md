@@ -53,8 +53,10 @@ Update this block at the end of every session.
   pilot on the on-disk Stage 3 ES ticks; F1 continuation 5/5, F2 absorption fade 15/15, F3 pressure reversal 15/15,
   F4 absorption fade 5/5; pilot can only KILL or ADVANCE; confirmation on fresh random sessions. Expected KILL.
   Pilot run: KILL on all four (net -0.49 to -1.19 pts/trade; gross edge <= +0.09 pts vs 0.58 friction;
-  imbalance-return corr 0.009/0.020, t < 1). No confirmation, no spend. Awaiting Matteo; next planned: other-market
-  fades (needs an EM unit per market).
+  imbalance-return corr 0.009/0.020, t < 1). No confirmation, no spend. KILL accepted (Matteo: "yes" to moving on).
+  Study 7 pre-registered as a DRAFT: the 5f fade on CL, GC, ZN, 6E anchored to each settlement, unit EM_R
+  (20-session realized vol), Study 5 gates per market, ~$13.7 of bars (ledger -> ~$98.3). Prior: literature
+  shows momentum in these markets, expected KILL. Awaiting approval of the draft and its config.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
