@@ -281,3 +281,15 @@ Variant count so far: 5 of 20.
   pre-registered; the signal is too small for these execution rules.
 - Next, all pre-registered and free: `python -m src.robustness nudges` (includes max_risk, stop_buffer,
   target_mult, time_exit nudges) and `python -m src.robustness splits`.
+
+## 2026-10-07 robustness nudges and splits on the Stage 3 result (main config, sim_trades of 2026-10-06)
+- `robustness nudges`: BASE -0.326R (446 confirmed). All 44 evaluated nudges negative (positive share
+  0.00, pass=False); range -0.286 (debounce 5) to -0.422 (entry_slippage 2). max_rel_spread nudges
+  skipped (need a GEX rebuild). Execution nudges: stop_buffer 1/4 -0.318/-0.316, max_risk 0.10/0.20
+  -0.399/-0.319, target_mult 1.0/2.0 -0.323/-0.319, time_exit 20/45 -0.342/-0.326, cost 5.97 -0.344.
+  No execution setting lets the pre-cost signal through.
+- `robustness splits`: negative in every year (2023 -0.44, 2024 -0.24, 2025 -0.34), every GEX tercile
+  (low -0.32, mid -0.27, high -0.29) and every time-of-day bucket (open -0.38, mid -0.30, close -0.35);
+  every 90% interval below zero.
+- Stage 3 verdict vs rules: KILL, robust to nudges and splits. Per SPEC: no holdout run on a Stage 3
+  kill; write up what was learned. Decision is Matteo's.
