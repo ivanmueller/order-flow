@@ -854,3 +854,44 @@ gate call is Matteo's.
   about 1.32 option EMs. A pure scale: it changes no sign, interval or p-value; it makes the 0.5 EM_V stop
   about 0.66 option EM and gate 2 about 0.026 option EM. No verdict depends on it.
 - Decision is Matteo's. No holdout run.
+
+## Study 5f pre-registration: fade the rest-of-day move into the close, holdout only (DRAFT, awaiting Matteo's approval; frozen before any run)
+Origin: the study 5 run (above) found the close reverses the day in 2023-06..2025-12 (timing contrast -0.024
+EM_V, CI below zero; slope t -2.3). By study 5's own registration, a trade suggested by that data may not be
+tested on it, so this is tested once on the sealed holdout (2026-01-01 to sample.end 2026-09-30) and nowhere
+else. Matteo chose this route 2026-10-07.
+
+Hypothesis H5f. The study 5 trade in the opposite direction (d_f = -sign(r_ROD)) with the S5b stop has
+positive after-cost expectancy out of sample.
+
+Build: identical to study 5 (same decision, entry, exit, stop, unit, costs, eligibility, config values),
+except the direction is reversed. No new parameter. Because every session's long and short outcomes are
+already computed, the fade is the other side of the same table: pnl_em_fade = pnl_em_momentum_stop of the
+side not chosen by study 5.
+
+Variant: S5f, fade with the 0.5 EM_V stop (the defined-risk version only; the no-stop fade is not run).
+Count: 18 of 20.
+
+Steps, in order, none of which reads a holdout date until step 4:
+1. In-sample reference: from the saved study 5 table (2023-06-02..2025-12-31), the S5f mean pnl_em, its
+   CI and timing contrast, computed with `--report-only` on in-sample data and logged here. If that mean is
+   not positive, stop: the holdout is not opened for this hypothesis.
+2. Check that holdout inputs exist without loading them: ES bar files 2026-01 to 2026-09 and a FRED file
+   whose last date is at least 2026-09-30 (file names and the file's max date only). If bars are missing,
+   price the pull first (about 9 months x $0.105 = about $1).
+3. Matteo says "run the holdout".
+4. One run with GAMMA_EDGE_RUN_HOLDOUT=1 on holdout sessions only; report; stop.
+
+Holdout gates (SPEC holdout rule, as in "Holdout, robustness, and the go/no-go decision"):
+1. mean pnl_em of S5f > 0 and at least holdout_min_fraction (0.5) times the in-sample S5f mean.
+2. Reported, not gated: the 90% interval, the timing contrast and its interval, both permutation p-values,
+   the tail block, the descriptive gamma split, and the momentum direction's mean (which should be negative).
+Pass: the fade survives one out-of-sample look; the next step would be the SPEC robustness nudges and an NQ
+replication, and only then any thought of trading it. Kill: write up.
+
+Power, stated before the run. About 180 eligible holdout sessions; at the planning sd of 0.36 EM_V the
+standard error is about 0.027 EM_V. The in-sample fade nets about +0.009 EM_V, so gate 1 needs only about
++0.0045 in the holdout. If the true edge is zero, the holdout passes gate 1 by chance about 43% of the time;
+if it is +0.009, about 57%. This holdout can kill a fade that has turned clearly negative; it cannot confirm
+an edge this small. A pass is a reason to keep watching (paper trading, or the 2019 extension), not to trade.
+Using the holdout here also spends its freshness for any later ES close-window hypothesis.

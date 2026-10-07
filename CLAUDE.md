@@ -41,7 +41,8 @@ Update this block at the end of every session.
   entries added; built tests-first in src/study5.py (116 tests pass). Run 2026-10-07 (RUNLOG): KILL on both;
   S5a -0.037 EM_V (CI -0.054..-0.020), S5b -0.031; timing contrast negative with CI below zero: the close
   REVERSES the day (slope t -2.3, strongest when net_gex >= 0). Momentum excluded. 17 of 20 variants.
-  Mirror (fade) nets ~+0.009 EM_V, CI includes 0, not registered. Awaiting Matteo's call.
+  Mirror (fade) nets ~+0.009 EM_V, CI includes 0. KILL accepted by Matteo. Study 5f (fade with the S5b stop,
+  holdout only, 18 of 20) pre-registered as a DRAFT awaiting approval; holdout still sealed.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
