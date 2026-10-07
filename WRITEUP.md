@@ -88,6 +88,7 @@ buying it for the intraday level thesis.
 | One entry per backtest: hypothesis, build, headline, verdict | RESULTS.md |
 | Lessons and verdicts (this file) | WRITEUP.md |
 | Code and log audit of studies 1-3, modeling caveats, the study 4 and study 5 proposals | REVIEW.md |
+| Data inventory (what each table supports, its stamp, its gaps, cheap pulls), 15 candidate studies scored, the ranking behind study 5 | CANDIDATES.md |
 | Every tunable value, with nudges | config.yaml |
 | Runbook, guard rails, decisions that needed sign-off | README.md |
 | Working rules, data conventions, status block | CLAUDE.md |

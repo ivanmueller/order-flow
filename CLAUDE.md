@@ -24,8 +24,20 @@ Update this block at the end of every session.
   study4_min_expectancy_em 0.03 added to config.yaml). Built tests-first in `src/study4.py` (90 tests pass); run by
   Matteo 2026-10-07 (RUNLOG): S4a +0.059 EM (CI -0.02..+0.14, contrast CI > 0, perm p 0.035), S4b +0.033
   (CI fails), S4c iron fly -0.010. KILL on all three by the rules; 15 of 20 variants. Regime effect real
-  but ~1.2 SE at 266 sessions; defined-risk version has no edge. Awaiting Matteo's call. Study 5
-  (hedging-flow into the close) remains a draft. Holdout still sealed.
+  but ~1.2 SE at 266 sessions; defined-risk version has no edge. Holdout still sealed.
+- Next-study selection 2026-10-07 per NEXT.md (CANDIDATES.md; RUNLOG same date): data inventory, 15
+  candidates scored; no candidate on disk can resolve its published effect after costs. Study 5
+  pre-registered as a DRAFT awaiting Matteo's approval: last-30-minute ES momentum into the close,
+  unconditional (S5a no stop, S5b 0.5 EM stop; would bring the count to 17 of 20), unit = VIX-implied EM,
+  gamma only as a descriptive slope, verdict reported as existence (timing) and economics (after costs).
+  Sample chosen at approval: A (2023-06..2025-12, on disk, default) or B (2019-01..2025-12, needs ES bars
+  2019-01..2023-03, est $5.4, and first a code change freezing the stage-3 day set, which a calendar
+  rebuild would otherwise redraw). Power at the published size in A: existence ~0.52, after costs ~0.18.
+  Expected outcome stated in advance: KILL. Alternatives: the one-week premium (body and wings) with a $40
+  ThetaData Value month (2020+), or write up. New params proposed, not yet in config.yaml: s5_sample,
+  s5_decision_time, s5_exit_time, s5_stop_em, s5_em_vix_factor, s5_perm_block, s5_outlier_n,
+  s5_sanity_em; gates study5_min_sessions, study5_min_expectancy_em, study5_perm_p, study5_tail_drop.
+  Two independent reviews corrected the draft before freezing (RUNLOG). No code written for study 5.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
