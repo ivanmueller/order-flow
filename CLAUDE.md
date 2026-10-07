@@ -54,9 +54,9 @@ Update this block at the end of every session.
   F4 absorption fade 5/5; pilot can only KILL or ADVANCE; confirmation on fresh random sessions. Expected KILL.
   Pilot run: KILL on all four (net -0.49 to -1.19 pts/trade; gross edge <= +0.09 pts vs 0.58 friction;
   imbalance-return corr 0.009/0.020, t < 1). No confirmation, no spend. KILL accepted (Matteo: "yes" to moving on).
-  Study 7 pre-registered as a DRAFT: the 5f fade on CL, GC, ZN, 6E anchored to each settlement, unit EM_R
-  (20-session realized vol), Study 5 gates per market, ~$13.7 of bars (ledger -> ~$98.3). Prior: literature
-  shows momentum in these markets, expected KILL. Awaiting approval of the draft and its config.
+  Study 7 APPROVED as MOMENTUM (S5a, no stop) on CL, GC, ZN, 6E anchored to each settlement, unit EM_R
+  (20-session realized vol), Study 5 gates per market, ~$13.7 of bars (ledger -> ~$98.3). Built tests-first
+  (src/study7.py, overlays config.cl/gc/zn/6e.yaml). Awaiting Matteo's pulls and runs.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
@@ -123,5 +123,6 @@ See README.md for the full runbook in order.
   --price-only` (then --approve-usd), `python -m src.study5 --fade-replication`
 - Price menu (no pulls): `python -m src.price_menu --start YYYY-MM-DD --end YYYY-MM-DD [--symbols ES.v.0 ...]`
 - Study 6 order flow pilot: `python -m src.study6 --count`, then `python -m src.study6 [--report-only]`
+- Study 7 (per overlay): `python -m src.study7 --market`; then (no overlay) `--cross config.cl.yaml ...`, `--bridge`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`

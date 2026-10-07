@@ -114,11 +114,17 @@ def eligibility(row, prev_half_day: bool) -> str | None:
     return None
 
 
-def session_trade(prev_bars: pd.DataFrame, day_bars: pd.DataFrame, day, prev_day, vix_prev: float, cfg):
+def session_trade(prev_bars: pd.DataFrame, day_bars: pd.DataFrame, day, prev_day, vix_prev: float, cfg,
+                  sigma: float | None = None):
     """Both variants, both directions, for one session; (row, None) or (None, skip_reason).
-    prev_bars and day_bars must already be restricted to one contract each (levels.session_bars)."""
+    prev_bars and day_bars must already be restricted to one contract each (levels.session_bars).
+    Unit: s5_em_unit "vix" -> EM_V from vix_prev; "realized" (Study 7) -> EM_R = s5_rv_factor x sigma x P_prev,
+    sigma = SD of daily log returns strictly before D (study7.realized_sigma)."""
     m, tick = cfg["market"], cfg["market"]["tick"]
-    if not np.isfinite(vix_prev):
+    realized = param(cfg, "s5_em_unit") == "realized"
+    if realized and not (sigma is not None and np.isfinite(sigma) and sigma > 0):
+        return None, "no_vol"
+    if not realized and not np.isfinite(vix_prev):
         return None, "no_vix"
     b = day_bars.sort_values("ts_open_utc").reset_index(drop=True)
     p_prev, inst_prev = prev_close(prev_bars.sort_values("ts_open_utc").reset_index(drop=True), prev_day, cfg)
@@ -137,7 +143,7 @@ def session_trade(prev_bars: pd.DataFrame, day_bars: pd.DataFrame, day, prev_day
     used = b.loc[[i_dec, i_ent, i_ext], "instrument_id"].unique()
     if len(used) != 1 or int(used[0]) != inst_prev:
         return None, "instrument_mismatch"
-    em = em_vix(vix_prev, p_prev, cfg)
+    em = param(cfg, "s5_rv_factor") * sigma * p_prev if realized else em_vix(vix_prev, p_prev, cfg)
     p_dec = float(b["close"].iat[i_dec])
     r_rod = (p_dec - p_prev) / em
     if r_rod == 0:
@@ -224,6 +230,10 @@ def run(cfg=None, save: bool = True, include_holdout: bool = False, holdout_only
     if p.exists():
         gx = store.load_derived("gex_daily", cfg, include_holdout).set_index("date")
     end = pd.Timestamp(cfg["sample"]["end"]).date()
+    sig = {}
+    if param(cfg, "s5_em_unit") == "realized":
+        from src.study7 import sigma_by_session
+        sig = sigma_by_session(cal, by_day, cfg)
     rows, skipped = [], {}
     for r in cal.itertuples():
         if r.date < start or pd.isna(r.prev_date) or (holdout_only and r.date > end):
@@ -233,7 +243,8 @@ def run(cfg=None, save: bool = True, include_holdout: bool = False, holdout_only
         if why is None:
             out, why = session_trade(session_bars(by_day, r.prev_date, r.instrument_id),
                                      session_bars(by_day, r.date, r.instrument_id),
-                                     r.date, r.prev_date, float(vix.get(r.prev_date, np.nan)), cfg)
+                                     r.date, r.prev_date, float(vix.get(r.prev_date, np.nan)), cfg,
+                                   sigma=sig.get(r.date))
         if why is not None:
             skipped[why] = skipped.get(why, 0) + 1
             continue

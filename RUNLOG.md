@@ -1197,3 +1197,26 @@ config.6e.yaml (data root data_<mkt>, symbol, tick, point_value, rth_close = set
 and s5_exit_time as above, s5_em_unit "realized", shared ledger). config.yaml values otherwise unchanged.
 Build: tests first (settlement anchors per overlay, EM_R by hand, tick grids for 1/64 and 0.00005, the ES
 VIX path unchanged), then price, approve, pull, run --fade-replication per market plus a cross-market report.
+
+## 2026-10-07 | Study 7 revised to MOMENTUM and APPROVED (Matteo: "ok go"), before any data
+- Direction changed from the draft's fade to Study 5's momentum, on the prior alone (no CL/GC/ZN/6E data has
+  been read): Baltussen et al. report last-30-minute momentum across bonds, commodities and currencies; the
+  ES/NQ reversal is attributed to equity-index 0DTE hedging, absent at that scale in these markets.
+- Gated rule per market: S5a (no stop, hold to settlement), as in the literature. Not gated: S5b, the fade
+  mirror. Expected outcome revised: existence possible in some markets; KILL after costs most likely.
+- Everything else as in the draft (settlement anchors, EM_R, Study 5 gates, holdout only on Matteo's word).
+- config diff (approved): config.yaml params s5_em_unit "vix", s5_rv_sessions 20, s5_rv_factor 1.0 (ES and NQ
+  unchanged); new overlays config.cl.yaml, config.gc.yaml, config.zn.yaml, config.6e.yaml (data roots
+  data_<mkt>, git-ignored; shared ledger).
+
+## 2026-10-07 | Study 7 built tests-first (nothing run on real data)
+- code: study5.session_trade takes sigma and builds EM_R when s5_em_unit is "realized" (skip reason no_vol);
+  study5.run computes sigma per session via study7.sigma_by_session. src/study7.py: realized_sigma,
+  sigma_by_session, market_verdict, momentum_market (--market), pooled_daily and cross_report (--cross),
+  bridge (--bridge: ES under EM_R, save=False).
+- tests: tests/test_study7.py (overlay values for all four, ES unit unchanged, sigma by hand 0.115857, roll
+  returns skipped, sigma strictly before D, 1/64 and 0.00005 stop grids, a CL session by hand, no_vol, VIX path
+  unchanged, gated variant S5a, pooled equal weight) and a synthetic EM_R end-to-end test. Full suite passes.
+- Bug caught by the tests: YAML read the 6E tick "5e-05" as a string; written as 0.00005.
+- Next on Matteo's machine, per market: ingest_daily (free), bars 2023-04-01..2025-12-31 --price-only, then
+  --approve-usd 4.00 (each ~$3.4; ledger stays under $100), then study7 --market; then --cross and --bridge.

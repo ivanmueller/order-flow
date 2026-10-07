@@ -304,3 +304,20 @@ def test_study6_on_synthetic_ticks(synth_env):
         assert v["verdict"] in ("ADVANCE", "KILL")
     analysis.to_json(out)
     assert len(store.load_derived("flow_trades", cfg)) == len(T)
+
+
+def test_study7_realized_unit_on_synthetic_store(synth_env):
+    """EM_R path end to end: sigma from settlement-minute closes strictly before D, rolls never form a return,
+    every traded session has a finite unit, and the first s5_rv_sessions sessions are skipped as no_vol."""
+    from src import study5, study7
+    from src.config import with_params
+    cfg, _ = synth_env
+    c = with_params(cfg, s5_em_unit="realized", s5_rv_sessions=5)
+    T = study5.run(c, save=False)
+    assert len(T) and np.isfinite(T["em_v"]).all() and (T["em_v"] > 0).all()
+    assert T.attrs["skipped"].get("no_vol", 0) >= 1
+    cal = store.load_calendar(c)
+    _, by_day, _ = study5._load(c)
+    sig = study7.sigma_by_session(cal, by_day, c)
+    for r in T.itertuples():
+        assert r.em_v == pytest.approx(sig[r.date] * r.P_prev)

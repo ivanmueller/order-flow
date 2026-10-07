@@ -148,6 +148,9 @@ params:
   s5_stop_em:         {value: 0.50,  nudges: [0.35, 0.75]}  # S5b stop distance from entry, EM_V units
   s5_em_vix_factor:   {value: 0.75}                         # EM_V = factor x VIX(D-1)/100/sqrt(252) x P_prev; unit convention, no nudge
   s5_perm_block:      {value: 21}                           # sessions per block in gate 5's block shuffle; decides a gate, no nudge
+  s5_em_unit:         {value: "vix"}                        # Study 7 (approved): "vix" = EM_V (ES/NQ, unchanged); "realized" = EM_R in the overlays
+  s5_rv_sessions:     {value: 20}                           # EM_R: SD of this many daily log returns of the session closes, strictly before D
+  s5_rv_factor:       {value: 1.0}                          # EM_R = factor x SD x P_prev; unit convention, no nudge
   s5_outlier_n:       {value: 5}                            # report: slope repeated without this many largest |r_ROD|
   s5_sanity_em:       {value: 3.0}                          # report: sessions with |r_L30| above this (EM_V) are listed
   # Study 6 (RUNLOG 2026-10-07, approved): pure order flow pilot on the on-disk Stage 3 ES ticks.
