@@ -68,6 +68,10 @@ python -m src.ingest_futures trades --approve-usd <amount>
 python -m src.stage3
 python -m src.analysis stage3 --carry gamma_only,both,structural_only
 
+# 7b. Study 4 (RUNLOG 2026-10-07): regime-conditioned 0DTE straddle at the D-1 close; needs only
+#     gex_daily, the EOD quote files and the FRED closes already on disk (no spend)
+python -m src.study4
+
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges
 python -m src.robustness splits
@@ -125,7 +129,7 @@ config.yaml   SPEC.md   CLAUDE.md   RUNLOG.md   static/events.csv
 src/  config, calendar (sessions + holdout seal), store (parquet I/O), spend (Databento guard)
       ingest_daily, ingest_options, ingest_futures
       gex (Module 2), levels (Module 3), regime (Stage 1 measures), touches (Stage 2)
-      flow, sim, stage3 (Stage 3), stats, analysis (gate reports), robustness, runlog, plots
+      flow, sim, stage3 (Stage 3), study3, study4, stats, analysis (gate reports), robustness, runlog, plots
 notebooks/ 00_gex_validation  01_regime  02_levels  03_flow  04_holdout
 tests/      formula tests with hand-checked answers + synthetic end-to-end pipeline
 data/       raw/ and derived/ Parquet (git-ignored)

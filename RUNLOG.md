@@ -448,3 +448,114 @@ loaded; the permutation test guards against a time-trend in gex_pct masquerading
   reaching the band).
 - Rule 6 on the breakout: after the fill fix it is +0.03R with the interval straddling zero; not a
   result. Study 3 verdict vs rules: KILL on every variant. 12 of 20 variants used. No holdout.
+
+## 2026-10-07 | review of studies 1-3 and Study 4 pre-registration DRAFT (not a run; awaiting Matteo)
+- commit: 77f9ed6 reviewed; this entry committed on branch claude/affectionate-gauss-7nuqm8.
+- change: code and log audit (REVIEW.md). No data on this machine; nothing re-run. pytest: 77 passed.
+- config diff: none. Variant count unchanged at 12 of 20.
+- result: every kill in studies 1-3 stands as scored; point-in-time, holdout seal, roll handling and
+  fill conservatism verified in code; the 0.6-tick naive residual is the only positive signal and it
+  is a quarter of the friction. Three report-only caveats on the regime variable (sign convention is
+  an assumption; calendar-time clock overweights 0DTE ATM gamma; the percentile ranks raw dollar GEX,
+  which drifts with S0^2) do not change any verdict but should be re-checked before anything
+  conditions on the regime again.
+- proposed next (REVIEW.md section 5), needs approval before any code runs: Study 4, regime-conditioned
+  D-expiring SPXW ATM straddle at the D-1 17:00 close held to settlement (S4a short in high gamma,
+  S4b long in low gamma, S4c iron fly with 1 EM wings), regime = gex_pct of session D-1 (point in
+  time), entry at the quoted bid/ask, settlement = FRED SPX close, permutation placebo, Stage 1
+  regression restated on straddle P&L. New params proposed: opt_cost_per_leg_usd 1.50 [3.00],
+  s4_wing_em 1.0 [0.75, 1.5], s4_min_expectancy_em 0.03 (gate), s4_regime_lag 1 (fixed). Would bring
+  the count to 15 of 20. Secondary: Study 5, last-30-minute hedging-flow trade (Baltussen et al.),
+  two variants, 17 of 20. Not recommended: any further level/absorption/band variant, MBP-10 spend.
+
+## Study 4 pre-registration: regime-conditioned 0DTE straddle at the D-1 close (APPROVED by Matteo 2026-10-07, "lets run a test on study 4"; frozen as drafted in REVIEW.md section 5 before any run)
+- config diff (config.yaml): market.option_multiplier 100.0 (structural); params.opt_cost_per_leg_usd 1.50
+  [nudge 3.00] (all-in per leg: commission, exchange, regulatory, settlement; placeholder until confirmed
+  with the broker), params.s4_wing_em 1.0 [0.75, 1.5], params.s4_regime_lag 1 (fixed: point in time);
+  gates.study4_min_expectancy_em 0.03. regime_threshold 0.5 reused, no nudge.
+- hypothesis H4: conditional on the PRIOR session's gamma percentile, the D-expiring SPXW ATM straddle
+  sold at the D-1 17:00 close and held to the SPX settlement pays after costs on high-gamma sessions
+  (S4a), the long straddle pays on low-gamma sessions (S4b), and the defined-risk iron fly with wings
+  one EM out pays on high-gamma sessions (S4c); each with the regime contrast positive and the
+  permutation placebo beaten.
+- build: K = strike nearest F with both legs valid (the engine's atm_straddle rule; the chain's
+  straddle mid must equal gex_daily.em, mismatches counted); short sells at bid_C + bid_P, long buys at
+  ask_C + ask_P, wings bought at the ask at the valid strikes nearest K +/- s4_wing_em EM (skip the fly
+  when the nearest strike is more than 25% off the target width); settlement |S_T - K| at the FRED SPX
+  close; fees per leg; P&L in EM units (pnl_pts / em), also points and dollars. Regime = gex_pct of
+  session D-1 (its inputs were all published before the 17:00 D-1 entry); the D row's percentile uses
+  OI published the morning of D and is reported as a non-tradeable diagnostic only. Eligible sessions:
+  equity sessions, not half days, GEX row present, nearest expiry = the SPXW expiring on D, lagged
+  percentile present, settlement present, a both-valid ATM strike. All three structures on every
+  eligible session; the regime filter is applied in the report.
+- placebo and contrasts: permutation of the lagged percentile across sessions (perm_draws 1000, seed
+  bootstrap_seed); the complement regime; every structure on all sessions (variance premium baseline)
+  and by percentile tercile; the Stage 1 regression restated with pnl_em as the outcome (ln VIX and
+  ln EM/S0 controls, day-of-week dummies, Newey-West 5 lags).
+- gates per variant: n >= 200; mean pnl_em >= 0.03; day-bootstrap 90% CI lower > 0; regime contrast
+  CI lower > 0; permutation p < 0.05. Tail block reported, not gated: five worst and best days, their
+  share of the total, mean without the best five. S4c carries the decision if S4a and S4c disagree.
+- variants: S4a, S4b, S4c -> 15 of 20 once run.
+- rule-6 checks pre-committed: every entry input stamped <= 17:00 D-1; settlement is the official close;
+  holdout sessions never loaded (calendar is sealed; the holdout can serve this new hypothesis later);
+  half days excluded; no session double counted; em_mismatch count must be 0.
+
+## 2026-10-07 | Study 4 built tests-first; real-data run PENDING (this session's container has no data/)
+- commit: see git log (branch claude/affectionate-gauss-7nuqm8). Tests: tests/test_study4.py (hand-
+  verified ATM selection, short/long straddle and iron-fly payoffs incl. wing caps and tolerance,
+  regime lag, eligibility rules, generalised permutation test, report on synthetic frames) and a
+  synthetic end-to-end run in tests/test_pipeline.py (holdout excluded, em_mismatch 0, fly loss bounded
+  by max_loss, regime equals the prior session's percentile). src/study3.permutation_test gained
+  value/pct arguments (defaults unchanged).
+- config diff: the Study 4 entries above. No other change.
+- result: no real-data numbers yet. Run on the data machine: `python -m src.study4` (reads gex_daily,
+  the D-1 EOD files and data/raw/daily; writes data/derived/straddle_trades.parquet; prints the report
+  with verdict_vs_rules per variant). Zero Databento spend. Then log the headline here.
+
+## 2026-10-07 | Study 4 first run on real data (Matteo's machine, commit f89b0e1, config as approved): KILL on all three variants
+- run: `python -m src.study4`, 502 sessions (2023-12 .. 2025-12). Skipped: half_day 8, no_gex_row 47
+  (the ~40 calendar sessions before 2023-06-02 from the two-month bar warm-up plus the 7 known), no_prev_regime
+  130 (the 126-session percentile warm-up), nearest_not_spxw_0dte 2. em_mismatch_sessions 0 (rule-6 check passes).
+- S4a short straddle, gex_pct(D-1) >= 0.5: n=266, win 62.8%, +0.059 EM (+2.4 pts, +$238 per straddle),
+  90% CI -0.021..+0.135 (FAILS ci_lower>0); complement -0.071 EM; regime contrast +0.130 (CI +0.012..+0.247);
+  permutation p=0.035; PF 1.22; max DD 7.4 EM; worst day 2025-10-10 -5.3 EM (-154 pts); mean ex-best-5
+  +0.041, ex-worst-5 +0.119. 4 of 5 gates pass. Verdict vs rules: KILL.
+- S4b long straddle, gex_pct(D-1) < 0.5: n=236, win 47.0%, +0.033 EM (+1.9 pts), CI -0.050..+0.121 (FAILS);
+  complement -0.099; contrast +0.132 (CI +0.013..+0.248); permutation p=0.036; mean ex-best-5 -0.031 (the long
+  side leans on its best days). KILL.
+- S4c iron fly, high gamma, 1 EM wings: n=265, -0.010 EM, CI -0.046..+0.025; contrast +0.046 (CI -0.006..+0.098);
+  permutation p=0.063. Wings cost 0.33 EM of the 0.98 EM credit and double the spread. KILL on 4 of 5 gates.
+  Pre-registered tie-break: S4c carries the decision when S4a and S4c disagree -> KILL.
+- contrasts: short straddle on all sessions -0.002 EM (the 0DTE variance premium is about zero in this sample,
+  as REVIEW.md expected); terciles low/mid/high: short -0.096 / +0.078 / +0.011, long +0.057 / -0.116 / -0.052,
+  fly -0.058 / -0.011 / -0.027. NOT monotonic: the effect is "low gamma is bad for the short straddle", not
+  "high gamma is good"; the top tercile is about zero.
+- Stage 1 restated on straddle P&L: beta on the lagged percentile +0.19, p=0.17 (ln VIX), +0.18, p=0.18 (ln EM/S0):
+  not significant. Same-day percentile (OI published after entry, NOT tradeable): +0.35, p=0.001; S4a/S4b under it
+  +0.060 / +0.034 with contrasts CI > 0 and permutation p 0.03 / 0.027: the lag costs little, so the point-in-time
+  version is a fair test of the tradeable thing.
+- reading: friction is not the problem (half-spread 0.019 EM + fees 0.001 EM vs a 0.13 EM regime contrast);
+  variance is. Per-session sd ~0.77 EM, SE ~0.047 on 266 sessions, so the +0.059 mean is 1.2 SE from zero. At this
+  mean a CI lower bound above zero needs ~460 high-gamma sessions (about 3.5 more years). Pooling S4a and S4b into
+  one switching strategy (not pre-registered, reported for information only) gives +0.047 EM on 502 sessions,
+  SE ~0.035, 90% lower bound about -0.01: still a fail. The defined-risk version has no edge at all.
+- rule-6 notes: point in time by construction (lagged regime, D-1 quotes, official settlement); holdout untouched;
+  the permutation test treats sessions as exchangeable although the percentile is persistent, so its p is
+  anti-conservative (a block permutation would be stricter), which only strengthens the kill.
+- Variant count: 15 of 20. Decision is Matteo's. No holdout run.
+- PowerShell note: the "NativeCommandError" in the console is PowerShell treating the module's stderr log line as
+  an error under `2>&1`; the run completed normally.
+
+## 2026-10-07 | Study 4 code hardening after a six-lens review (no run; numbers above are from commit f89b0e1)
+- change: s4_regime_lag < 1 now raises (a lag of 0 would silently gate on the same-day, non-tradeable
+  percentile); sessions whose quotes imply a riskless structure (iron-fly credit >= its narrower wing, or a
+  non-positive premium) are dropped and counted as quote_sanity; sessions where no admissible wing exists are
+  counted (fly_no_wing) so S4c's sample size is visible; friction_em_mean (half-spread + fees) reported next
+  to the full spread; tail block reports the sums and only forms shares when the total is positive; a
+  21-session block permutation is reported as a diagnostic beside the pre-registered session permutation
+  (the lagged percentile is persistent, so the session shuffle is anti-conservative); --report-only recomputes
+  the em_mismatch check from the saved table; permutation p is (count + 1) / (draws + 1), never exactly 0.
+  Gates, formulas and variants unchanged. Tests added; 90 pass.
+- config diff: none.
+- effect on the logged result: none of the changes touch a gate or a payoff; a re-run would add the diagnostic
+  fields (block_permutation p, friction_em_mean, fly_no_wing, quote_sanity counts) to the same verdicts.

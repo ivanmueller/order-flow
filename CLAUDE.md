@@ -16,6 +16,16 @@ Update this block at the end of every session.
 - Study 3 run twice 2026-10-07 (first run superseded by a fill-realism fix): R1 -0.24R, R2 -0.06R,
   R3 -0.22R, regime contrasts negative, permutation p > 0.9. KILL on all; 12 of 20 variants used.
   Awaiting Matteo's call on study 3 and on the project. WRITEUP.md and RESULTS.md are current.
+- Review 2026-10-07 (REVIEW.md, RUNLOG same date): studies 1-3 audited in code and logs, every kill
+  stands; intraday level/flow thesis closed. Three report-only re-checks of the regime variable are
+  recommended (sign convention, business-time clock, S0^2-normalised percentile), not yet run.
+- Study 4 approved 2026-10-07 (regime-conditioned 0DTE straddle at the D-1 close: S4a short / S4b
+  long / S4c iron fly; params opt_cost_per_leg_usd 1.50, s4_wing_em 1.0, s4_regime_lag 1, gate
+  study4_min_expectancy_em 0.03 added to config.yaml). Built tests-first in `src/study4.py` (90 tests pass); run by
+  Matteo 2026-10-07 (RUNLOG): S4a +0.059 EM (CI -0.02..+0.14, contrast CI > 0, perm p 0.035), S4b +0.033
+  (CI fails), S4c iron fly -0.010. KILL on all three by the rules; 15 of 20 variants. Regime effect real
+  but ~1.2 SE at 266 sessions; defined-risk version has no edge. Awaiting Matteo's call. Study 5
+  (hedging-flow into the close) remains a draft. Holdout still sealed.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
@@ -73,5 +83,6 @@ See README.md for the full runbook in order.
 - Stage 3 trades: `python -m src.ingest_futures trades [--price-only | --approve-usd X]`, then `python -m src.stage3`
 - Gate reports: `python -m src.analysis stage1|stage2|stage3|variants|study2 [--carry ...]`
 - Study 3 band trades: `python -m src.study3 [--report-only]`
+- Study 4 straddles: `python -m src.study4 [--report-only]`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`

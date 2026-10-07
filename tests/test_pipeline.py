@@ -186,3 +186,33 @@ def test_study3_end_to_end(synth_env):
     for v in out["variants"].values():
         assert v["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") and "permutation" in v
     analysis.to_json(out)
+
+
+def test_study4_end_to_end(synth_env):
+    """Synthetic chains (tests/synth.py) always list the D-expiring SPXW, so every session with a
+    lagged percentile and a close trades all three structures; the straddle mid must equal the
+    engine's EM and the iron fly can never lose more than its max loss."""
+    from src import study4
+    cfg, _ = synth_env
+    g = gex.build(cfg=cfg)
+    T = study4.run(cfg)
+    assert not T.empty and set(T["mode"]) == set(study4.MODES)
+    assert (T["date"] < calm.holdout_start(cfg)).all()
+    assert (T.groupby("date")["mode"].nunique() == 3).all()
+    assert np.isfinite(T["pnl_em"]).all() and (T["em"] > 0).all()
+    assert T.attrs["skipped"]["em_mismatch_sessions"] == 0
+    ss = T[T["mode"] == "short_straddle"]
+    assert np.allclose(ss["pnl_pts"], ss["premium_pts"] - (ss["settle"] - ss["K"]).abs() - ss["fees_pts"])
+    fly = T[T["mode"] == "iron_fly"]
+    assert (fly["pnl_pts"] >= -fly["max_loss_pts"] - 1e-9).all() and (fly["K_up"] > fly["K"]).all() and (fly["K_dn"] < fly["K"]).all()
+    # The regime is the prior session's percentile, never the same day's.
+    gi = g.set_index("date")["gex_pct"]
+    cal = store.load_calendar(cfg).set_index("date")
+    for r in ss.itertuples():
+        assert r.regime_pct == gi[cal.loc[r.date, "prev_date"]]
+    out = study4.report(cfg, T)
+    assert set(out["variants"]) == set(study4.VARIANTS)
+    for v in out["variants"].values():
+        assert v["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") and "permutation" in v and "tail" in v
+    assert "short_straddle_ln_vix" in out["stage1_restated"]
+    analysis.to_json(out)

@@ -34,6 +34,10 @@ WRITEUP.md. Nothing here touched the holdout (2026-01-01 onward).
   one tick beyond (or at the print if it gapped). Target fills only on a print one tick beyond T. Time
   exit at the next print minus one tick. Costs $3.98 per round trip subtracted. Risk floor 4 ticks,
   cap 0.15 EM, target 1.5R, time exit 30 minutes.
+- **Study 4 (`src/study4.py`).** From the D-1 EOD chain: the strike nearest the forward with both legs
+  valid, short straddle at the bids, long at the asks, iron fly with wings at the valid strikes nearest
+  K +/- one EM, settlement |S_T - K| at the FRED SPX close, per-leg fees, P&L in EM units. Regime = the
+  prior session's gex_pct. Session and block permutations, complement contrast, Stage 1 restated.
 - **Statistics (`src/stats.py`).** Day-clustered logits, Newey-West OLS, Wilson intervals, day-bootstrap
   confidence intervals (5,000 draws, 90%), paired-by-day differences.
 - **Fairness baseline.** For each trade the win rate a driftless walk would give its exact barriers,
@@ -180,3 +184,40 @@ contrast; a 1,000-draw permutation of the percentile across sessions is the plac
 - **Verdict.** KILL on all three. 12 of 20 variants used; no holdout.
 
 Study 3 decision: pending Matteo's call.
+
+## Study 4, regime-conditioned 0DTE straddle at the D-1 close (approved 2026-10-07; build complete, run pending)
+
+### How it is built
+One position per session, entered at the D-1 17:00 ET EOD quotes (the same report the engine's EM
+comes from) and held to the SPXW PM settlement (the SPX close on D, from FRED). K = the strike nearest
+the nearest-expiry forward with both legs valid, so the straddle mid equals gex_daily.em. Short
+straddle sells at the bids; long straddle buys at the asks; iron fly adds long wings bought at the ask
+at the valid strikes nearest K +/- one EM. Fees per leg (opt_cost_per_leg_usd). P&L in EM units.
+Regime = the PRIOR session's gex_pct (knowable at entry); the same-day percentile is a diagnostic
+only. Permutation placebo, complement contrast, all-sessions baseline, terciles, and the Stage 1
+regression restated on straddle P&L. Gates: n >= 200, mean >= 0.03 EM, CI lower > 0, contrast CI
+lower > 0, permutation p < 0.05; tail block reported. `python -m src.study4`.
+
+### S4a short straddle in high gamma (gex_pct of D-1 >= 0.5)
+- **Result.** n=266, win 62.8%, +0.059 EM per session (+2.4 SPX pts, +$238 per straddle), 90% CI
+  -0.021..+0.135; complement -0.071; regime contrast +0.130 (CI +0.012..+0.247); permutation p=0.035;
+  PF 1.22; worst day 2025-10-10 -5.3 EM. Mean without the five best days +0.041.
+- **Verdict.** KILL (the CI lower bound is below zero; the other four gates pass).
+
+### S4b long straddle in low gamma
+- **Result.** n=236, +0.033 EM, CI -0.050..+0.121; complement -0.099; contrast +0.132 (CI +0.013..+0.248);
+  permutation p=0.036; without the five best days -0.031.
+- **Verdict.** KILL (CI).
+
+### S4c iron fly in high gamma, wings one EM out
+- **Result.** n=265, -0.010 EM, CI -0.046..+0.025; contrast +0.046 (CI -0.006..+0.098); permutation p=0.063.
+  The wings cost 0.33 EM of the 0.98 EM credit.
+- **Verdict.** KILL; by the pre-registered tie-break (S4c decides when it disagrees with S4a) the study is a KILL.
+
+### Contrasts and reading
+- Short straddle on all sessions -0.002 EM: the 0DTE variance premium is about zero here. Terciles
+  low/mid/high for the short straddle -0.096 / +0.078 / +0.011: not monotonic; low gamma is bad for the
+  short side rather than high gamma being good. Stage 1 restated on straddle P&L: lagged-regime beta
+  +0.19, p=0.17 (same-day, non-tradeable: +0.35, p=0.001). Friction is 0.02 EM against a 0.13 EM contrast;
+  the per-session sd of 0.77 EM is what fails the gate (about 460 high-gamma sessions would be needed).
+  Pooled S4a+S4b switching (not pre-registered): +0.047 EM, 90% lower bound about -0.01. 15 of 20 variants.
