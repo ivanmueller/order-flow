@@ -21,7 +21,7 @@ Update this block at the end of every session.
   recommended (sign convention, business-time clock, S0^2-normalised percentile), not yet run.
 - Study 4 approved 2026-10-07 (regime-conditioned 0DTE straddle at the D-1 close: S4a short / S4b
   long / S4c iron fly; params opt_cost_per_leg_usd 1.50, s4_wing_em 1.0, s4_regime_lag 1, gate
-  study4_min_expectancy_em 0.03 added to config.yaml). Built tests-first in `src/study4.py`; run by
+  study4_min_expectancy_em 0.03 added to config.yaml). Built tests-first in `src/study4.py` (90 tests pass); run by
   Matteo 2026-10-07 (RUNLOG): S4a +0.059 EM (CI -0.02..+0.14, contrast CI > 0, perm p 0.035), S4b +0.033
   (CI fails), S4c iron fly -0.010. KILL on all three by the rules; 15 of 20 variants. Regime effect real
   but ~1.2 SE at 266 sessions; defined-risk version has no edge. Awaiting Matteo's call. Study 5

@@ -545,3 +545,17 @@ loaded; the permutation test guards against a time-trend in gex_pct masquerading
 - Variant count: 15 of 20. Decision is Matteo's. No holdout run.
 - PowerShell note: the "NativeCommandError" in the console is PowerShell treating the module's stderr log line as
   an error under `2>&1`; the run completed normally.
+
+## 2026-10-07 | Study 4 code hardening after a six-lens review (no run; numbers above are from commit f89b0e1)
+- change: s4_regime_lag < 1 now raises (a lag of 0 would silently gate on the same-day, non-tradeable
+  percentile); sessions whose quotes imply a riskless structure (iron-fly credit >= its narrower wing, or a
+  non-positive premium) are dropped and counted as quote_sanity; sessions where no admissible wing exists are
+  counted (fly_no_wing) so S4c's sample size is visible; friction_em_mean (half-spread + fees) reported next
+  to the full spread; tail block reports the sums and only forms shares when the total is positive; a
+  21-session block permutation is reported as a diagnostic beside the pre-registered session permutation
+  (the lagged percentile is persistent, so the session shuffle is anti-conservative); --report-only recomputes
+  the em_mismatch check from the saved table; permutation p is (count + 1) / (draws + 1), never exactly 0.
+  Gates, formulas and variants unchanged. Tests added; 90 pass.
+- config diff: none.
+- effect on the logged result: none of the changes touch a gate or a payoff; a re-run would add the diagnostic
+  fields (block_permutation p, friction_em_mean, fly_no_wing, quote_sanity counts) to the same verdicts.

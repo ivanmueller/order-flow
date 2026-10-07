@@ -183,6 +183,15 @@ def session_trades(day, prev, quotes: pd.DataFrame, g: pd.Series, regime: float,
         r = fn(w, K, settle, em, cfg)
         if r is not None:
             rows.append({**common, **r})
+    # Quote sanity (rule 6): the ATM bid cannot exceed the ask, the straddle credit cannot exceed the
+    # mid by more than the spread, and an iron fly's credit cannot exceed its narrower wing (that
+    # would be a riskless position, i.e. a stale print). Such a session is dropped, not traded.
+    sane = all(r["premium_pts"] > 0 for r in rows)
+    for r in rows:
+        if r["mode"] == "iron_fly" and r["premium_pts"] >= min(r["wing_up_pts"], r["wing_dn_pts"]):
+            sane = False
+    if not sane:
+        return None, "quote_sanity"
     return rows, None
 
 
@@ -195,7 +204,9 @@ def run(cfg=None, save: bool = True) -> pd.DataFrame:
     vix_prev = dict(zip(daily["date"], daily["vix_close"].shift(1)))
     cal_i = cal.set_index("date")
     lag = int(param(cfg, "s4_regime_lag"))
-    rows, skipped = [], {"half_day": 0, "no_gex_row": 0}
+    if lag < 1:
+        raise ValueError("s4_regime_lag must be >= 1: the D row uses OI published after the 17:00 D-1 entry")
+    rows, skipped = [], {"half_day": 0, "no_gex_row": 0, "fly_no_wing": 0, "quote_sanity": 0}
     em_mismatch = 0
     for r in cal.itertuples():
         if pd.isna(r.prev_date):
@@ -215,6 +226,10 @@ def run(cfg=None, save: bool = True) -> pd.DataFrame:
             continue
         if abs(out[0]["straddle_mid_pts"] - float(g["em"])) > 1e-6:
             em_mismatch += 1
+        if len(out) < len(MODES):
+            skipped["fly_no_wing"] += 1
+        if any(not r.get("quotes_sane", True) for r in out):
+            skipped["quote_sanity"] += 1
         same_day = float(g["gex_pct"]) if pd.notna(g.get("gex_pct")) else np.nan
         lv = vix_prev.get(r.date, np.nan)
         for row in out:
@@ -259,11 +274,14 @@ def summary_em(t: pd.DataFrame, draws: int, seed: int, level: float, sessions_to
         "trades_per_month": len(p) / months,
         "premium_em_mean": float((t["premium_pts"] / t["em"]).mean()),
         "spread_em_mean": float((t["spread_pts"] / t["em"]).mean()),
+        "friction_em_mean": float(((t["spread_pts"] / 2 + t["fees_pts"]) / t["em"]).mean()),   # half-spread + fees
         "tail": {
             "worst_days": [{"date": str(d), "pnl_em": float(x), "pnl_pts": float(y)}
                            for d, x, y in zip(worst["date"], worst["pnl_em"], worst["pnl_pts"])],
-            "worst5_share_of_total": float(worst["pnl_em"].sum() / total) if total != 0 else np.nan,
-            "best5_share_of_total": float(best["pnl_em"].sum() / total) if total != 0 else np.nan,
+            "total_em": total,
+            "worst5_sum_em": float(worst["pnl_em"].sum()), "best5_sum_em": float(best["pnl_em"].sum()),
+            "worst5_share_of_total": float(worst["pnl_em"].sum() / total) if total > 0 else np.nan,   # only meaningful for a positive total
+            "best5_share_of_total": float(best["pnl_em"].sum() / total) if total > 0 else np.nan,
             "mean_em_ex_best5": float(t[~t["date"].isin(best["date"])]["pnl_em"].mean()) if len(t) > N_TAIL_DAYS else np.nan,
             "mean_em_ex_worst5": float(t[~t["date"].isin(worst["date"])]["pnl_em"].mean()) if len(t) > N_TAIL_DAYS else np.nan,
         },
@@ -279,7 +297,39 @@ def _variant_block(m: pd.DataFrame, high: bool, pct_col: str, cfg, draws, seed, 
     s["regime_contrast"] = stats.day_bootstrap_diff(v, c, "pnl_em", draws, seed, lvl)   # disjoint days: unpaired
     s["permutation"] = study3.permutation_test(m, high_is_variant=high, thr=thr, draws=param(cfg, "perm_draws"),
                                                seed=seed, value="pnl_em", pct=pct_col)
+    s["block_permutation"] = block_permutation_test(m, high, thr, param(cfg, "perm_draws"), seed, pct_col)
     return s
+
+
+BLOCK_SESSIONS = 21     # diagnostic only: one-month blocks keep the regime's persistence under the shuffle
+
+
+def block_permutation_test(t: pd.DataFrame, high_is_variant: bool, thr: float, draws: int, seed: int,
+                           pct: str = "regime_pct", block: int = BLOCK_SESSIONS) -> dict:
+    """Diagnostic, not a gate: shuffle the regime in contiguous blocks of `block` sessions so the
+    persistence of the rolling percentile survives the shuffle. p = (count + 1) / (draws + 1)."""
+    t = t.sort_values("date")
+    pnl, g = t["pnl_em"].to_numpy(float), t[pct].to_numpy(float)
+    n = len(t)
+    if n < 2 * block:
+        return {"p": np.nan, "note": "too few sessions"}
+    sel = (g >= thr) if high_is_variant else (g < thr)
+    if sel.sum() == 0 or (~sel).sum() == 0:
+        return {"p": np.nan}
+    obs = pnl[sel].mean() - pnl[~sel].mean()
+    rng = np.random.default_rng(seed + 1)
+    blocks = [g[i:i + block] for i in range(0, n, block)]
+    count = 0
+    for _ in range(draws):
+        order = rng.permutation(len(blocks))
+        gp = np.concatenate([blocks[i] for i in order])[:n]
+        s = (gp >= thr) if high_is_variant else (gp < thr)
+        if s.sum() == 0 or (~s).sum() == 0:
+            continue
+        if pnl[s].mean() - pnl[~s].mean() >= obs:
+            count += 1
+    return {"observed_gap": float(obs), "p": float((count + 1) / (draws + 1)), "block_sessions": block, "draws": draws,
+            "note": "diagnostic: block shuffle of the persistent regime; the gate uses the session permutation"}
 
 
 def _stage1_restated(m: pd.DataFrame, pct_col: str, control: str, lags: int) -> dict:
@@ -335,6 +385,9 @@ def report(cfg=None, trades: pd.DataFrame | None = None) -> dict:
         out["stage1_restated"]["short_straddle_same_day_regime_diagnostic"] = _stage1_restated(ss, "regime_pct_same_day", "ln_vix", lags)
         out["stage1_restated"]["hypothesis"] = "beta_regime > 0: the short straddle pays more when prior-session gamma is high"
     out["skipped"] = trades.attrs.get("skipped", {})
+    ss_all = trades[trades["mode"] == "short_straddle"]
+    out["em_mismatch_sessions_from_table"] = int(((ss_all["straddle_mid_pts"] - ss_all["em"]).abs() > 1e-6).sum()) if "straddle_mid_pts" in ss_all else None
+    out["sessions_missing_iron_fly"] = int(sessions - trades[trades["mode"] == "iron_fly"]["date"].nunique())
     return out
 
 

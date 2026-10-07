@@ -195,7 +195,7 @@ def permutation_test(t: pd.DataFrame, high_is_variant: bool, thr: float, draws: 
     rng = np.random.default_rng(seed)
     perm = np.array([gap((rng.permutation(g) >= thr) if high_is_variant else ~(rng.permutation(g) >= thr))
                      for _ in range(draws)])
-    p = float(np.mean(perm >= obs)) if np.isfinite(obs) else np.nan
+    p = float((np.sum(perm >= obs) + 1) / (len(perm) + 1)) if np.isfinite(obs) else np.nan   # never exactly 0
     return {"observed_gap": float(obs), "p": p, "perm_95th": float(np.nanquantile(perm, 0.95)), "draws": draws}
 
 

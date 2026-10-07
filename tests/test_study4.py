@@ -169,7 +169,7 @@ def test_report_on_synthetic_frames(cfg):
             p = sgn * (base + rng.normal(0, 0.3))
             rows.append({"date": d, "prev_date": d - dt.timedelta(days=1), "mode": mode, "K": 5000.0, "em": 30.0,
                          "regime_pct": r, "regime_pct_same_day": min(1.0, r + 0.01), "pnl_em": p, "pnl_pts": p * 30,
-                         "pnl_usd": p * 3000, "premium_pts": 30.0, "spread_pts": 0.4, "ln_vix": 2.6 + 0.1 * rng.normal(),
+                         "pnl_usd": p * 3000, "premium_pts": 30.0, "spread_pts": 0.4, "fees_pts": 0.03, "ln_vix": 2.6 + 0.1 * rng.normal(),
                          "ln_em_s0": -5.0, "dow": d.weekday() % 5, "settle": 5000.0})
     T = pd.DataFrame(rows)
     out = study4.report(cfg, T)
@@ -185,3 +185,37 @@ def test_report_on_synthetic_frames(cfg):
     assert "S4a_short_straddle_high_gamma" in out["diagnostic_same_day_regime"]
     from src.analysis import to_json
     to_json(out)
+
+
+def test_quote_sanity_drops_stale_prints(cfg):
+    """A stale ATM bid that makes the iron-fly credit exceed its wing width is a riskless position on
+    paper, i.e. a bad quote: the session is dropped, not traded."""
+    g = pd.Series({"s0": F, "em": EM, "gex_pct": 0.7, "nearest_root": "SPXW", "nearest_exp": DAY, "flip": np.nan})
+    q = chain()
+    q.loc[(q["strike"] == 5000.0) & (q["right"] == "C"), ["bid", "ask"]] = [60.0, 61.0]   # credit 78 > 40-pt wings
+    assert study4.session_trades(DAY, PREV, q, g, 0.9, 5010.0, cfg)[1] == "quote_sanity"
+
+
+def test_regime_lag_zero_is_refused(cfg, monkeypatch):
+    import pytest as _pt
+    from src import store
+    monkeypatch.setattr(store, "load_calendar", lambda *a, **k: pd.DataFrame({"date": [DAY], "prev_date": [PREV], "half_day": [False]}))
+    monkeypatch.setattr(store, "load_derived", lambda *a, **k: pd.DataFrame({"date": [DAY], "gex_pct": [0.5]}))
+    monkeypatch.setattr(store, "load_daily", lambda *a, **k: pd.DataFrame({"date": [DAY], "spx_close": [5000.0], "vix_close": [15.0]}))
+    with _pt.raises(ValueError):
+        study4.run(with_params(cfg, s4_regime_lag=0), save=False)
+
+
+def test_block_permutation_and_p_never_zero():
+    rng = np.random.default_rng(5)
+    n = 420
+    days = [dt.date(2024, 1, 1) + dt.timedelta(days=i) for i in range(n)]
+    # A persistent regime: 21-session blocks alternate high / low.
+    reg = np.repeat(np.tile([0.8, 0.2], n // 42), 21)[:n]
+    t = pd.DataFrame({"date": days, "regime_pct": reg})
+    t["pnl_em"] = np.where(reg >= 0.5, 0.6, -0.6) + rng.normal(0, 0.2, n)
+    bp = study4.block_permutation_test(t, True, 0.5, 200, 1)
+    assert bp["observed_gap"] > 1.0 and 0 < bp["p"] < 0.05 and bp["block_sessions"] == 21
+    sp = study3.permutation_test(t, True, 0.5, 200, 1, value="pnl_em", pct="regime_pct")
+    assert sp["p"] > 0                                      # (count + 1) / (draws + 1): never exactly zero
+    assert np.isnan(study4.block_permutation_test(t.head(30), True, 0.5, 50, 1)["p"])   # fewer than two blocks: no test
