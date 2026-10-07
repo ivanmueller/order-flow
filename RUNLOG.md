@@ -1129,3 +1129,25 @@ $100 line (~$0.41 a session; the $40.39 of credit left buys ~65 sessions after t
   one position at a time; fills and costs; gates incl. tail) and a synthetic end-to-end test in
   test_pipeline.py. Full suite passes.
 - Next on Matteo's machine: `python -m src.study6 --count`, then `python -m src.study6`.
+
+## 2026-10-07 | Study 6 pilot run (Matteo's machine, commit 18b7632; in sample, on-disk ticks; $0)
+- Count (signal only): 106 pilot sessions; slots L5/H5 27,868, L15/H15 24,453; trades F1 1,778, F2 94,
+  F3 523, F4 212. Run: 96 sessions traded after the 10-session warm-up.
+- Results (points a trade; gross = before slippage and costs; 90% session-bootstrap CI):
+  F1 continuation 5/5:   n 1778, gross +0.063 (-0.104..+0.233), net -0.517 (-0.684..-0.347), win 40.6%, PF 0.67
+  F2 absorption 15/15:   n 94,   gross -0.606 (-1.887..+0.663), net -1.186 (-2.467..+0.083)
+  F3 pressure rev 15/15: n 523,  gross +0.093 (-0.400..+0.596), net -0.487 (-0.980..+0.017), PF 0.81
+  F4 absorption 5/5:     n 212,  gross -0.104 (-0.467..+0.250), net -0.683 (-1.047..-0.330)
+  Gates: F1 and F3 pass n only; F2 and F4 fail n; no variant passes existence, economics or tail. KILL on all
+  four. Every year negative for F1, F3, F4; F2 positive only in 2023 (n 20).
+- Descriptive (all eligible slots after warm-up): forward return on I_L, slope t 0.84 (5 min, corr 0.009) and
+  0.91 (15 min, corr 0.020). Decile means show no monotone pattern: the extreme deciles of either sign have
+  lower forward returns than the middle ones (sample drift sits in the middle), so there is no directional
+  information in aggressor imbalance at these horizons. 80th percentile |I_L| is 0.089 (5 min), 0.060 (15 min).
+- Reading: the raw signal is about 0.06-0.09 points a trade before friction against 0.58 points of friction,
+  the same order as Stage 3 (0.6 ticks vs 2.3). Pure aggressor imbalance does not predict ES at 5-15 minutes
+  in this sample. The confirmation run is not triggered; no spend. Family budget: 4 of 4 gated variants used.
+- Checks: no holdout dates (run asserts); roll and half days excluded; duplicate trades asserted absent; entries
+  at or after the decision minute (asserted); thresholds from earlier sessions only (unit-tested). Nothing
+  looked strong, so no further rule-6 search.
+- Gate call is Matteo's. Ledger unchanged at $84.61.

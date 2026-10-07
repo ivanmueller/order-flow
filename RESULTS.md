@@ -256,3 +256,12 @@ Study 5 decision: pending Matteo's call.
   (CI > 0), perm p 0.012 / block 0.008: replication gate PASS. Four of the five best days are shared with ES,
   so this confirms the pattern rather than adding an independent sample; NQ's edge is larger after costs
   mainly because its friction is about a third of ES's in EM_V terms.
+
+## Study 6, pure order flow pilot (110 on-disk Stage 3 sessions; family budget 4 of 4)
+- **Build.** Aggressor imbalance I_L = signed volume / volume over the last L minutes, top quintile vs the
+  previous 20 sessions; F1 continuation 5/5, F2 absorption fade 15/15, F3 pressure reversal 15/15, F4
+  absorption fade 5/5; time exits, one tick each way, $3.98.
+- **Result.** Net -0.52, -1.19, -0.49, -0.68 points a trade; gross between -0.61 and +0.09, no CI above
+  zero. Imbalance vs forward return: corr 0.009 (5 min) and 0.020 (15 min), t < 1, deciles flat.
+- **Verdict.** KILL on all four; no confirmation run. Aggressor imbalance carries no usable direction at
+  5-15 minutes; friction is about ten times the best gross edge.
