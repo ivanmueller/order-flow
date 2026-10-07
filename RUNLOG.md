@@ -990,3 +990,14 @@ Outcome language: passes on all three -> "robust in sample and on NQ"; the next 
   edge is about one tick wide and leans on high-volatility sessions.
 - NQ pricing under config.nq.yaml: ingest_daily wrote data_nq/raw/daily (free); NQ bars 2023-04..2025-12,
   33 months, get_cost $3.55 (shared ledger $81.05 before). Under the $5 ask line; awaiting Matteo's approval.
+
+## 2026-10-07 | Decision (Matteo): multiple-testing count per study family from here on (not a run)
+- Rule change, recorded before any further result: the programme-wide count stays closed at 18 of 20
+  (studies 1-5f, unchanged history; NQ replication of 5f is running, so the old over-20 rule is met for
+  5f either way). Each NEW study family (e.g. pure order flow, commodity settlement momentum) gets its own
+  budget of at most 4 gated variants, frozen in its pre-registration, and needs its own out-of-sample
+  confirmation (an untouched holdout or a replication market) before any Go. Families that reuse the
+  2023-06..2025-12 ES sample must say so and count against both their own budget and a note in this log.
+- Rationale: false positives scale with the number of tests on the same data; new families will bring new
+  data (fresh ticks, other markets) and their own holdouts, which is the stronger guard.
+- Also noted: NQ bar pull under config.nq.yaml in progress (~$0.10-0.12 a month, quote $3.55).
