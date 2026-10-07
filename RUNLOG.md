@@ -345,3 +345,21 @@ measured over the whole abs_window; delta_at_level and at_level_share use prints
 of L. E1 fills at the limit price (no slippage on a resting order; the one-tick-through rule stays).
 The E1 stop extreme covers [t0, fill]. E2 evaluates the first clock minute that ends after the retest
 print; a close that reclaims L means no trade (skip "reclaimed").
+
+## 2026-10-07 Study 2 first and only run (commit d36d29e, config as approved, same 110 sampled days)
+- S2 (delta_at_level >= 150 + reclaim, E1 limit entry): n=254, win 27.6%, -0.48R (CI -0.59..-0.36),
+  minus naive on the same touches -0.43R; driftless baseline -0.38R -> market share -0.10R (-0.6 ticks).
+  By group: structural -0.49, gamma_only -0.51, both -0.39, placebo -0.40 (placebo market share 0.00).
+  Verdict KILL; no pre-cost edge.
+- S2r (S2, gex_pct >= 0.5): n=95, -0.31R, market share +0.07R (+0.4 ticks) < 0.15R threshold.
+  INDICATIVE; no pre-cost edge. (both group +0.46R on n=13, placebo +0.21R on n=29: noise.)
+- S2c (E2 retest continuation, low gamma): n=77, -0.45R, market share -0.09R. INDICATIVE; no edge.
+- S2h (S2 with 2.5R target, 60 min): n=254, win 18.5%, -0.54R, market share -0.16R. KILL.
+- Fills: E1 limit filled on 254 of 475 S2-confirmed touches (184 never came back to the level
+  inside 10 min, 33 risk_too_wide); E2: 174 no retest, 90 reclaimed, 177 trades.
+- Reading: selecting on heavy absorbed flow at the level makes fades WORSE than a random walk (-0.6
+  ticks), the same direction as study 1's confirmed-vs-naive gap. On this tape, heavy aggressive flow
+  into a level is followed by continuation more often than reversal within 30-60 minutes; the
+  at-level entry does not change that. The retest-fail continuation in low gamma is also no better
+  than random. Study 2 verdict vs rules: KILL on every variant. Variant count 9 of 20.
+- Per SPEC no-go: stop, write up (WRITEUP.md), keep the pipeline. Decision is Matteo's.

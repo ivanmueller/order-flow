@@ -11,10 +11,9 @@ Update this block at the end of every session.
   beats placebo, gamma x regime interaction p=0.044; Stage 3 KILL, robust to all nudges and splits
   (confirmed -0.33R; pre-cost naive-fade edge ~+0.10R = 0.6 ticks vs ~2.3 ticks of friction). No
   holdout run. Databento spend ~$81 of $125.
-- Study 2 (RUNLOG 2026-10-07, approved and frozen): tape-footprint features (delta_at_level,
-  at_level_share, big_lot_share, tape_speed, delta_div), E1 limit entry at the level, E2 retest
-  continuation in low gamma; variants S2/S2r/S2c/S2h (9 of 20 used). Code and tests in place; first run
-  pending: `python -m src.stage3` then `python -m src.analysis study2`. Same trades, no spend.
+- Study 2 run 2026-10-07 (RUNLOG): S2 -0.48R, S2r -0.31R, S2c -0.45R, S2h -0.54R; no variant beats a
+  driftless walk by 0.15R. KILL on every variant; 9 of 20 variants used. Per SPEC no-go: WRITEUP.md
+  holds what was learned. Awaiting Matteo's final call; no holdout run.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
