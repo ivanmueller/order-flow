@@ -274,3 +274,33 @@ def test_study5f_robustness_on_synthetic_store(synth_env):
     assert 0.0 <= out["positive_share"] <= 1.0 and out["rule_min_share"] == 0.8
     assert set(out["splits"]) >= {"year", "em_v_tercile", "net_gex_sign", "weekday"}
     assert isinstance(out["year_carry_warning"], list)
+
+
+def test_study6_on_synthetic_ticks(synth_env):
+    """Pilot sessions are in-sample Stage 3 days with tick files (no roll days, no holdout); counts read no
+    outcomes; every trade enters at or after its decision minute; thresholds come from earlier sessions."""
+    from src import study6
+    cfg, bars = synth_env
+    gex.build(cfg=cfg)
+    levels.build(cfg=cfg)
+    tc = touches.build(cfg=cfg)
+    synth.write_trades_for_touches(cfg, bars, tc, np.random.default_rng(1))
+    # synthetic sessions are short: shrink warm-up and lookback for the test only
+    cfg["params"]["s6_warmup_sessions"]["value"] = 3
+    cfg["params"]["s6_lookback_sessions"]["value"] = 5
+    days = study6.pilot_days(cfg)
+    cal = store.load_calendar(cfg)
+    assert days and all(d < calm.holdout_start(cfg) for d in days)
+    assert not set(days) & set(cal.loc[cal["roll"], "date"])
+    c = study6.count(cfg, study6.build_slots(cfg, days))
+    assert set(c["slots"]) == {"L5_H5", "L15_H15"}
+    T, slots = study6.run(cfg, save=True)
+    assert len(T) and set(T["variant"]) <= {"F1", "F2", "F3", "F4"}
+    assert (T["entry_ts"] >= T["t"]).all() and not T.duplicated(["variant", "date", "t"]).any()
+    first = sorted(slots[(5, 5)]["date"].unique())[3]
+    assert T["date"].min() >= first
+    out = study6.report(cfg, T, slots)
+    for v in out["variants"].values():
+        assert v["verdict"] in ("ADVANCE", "KILL")
+    analysis.to_json(out)
+    assert len(store.load_derived("flow_trades", cfg)) == len(T)

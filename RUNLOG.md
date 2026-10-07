@@ -1099,3 +1099,33 @@ s6_threshold_pct 0.80, s6_threshold_lookback 20, s6_warmup_sessions 10, s6_perm_
 20261007; gates study6_min_trades 300, study6_min_expectancy_pts 0.25, study6_perm_p 0.05, study6_tail_drop 5.
 Budget note: ledger $84.61. Other-market fade bars ~$13 (to ~$97.6); a confirmation run would then cross the
 $100 line (~$0.41 a session; the $40.39 of credit left buys ~65 sessions after those bars).
+
+## 2026-10-07 | Study 6 APPROVED (Matteo: "whatever you think has the strongest potential edge", config "okay", pilot first)
+- Variant set revised from the draft before any data was read: the draft spent its four variants on two
+  mirror pairs (a mirror pair is one two-sided test). Final set, each one-directional with its own thesis:
+  F1 continuation L = H = 5 (order splitting / informed flow persists; Chordia-Subrahmanyam);
+  F2 absorption fade L = H = 15 (top-quintile |I| while price did not move with the aggressor, dP x sign(I)
+     <= 0: a passive participant is absorbing; trade against the aggressor);
+  F3 pressure reversal L = H = 15 (top-quintile |I| and dP x sign(I) >= 1 x trailing median |dP|: transient
+     price impact reverts; consistent with the intraday reversal found in 5/5f; trade against the aggressor);
+  F4 absorption fade L = H = 5.
+  Prior note: Stage 3's absorption-at-level confirmation lost (-0.33R), so the absorption prior is weak.
+- Decisions run on a 1-minute grid with one position at a time (next decision at or after the exit time),
+  not on an H-minute clock grid, so short holds get enough trades; everything else as drafted.
+- Existence gate restated as the gross mean's 90% session-bootstrap CI lower bound > 0 (one-sided 5%),
+  replacing the slot-shuffle permutation, which is ill-defined once positions are sequential.
+- config diff (approved): params s6_grid_start "09:40", s6_grid_end "15:50", s6_flow_pct 0.80,
+  s6_lookback_sessions 20, s6_warmup_sessions 10, s6_pressure_mult 1.0, s6_conf_seed 20261007, s6_variants
+  {F1..F4 as above}; gates study6_min_trades 300, study6_min_expectancy_pts 0.25, study6_tail_drop 5.
+  Existing params reused: entry_slippage 1, cost_rt_usd 3.98, bootstrap_draws 5000, ci_level 0.90.
+
+## 2026-10-07 | Study 6 built tests-first (nothing run on real data)
+- code: src/study6.py (slot_table, thresholds, select, price, pilot_days, build_slots, trades, summarize,
+  verdict, descriptive, count, report, run); CLI --count (signal-only counts, outcome column blanked),
+  default run (saves flow_trades), --report-only. Asserts on run: no holdout date, no duplicate trades,
+  entry at or after the decision minute.
+- tests: tests/test_study6.py (hand tape: six slots with I, dP, entry and exit prints; span start and grid
+  end limits; contract change; thresholds from earlier sessions only with warm-up; selection for each kind;
+  one position at a time; fills and costs; gates incl. tail) and a synthetic end-to-end test in
+  test_pipeline.py. Full suite passes.
+- Next on Matteo's machine: `python -m src.study6 --count`, then `python -m src.study6`.

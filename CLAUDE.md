@@ -49,9 +49,10 @@ Update this block at the end of every session.
   NQ replication run (ledger ~$84.60): +0.0243 EM_V (CI +0.004..+0.044), timing CI > 0, perm p 0.012, gate PASS;
   4 of 5 best days shared with ES, so not independent. Multiple testing now per study family (<= 4 gated variants
   plus own out-of-sample). Price menu run: ES RTH trades ~$0.41/session (~$280 in sample, out of reach);
-  bars for CL/GC/ZN/6E ~$13 in sample. Study 6 (pure order flow) pre-registered as a DRAFT: $0 pilot on the 110
-  on-disk ES sessions, F1-F4 (continuation/fade at 5 and 15 min), pilot can only KILL or ADVANCE, confirmation on
-  fresh random sessions. Expected KILL. Awaiting approval. Then other-market fades (needs an EM unit per market).
+  bars for CL/GC/ZN/6E ~$13 in sample. Study 6 (pure order flow) APPROVED and built tests-first (src/study6.py): $0
+  pilot on the on-disk Stage 3 ES ticks; F1 continuation 5/5, F2 absorption fade 15/15, F3 pressure reversal 15/15,
+  F4 absorption fade 5/5; pilot can only KILL or ADVANCE; confirmation on fresh random sessions. Expected KILL.
+  Awaiting Matteo's run (--count, then the run). Then other-market fades (needs an EM unit per market).
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
@@ -117,5 +118,6 @@ See README.md for the full runbook in order.
   then `python -m src.ingest_daily`, `python -m src.ingest_futures bars --start 2023-04-01 --end 2025-12-31
   --price-only` (then --approve-usd), `python -m src.study5 --fade-replication`
 - Price menu (no pulls): `python -m src.price_menu --start YYYY-MM-DD --end YYYY-MM-DD [--symbols ES.v.0 ...]`
+- Study 6 order flow pilot: `python -m src.study6 --count`, then `python -m src.study6 [--report-only]`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`

@@ -150,6 +150,20 @@ params:
   s5_perm_block:      {value: 21}                           # sessions per block in gate 5's block shuffle; decides a gate, no nudge
   s5_outlier_n:       {value: 5}                            # report: slope repeated without this many largest |r_ROD|
   s5_sanity_em:       {value: 3.0}                          # report: sessions with |r_L30| above this (EM_V) are listed
+  # Study 6 (RUNLOG 2026-10-07, approved): pure order flow pilot on the on-disk Stage 3 ES ticks.
+  s6_grid_start:      {value: "09:40"}                      # first decision minute (ET)
+  s6_grid_end:        {value: "15:50"}                      # latest exit time (ET); keeps clear of the 5f close window
+  s6_flow_pct:        {value: 0.80}                         # trade when |I_L| >= this quantile of the trailing sessions' |I_L|
+  s6_lookback_sessions: {value: 20}                         # trailing pilot sessions (strictly earlier) for the thresholds
+  s6_warmup_sessions: {value: 10}                           # first pilot sessions not traded (thresholds need history)
+  s6_pressure_mult:   {value: 1.0}                          # F3: price move with the flow >= this x trailing median |dP_L|
+  s6_conf_seed:       {value: 20261007}                     # confirmation run: fresh-session draw (registered now, used later)
+  s6_variants:                                              # kind, lookback L and hold H in minutes; fixed, no nudges
+    value:
+      F1: {kind: continuation, L: 5, H: 5}
+      F2: {kind: absorption, L: 15, H: 15}
+      F3: {kind: pressure, L: 15, H: 15}
+      F4: {kind: absorption, L: 5, H: 5}
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -170,6 +184,9 @@ gates:
   study5_min_expectancy_em: 0.02   # after costs, EM_V units
   study5_perm_p: 0.05              # session and block permutation p must both be below this
   study5_tail_drop: 5              # mean without this many best sessions must stay > 0
+  study6_min_trades: 300           # study 6 pilot gates (RUNLOG 2026-10-07), per variant
+  study6_min_expectancy_pts: 0.25  # after costs, ES points a trade (one tick)
+  study6_tail_drop: 5              # after-cost mean without this many best sessions must stay > 0
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 
