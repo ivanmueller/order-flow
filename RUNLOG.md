@@ -974,3 +974,19 @@ Outcome language: passes on all three -> "robust in sample and on NQ"; the next 
 - config diff: config.nq.yaml added (overlay only); config.yaml unchanged.
 - Next on Matteo's machine: `python -m src.study5 --fade-robustness`; then under the NQ overlay:
   ingest_daily (free), price NQ bars 2023-04..2025-12 with --price-only, approve, then --fade-replication.
+
+## 2026-10-07 | Study 5f robustness run and NQ pricing (Matteo's machine, commit 3fa6e57; in sample only)
+- Base run reproduces the reference (618 sessions, +0.00796 EM_V). Costs throughout: entry_slippage 1 tick on
+  entry, one tick on the time exit (stops one tick beyond), $3.98 round trip = 0.5796 points a trade.
+- Nudges (S5f mean pnl_em / timing contrast): decision 15:25 +0.0032 / +0.015; decision 15:35 -0.0065 /
+  +0.008; exit 15:55 +0.00001 / +0.014; exit 16:05 +0.0189 / +0.031; stop 0.35 +0.0062 / +0.020; stop 0.75
+  +0.0075 / +0.022; entry slippage 2 ticks +0.0004 / +0.019; cost $5.97 +0.0070 / +0.020. Positive in 7 of 8
+  (0.875 >= 0.80): nudge rule PASS. The timing contrast is positive in all 8.
+- Splits (S5f mean, 90% CI): 2023 -0.0072 (n 139), 2024 +0.0156 (240), 2025 +0.0091 (239); EM_V tercile
+  low +0.0034, mid -0.0085, high +0.0290 (CI +0.001..+0.058); net_gex < 0 +0.0072, >= 0 +0.0085; Friday
+  +0.0271, other weekdays -0.0004..+0.0057. No single-year carry warning.
+- Reading: the timing is robust (positive in every nudge); the after-cost edge is not: one extra tick of
+  entry slippage takes it to about zero (+0.0004), and exiting at 15:55 instead of 16:00 does the same. The
+  edge is about one tick wide and leans on high-volatility sessions.
+- NQ pricing under config.nq.yaml: ingest_daily wrote data_nq/raw/daily (free); NQ bars 2023-04..2025-12,
+  33 months, get_cost $3.55 (shared ledger $81.05 before). Under the $5 ask line; awaiting Matteo's approval.

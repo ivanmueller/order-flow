@@ -44,9 +44,9 @@ Update this block at the end of every session.
   Mirror (fade) nets ~+0.009 EM_V, CI includes 0. KILL accepted by Matteo. Study 5f (fade with the S5b stop,
   holdout only, 18 of 20) APPROVED and run: in-sample reference +0.0080 EM_V; holdout (2026-01..09, 184 sessions)
   +0.0145 EM_V (CI -0.006..+0.036), timing contrast CI > 0, gate PASS. Reversal replicated; after-cost
-  edge small and unresolved (~0.4-0.5 pts/trade pooled). Holdout spent for this fade. Robustness (8 nudges, >= 80% positive)
-  and NQ replication pre-registered and built (config.nq.yaml, shared ledger); run pending on Matteo's
-  machine. Then paper trading; then the pure order-flow study (to be priced).
+  edge small and unresolved (~0.4-0.5 pts/trade pooled). Holdout spent for this fade. Robustness run: nudge rule PASS (7 of 8
+  positive; timing positive in all 8) but one extra tick of slippage or a 15:55 exit takes the edge to ~0.
+  NQ bars priced $3.55 (ledger $81.05), awaiting approval, then --fade-replication. Then paper trading; then the pure order-flow study (to be priced).
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
