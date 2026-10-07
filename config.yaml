@@ -35,8 +35,11 @@ market:
   touch_start: "09:31"
   touch_end: "15:50"
   flat_time: "15:55"       # hard time exit for simulated trades
+  band_start: "10:00"      # study 3: first band touch counted from here ...
+  band_end: "15:00"        # ... to here
   tod_breaks: ["10:30", "14:00"]   # Stage 2 time-of-day buckets: open / midday / close
   minutes_per_year: 525600
+  option_multiplier: 100.0 # $ per SPX index point per option contract (study 4)
 
 # ---------------------------------------------------------------------------
 # Data sources
@@ -116,6 +119,23 @@ params:
   time_exit:          {value: 30,    nudges: [20, 45]}       # minutes
   # All-in round trip per contract (commission + exchange + NFA), the user's broker, set 2026-10-05.
   cost_rt_usd:        {value: 3.98,  nudges: [5.97]}   # nudge = +50%
+  # Study 2 (RUNLOG 2026-10-07, approved): tape-footprint confirmation and at-level entries.
+  q_big:              {value: 50,    nudges: [25, 100]}    # contracts: a "big lot" print
+  s2_delta_min:       {value: 150,   nudges: [100, 250]}   # contracts absorbed at the level (delta_at_level) for S2
+  entry_offset:       {value: 1}                           # ticks: E1 limit sits this far inside the level
+  fill_window:        {value: 10,    nudges: [5, 15]}      # minutes the E1 limit stays working after t_dec
+  retest_window:      {value: 15,    nudges: [10, 20]}     # minutes after a break to wait for the E2 retest
+  s2h_target_mult:    {value: 2.5}                         # S2h longer-horizon variant
+  s2h_time_exit:      {value: 60}                          # minutes
+  # Study 3 (RUNLOG 2026-10-07, approved): session-level gamma regime, expected-move band trades.
+  band_a:             {value: 0.50,  nudges: [0.40, 0.60]}  # EM units: band distance from the 09:30 open
+  band_stop_s:        {value: 0.25,  nudges: [0.20, 0.35]}  # EM units: stop beyond the band (fade) / back inside (breakout)
+  regime_threshold:   {value: 0.5}                          # gex_pct split; pre-registered, no nudge
+  perm_draws:         {value: 1000}                         # permutation test draws
+  # Study 4 (RUNLOG 2026-10-07, approved): regime-conditioned 0DTE straddle at the D-1 close.
+  opt_cost_per_leg_usd: {value: 1.50, nudges: [3.00]}      # all-in per option leg (commission, exchange, regulatory, settlement); confirm with broker
+  s4_wing_em:         {value: 1.0,   nudges: [0.75, 1.5]}  # EM units: iron-fly wing distance from the ATM strike
+  s4_regime_lag:      {value: 1}                            # sessions: regime = gex_pct of D-1 (point in time at the 17:00 D-1 entry); fixed
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -131,6 +151,7 @@ gates:
   stage3_min_trades: 200
   stage3_min_expectancy_r: 0.10
   holdout_min_fraction: 0.5
+  study4_min_expectancy_em: 0.03   # study 4: after-cost expectancy per session in expected-move units (about one SPX point)
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 

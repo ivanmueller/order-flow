@@ -247,3 +247,315 @@ Variant count so far: 5 of 20.
 - Added, diagnostics only (not variants): `mirror` trades (opposite side of every naive fill, same
   barriers/fills/costs) and a `fairness` block in the Stage 3 report (observed vs driftless win rate
   and expectancy per mode; naive+mirror sum vs twice the drag). Requires `python -m src.stage3` re-run.
+
+## 2026-10-06 Stage 2 labeler fix (approved by Matteo, SPEC rule changed)
+- touches.label: favourable excursion counted from bar t+1, adverse from bar t. SPEC.md "Labels"
+  paragraph updated with the reason. Test written first (test_touch_bar_approach_does_not_count_as_reversal).
+- Touches and Stage 2 must be rebuilt (`python -m src.touches`, `python -m src.analysis stage2`);
+  Stage 3 trades do not use labels, but `python -m src.stage3` is re-run anyway for the mirror /
+  fairness diagnostics. All free.
+
+## 2026-10-06 Stage 2 after the labeler fix, and the simulator fairness result
+- Stage 2 rebuilt (7,284 touches, 511 days): hold rates fell from 57-61% to 43-47% (placebo 46.5%,
+  gamma_only 45.4%, both 44.4%, structural_only 42.8%); success_on_touch_bar_share now 0.0.
+  Driftless baseline F/(R+F) = 33%, so a real but level-agnostic mean reversion of ~12 points remains.
+  Logit: G -0.181 (p=0.054), G:gex_pct +0.305 (p=0.044), gex_pct +0.292 (p=0.002). keep_gamma_tags
+  flips to TRUE on the interaction term. Terciles: gamma_only 39.9% (low) -> 50.8% (high); placebo
+  45.7% -> 49.4%. Gamma levels break MORE than random levels in low gamma and match them in high
+  gamma. No real group's 90% CI beats placebo overall. 
+- Stage 3 fairness block (first version) showed naive+mirror = -0.64R vs twice-drag -0.38R. Replayed
+  the simulator on a synthetic driftless tick walk: the same shortfall appears, so it is the
+  barrier geometry, not the market: every entry print sits one tick inside E (naive fill one tick
+  through L; slippage elsewhere), so the true driftless win rate is (R_k - tick)/(2.5 R_k + tick):
+  31% at the naive/continuation R_k of 6 ticks, 35% at the confirmed 11 ticks. fairness() corrected;
+  test_simulator_is_fair_on_a_driftless_tick_walk added.
+- Reading the Stage 3 numbers against the corrected baseline (sim_trades unchanged):
+  naive win 34.9% vs 31% baseline (+4), exp -0.29R vs -0.38R drag => market +0.10R;
+  mirror 30.8% vs 33% (-2), -0.35 vs -0.32 => -0.03R;
+  confirmed 32.1% vs 35% (-3), -0.32 vs -0.24 => -0.08R;
+  continuation 34.2% vs 31% (+3), -0.34 vs -0.38 => +0.05R.
+  Conclusion: a small pre-cost mean-reversion edge exists at touched levels (naive +0.10R over a
+  random walk) but the SPEC trade rules cost 0.24-0.38R per trade at 6-11 ticks of risk (a tick of
+  slippage, a tick through on the stop, a tick beyond on the target, $3.98 RT). Absorption
+  confirmation does not add to it (confirmed is below its baseline). The Stage 3 KILL stands as
+  pre-registered; the signal is too small for these execution rules.
+- Next, all pre-registered and free: `python -m src.robustness nudges` (includes max_risk, stop_buffer,
+  target_mult, time_exit nudges) and `python -m src.robustness splits`.
+
+## 2026-10-07 robustness nudges and splits on the Stage 3 result (main config, sim_trades of 2026-10-06)
+- `robustness nudges`: BASE -0.326R (446 confirmed). All 44 evaluated nudges negative (positive share
+  0.00, pass=False); range -0.286 (debounce 5) to -0.422 (entry_slippage 2). max_rel_spread nudges
+  skipped (need a GEX rebuild). Execution nudges: stop_buffer 1/4 -0.318/-0.316, max_risk 0.10/0.20
+  -0.399/-0.319, target_mult 1.0/2.0 -0.323/-0.319, time_exit 20/45 -0.342/-0.326, cost 5.97 -0.344.
+  No execution setting lets the pre-cost signal through.
+- `robustness splits`: negative in every year (2023 -0.44, 2024 -0.24, 2025 -0.34), every GEX tercile
+  (low -0.32, mid -0.27, high -0.29) and every time-of-day bucket (open -0.38, mid -0.30, close -0.35);
+  every 90% interval below zero.
+- Stage 3 verdict vs rules: KILL, robust to nudges and splits. Per SPEC: no holdout run on a Stage 3
+  kill; write up what was learned. Decision is Matteo's.
+
+## Study 2 pre-registration: tape-footprint confirmation and at-level entries (APPROVED by Matteo 2026-10-07, params approved; frozen before any run)
+Status of study 1: Stage 3 KILL, robust. Pre-cost finding that motivates study 2: naive fades at
+touched levels beat a driftless walk by ~+0.10R (win 34.9% vs 31%), i.e. about 0.6 ticks per trade at
+a 6-tick risk, against ~2.3 ticks of friction (1 tick slippage, 1 tick stop-through, $3.98 RT).
+Tape-only absorption (abs_ratio) did not improve on that. Study 2 asks whether finer tape features and
+entries at the level raise the pre-cost edge enough to clear the friction. Same data (110 sampled days,
+existing trades), no spend. Same holdout, sealed.
+
+Hypotheses (all point-in-time, decision data ends at t_dec):
+- H1 selection: touches where aggressive flow AT the level is absorbed carry a larger reversal edge.
+  New features over the abs_window, prints within proximity_b ticks of L only:
+    delta_at_level = -d * sum(side*size) at-level (positive = flow into the level being absorbed);
+    at_level_share = at-level volume / window volume;
+    big_lot_share  = volume in prints >= q_big / window volume (q_big new param, 50 contracts);
+    tape_speed     = prints per minute in the window / baseline prints per minute (same slot, prior
+                     baseline_sessions);
+    delta_div      = approach_delta * d < 0 (flow against the level on the approach) while
+                     break_pen < break_ticks (price did not give) -> boolean.
+  Pre-registered confirmation rule S2: delta_at_level >= s2_delta_min (new param, 150 contracts) AND
+  reclaim as in study 1. No other combinations will be scored.
+- H2 execution: enter at the level instead of after the reclaim close. E1: at t_dec place a limit at
+  L + d*entry_offset ticks (new param, 1 tick), live for fill_window (new param, 10 min), filled only
+  by a print one tick through it (SPEC rule 5); stop p_ext - d*stop_buffer; target target_mult R;
+  time exit time_exit from fill. No fill -> no trade (reported as a skip).
+- H3 continuation in low gamma (gex_pct < 0.5 or below flip): E2 retest-fail entry. After a V5 break,
+  wait for a print back within proximity_b of L from the far side within retest_window (new param,
+  15 min); enter with the break direction on the first print after a 1-minute close that fails to
+  reclaim L; stop L + d*stop_buffer back on the original side; target target_mult R; time exit.
+Variants scored (each counts toward the 20 limit; study 1 used 5):
+  S2   = S2 rule + E1, all real level groups (per-group table reported as in study 1)     [6]
+  S2r  = S2 restricted to gex_pct >= 0.5                                                  [7]
+  S2c  = E2 continuation on low-gamma days                                                [8]
+  S2h  = S2 with target_mult 2.5 and time_exit 60 (longer horizon)                        [9]
+Gates (unchanged from SPEC Stage 3): n >= 200, after-cost expectancy >= 0.10R, bootstrap CI lower > 0,
+and variant minus its naive baseline > 0. Pre-cost diagnostic reported alongside: market share vs the
+driftless baseline from the fairness block, in R and in ticks. A variant with market share below +0.15R
+is recorded as "no pre-cost edge" even if n is short. Placebo levels run through every variant.
+Kill: no variant passes -> stop; write-up. Pass -> robustness nudges/splits, then the holdout on the
+passing variant only (one shot).
+New config params proposed (need approval before any code runs): q_big 50, s2_delta_min 150,
+entry_offset 1 tick, fill_window 10 min, retest_window 15 min. Nudges: q_big [25, 100],
+s2_delta_min [100, 250], fill_window [5, 15], retest_window [10, 20].
+Tests first: every new feature and both entries on synthetic prints with hand-verified answers.
+
+Specification corrections made before any run (2026-10-07): tape_speed cannot use prior sessions
+(trade data exists only for the sampled windows), so it is prints per minute in the abs_window over
+prints per minute in the 10-minute approach window (point-in-time). big_lot_share and tape_speed are
+measured over the whole abs_window; delta_at_level and at_level_share use prints within proximity_b
+of L. E1 fills at the limit price (no slippage on a resting order; the one-tick-through rule stays).
+The E1 stop extreme covers [t0, fill]. E2 evaluates the first clock minute that ends after the retest
+print; a close that reclaims L means no trade (skip "reclaimed").
+
+## 2026-10-07 Study 2 first and only run (commit d36d29e, config as approved, same 110 sampled days)
+- S2 (delta_at_level >= 150 + reclaim, E1 limit entry): n=254, win 27.6%, -0.48R (CI -0.59..-0.36),
+  minus naive on the same touches -0.43R; driftless baseline -0.38R -> market share -0.10R (-0.6 ticks).
+  By group: structural -0.49, gamma_only -0.51, both -0.39, placebo -0.40 (placebo market share 0.00).
+  Verdict KILL; no pre-cost edge.
+- S2r (S2, gex_pct >= 0.5): n=95, -0.31R, market share +0.07R (+0.4 ticks) < 0.15R threshold.
+  INDICATIVE; no pre-cost edge. (both group +0.46R on n=13, placebo +0.21R on n=29: noise.)
+- S2c (E2 retest continuation, low gamma): n=77, -0.45R, market share -0.09R. INDICATIVE; no edge.
+- S2h (S2 with 2.5R target, 60 min): n=254, win 18.5%, -0.54R, market share -0.16R. KILL.
+- Fills: E1 limit filled on 254 of 475 S2-confirmed touches (184 never came back to the level
+  inside 10 min, 33 risk_too_wide); E2: 174 no retest, 90 reclaimed, 177 trades.
+- Reading: selecting on heavy absorbed flow at the level makes fades WORSE than a random walk (-0.6
+  ticks), the same direction as study 1's confirmed-vs-naive gap. On this tape, heavy aggressive flow
+  into a level is followed by continuation more often than reversal within 30-60 minutes; the
+  at-level entry does not change that. The retest-fail continuation in low gamma is also no better
+  than random. Study 2 verdict vs rules: KILL on every variant. Variant count 9 of 20.
+- Per SPEC no-go: stop, write up (WRITEUP.md), keep the pipeline. Decision is Matteo's.
+
+## Decision (2026-10-07, Matteo): Study 2 KILL accepted. Intraday level thesis closed (no-go, no holdout).
+Rationale recorded: no variant beat a driftless walk by the pre-registered 0.15R; selection on absorbed
+flow is anti-predictive at 30-60 minutes; execution friction is 4x the pre-cost signal. Not worth
+adjusting: the nudges already span the execution space and every cell is negative.
+
+## Study 3 pre-registration: session-level gamma regime (APPROVED by Matteo 2026-10-07 with the params; frozen before any run)
+Motivation (what survived studies 1-2): high dealer gamma predicts a smaller session range beyond VIX
+(Stage 1 RR beta -0.216, p=0.029; -0.399, p=0.001 with ln EM/S0), and every level type holds more on
+high-gamma days (Stage 2 gex_pct +0.29, p=0.002). The effect is a property of the session, so the
+trade should be a session-scale range bet in ES, at a risk size where 2-3 ticks of friction are noise.
+Data: already on disk, no spend. gex_daily (EM, gex_pct, flip, S0) for 642 sessions, ES 1-minute bars
+for the whole period, VIX. No tick data needed: risk is 20-40 ticks, so 1-minute bars with SPEC rule-5
+fills (stop fills one tick beyond S when a bar's low/high touches it; target fills only when a bar
+prints one tick beyond T; a bar that touches both is a loss) are conservative and sufficient.
+Sample: the ~510 sessions with a GEX percentile (2023-12-01..2025-12-31), in-sample only. Holdout sealed.
+
+Hypothesis H: on high-gamma sessions, price that reaches the expected-move band returns toward the
+open more often than on low-gamma sessions, by enough to pay after costs.
+Setup (one trade per session, the first qualifying band touch, either side):
+  band:  B_up = O + a*EM, B_dn = O - a*EM, O = the 09:30 ES open (first RTH bar open), EM from gex_daily
+         (D-1 close straddle, point-in-time). a = band_a (0.50 EM).
+  touch: first RTH bar from band_start (10:00) to band_end (15:00) whose high >= B_up (or low <= B_dn).
+  R1 range fade (high gamma, gex_pct >= 0.5): enter against the move at the band price plus one tick of
+         slippage; stop s*EM beyond the band (band_stop_s 0.25 EM); target the open O (reward a*EM,
+         so 2:1); time exit flat_time (15:55) at the next bar's open minus one tick.
+  R2 band breakout (low gamma, gex_pct < 0.5): enter with the move at the band plus one tick; stop
+         s*EM back inside; target a further a*EM beyond the band; same time exit.
+  R3 = R1 restricted to sessions with the 09:30 open above the flip (the Stage 2 interaction's regime).
+  Costs cost_rt_usd; R_k = s*EM (typically 7-10 pts = 28-40 ticks, friction ~0.07R).
+Placebo for a regime (not a level) hypothesis: a permutation test. gex_pct is shuffled across sessions
+1000 times (seed bootstrap_seed); the observed high-minus-low-gamma expectancy gap must exceed the 95th
+percentile of the shuffled gaps. Also reported: the same trade on ALL sessions (no regime filter) and on
+the complementary regime, as contrasts.
+Gates (SPEC Stage 3 rules reused, per variant): n >= 200 trades, after-cost expectancy >= 0.10R, day-
+bootstrap 90% CI lower > 0, AND the regime contrast (variant minus its complement) CI lower > 0, AND the
+permutation p < 0.05. Pass -> robustness nudges and year/tercile/time splits, then the holdout once.
+Kill -> stop; the regime effect is documented in WRITEUP.md but not tradable at this horizon either.
+Variant count: R1, R2, R3 -> 12 of 20.
+New config params proposed (need approval): band_a 0.50 EM [nudges 0.40, 0.60], band_stop_s 0.25 EM
+[0.20, 0.35], band_start "10:00", band_end "15:00", regime_threshold 0.5 (gex_pct) [no nudge: it is
+the pre-registered split, nudging it would be fitting].
+Tests first: band detection, both entries with hand-verified fills on synthetic bars, the permutation
+test on synthetic frames.
+Rule-6 checks pre-committed: EM and gex_pct are D-1 quantities (point-in-time); no roll day inside a
+session; the open O is the first RTH bar, not a later bar; one trade per session; holdout dates never
+loaded; the permutation test guards against a time-trend in gex_pct masquerading as regime.
+
+## 2026-10-07 Study 3 first run (commit 9c1a0f2 code, config as approved): 479 sessions, SUPERSEDED
+- R1 fade high gamma: n=250, -0.34R (CI -0.46..-0.21); complement (fade low gamma) -0.16R; regime
+  contrast -0.18R; permutation p=0.93. KILL. The fade is WORSE in high gamma, the opposite of H.
+- R2 breakout low gamma: n=229, +0.12R (CI -0.03..+0.27); complement (breakout high gamma) +0.25R
+  (CI +0.11..+0.41); contrast -0.13R; permutation p=0.86. KILL as a regime claim.
+- R3 fade high gamma above flip: n=244, -0.32R. KILL.
+- Contrast "breakout_all_sessions": n=479, win 42.8% vs a 33% driftless baseline, +0.19R
+  (CI +0.08..+0.30), PF 1.32, market share +0.28R. This is a strong-looking result and rule 6
+  applies. Checked so far: EM and gex_pct are D-1 values; O is the 09:30 bar on the session's own
+  contract (no roll inside a session); one trade per session; holdout never loaded; the touch bar
+  pays no target; a bar touching both barriers is a loss.
+- BUG FOUND by that check (fill realism, SPEC rule 5): when price was already beyond the band at
+  10:00 (crossed before band_start), the first eligible bar counted as the touch and the breakout
+  entered at the band plus one tick although the market was already well past it: a free head start
+  for breakouts and a handicap for fades, i.e. exactly the asymmetry seen. Fixed before any
+  interpretation: a touch must start from inside the band (previous bar close inside); price already
+  beyond a band when the window opens -> no trade that session; a breakout stop order fills at the
+  bar's open when the bar opened through the band. Tests added. Re-run required; the numbers above
+  are not a result.
+
+## 2026-10-07 Study 3 second run (clean-touch and gapped-open rules), 397 sessions: KILL on all variants
+- 82 sessions dropped as "already beyond the band at 10:00" (113 no-touch vs 31 before): those were
+  the sessions inflating the first run's breakout number.
+- R1 fade high gamma: n=207, -0.24R (CI -0.38..-0.09); complement -0.02R; regime contrast -0.21R
+  (CI -0.44..+0.01); permutation p=0.95; market share -0.11R. KILL.
+- R2 breakout low gamma: n=190, -0.06R (CI -0.22..+0.10); complement (breakout high gamma) +0.12R
+  (CI -0.04..+0.28); contrast -0.18R; permutation p=0.91; market share +0.03R. INDICATIVE, fails.
+- R3 fade high gamma above flip: n=204, -0.22R; complement +0.04R; contrast -0.26R (CI -0.53..-0.00);
+  permutation p=0.95. KILL.
+- Contrasts: fade all sessions -0.13R (market share -0.03R); breakout all sessions +0.03R
+  (CI -0.08..+0.15, PF 1.05, market share +0.14R, win 37.8% vs 33% baseline). By tercile the fade
+  goes +0.01 / -0.13 / -0.28 from low to high gamma and the breakout -0.06 / +0.06 / +0.10: at the
+  trade level the regime runs the OPPOSITE way to H (a session that reaches 0.5 EM on a high-gamma
+  day is a trend day; the compressed-range result of Stage 1 is unconditional, this is conditional on
+  reaching the band).
+- Rule 6 on the breakout: after the fill fix it is +0.03R with the interval straddling zero; not a
+  result. Study 3 verdict vs rules: KILL on every variant. 12 of 20 variants used. No holdout.
+
+## 2026-10-07 | review of studies 1-3 and Study 4 pre-registration DRAFT (not a run; awaiting Matteo)
+- commit: 77f9ed6 reviewed; this entry committed on branch claude/affectionate-gauss-7nuqm8.
+- change: code and log audit (REVIEW.md). No data on this machine; nothing re-run. pytest: 77 passed.
+- config diff: none. Variant count unchanged at 12 of 20.
+- result: every kill in studies 1-3 stands as scored; point-in-time, holdout seal, roll handling and
+  fill conservatism verified in code; the 0.6-tick naive residual is the only positive signal and it
+  is a quarter of the friction. Three report-only caveats on the regime variable (sign convention is
+  an assumption; calendar-time clock overweights 0DTE ATM gamma; the percentile ranks raw dollar GEX,
+  which drifts with S0^2) do not change any verdict but should be re-checked before anything
+  conditions on the regime again.
+- proposed next (REVIEW.md section 5), needs approval before any code runs: Study 4, regime-conditioned
+  D-expiring SPXW ATM straddle at the D-1 17:00 close held to settlement (S4a short in high gamma,
+  S4b long in low gamma, S4c iron fly with 1 EM wings), regime = gex_pct of session D-1 (point in
+  time), entry at the quoted bid/ask, settlement = FRED SPX close, permutation placebo, Stage 1
+  regression restated on straddle P&L. New params proposed: opt_cost_per_leg_usd 1.50 [3.00],
+  s4_wing_em 1.0 [0.75, 1.5], s4_min_expectancy_em 0.03 (gate), s4_regime_lag 1 (fixed). Would bring
+  the count to 15 of 20. Secondary: Study 5, last-30-minute hedging-flow trade (Baltussen et al.),
+  two variants, 17 of 20. Not recommended: any further level/absorption/band variant, MBP-10 spend.
+
+## Study 4 pre-registration: regime-conditioned 0DTE straddle at the D-1 close (APPROVED by Matteo 2026-10-07, "lets run a test on study 4"; frozen as drafted in REVIEW.md section 5 before any run)
+- config diff (config.yaml): market.option_multiplier 100.0 (structural); params.opt_cost_per_leg_usd 1.50
+  [nudge 3.00] (all-in per leg: commission, exchange, regulatory, settlement; placeholder until confirmed
+  with the broker), params.s4_wing_em 1.0 [0.75, 1.5], params.s4_regime_lag 1 (fixed: point in time);
+  gates.study4_min_expectancy_em 0.03. regime_threshold 0.5 reused, no nudge.
+- hypothesis H4: conditional on the PRIOR session's gamma percentile, the D-expiring SPXW ATM straddle
+  sold at the D-1 17:00 close and held to the SPX settlement pays after costs on high-gamma sessions
+  (S4a), the long straddle pays on low-gamma sessions (S4b), and the defined-risk iron fly with wings
+  one EM out pays on high-gamma sessions (S4c); each with the regime contrast positive and the
+  permutation placebo beaten.
+- build: K = strike nearest F with both legs valid (the engine's atm_straddle rule; the chain's
+  straddle mid must equal gex_daily.em, mismatches counted); short sells at bid_C + bid_P, long buys at
+  ask_C + ask_P, wings bought at the ask at the valid strikes nearest K +/- s4_wing_em EM (skip the fly
+  when the nearest strike is more than 25% off the target width); settlement |S_T - K| at the FRED SPX
+  close; fees per leg; P&L in EM units (pnl_pts / em), also points and dollars. Regime = gex_pct of
+  session D-1 (its inputs were all published before the 17:00 D-1 entry); the D row's percentile uses
+  OI published the morning of D and is reported as a non-tradeable diagnostic only. Eligible sessions:
+  equity sessions, not half days, GEX row present, nearest expiry = the SPXW expiring on D, lagged
+  percentile present, settlement present, a both-valid ATM strike. All three structures on every
+  eligible session; the regime filter is applied in the report.
+- placebo and contrasts: permutation of the lagged percentile across sessions (perm_draws 1000, seed
+  bootstrap_seed); the complement regime; every structure on all sessions (variance premium baseline)
+  and by percentile tercile; the Stage 1 regression restated with pnl_em as the outcome (ln VIX and
+  ln EM/S0 controls, day-of-week dummies, Newey-West 5 lags).
+- gates per variant: n >= 200; mean pnl_em >= 0.03; day-bootstrap 90% CI lower > 0; regime contrast
+  CI lower > 0; permutation p < 0.05. Tail block reported, not gated: five worst and best days, their
+  share of the total, mean without the best five. S4c carries the decision if S4a and S4c disagree.
+- variants: S4a, S4b, S4c -> 15 of 20 once run.
+- rule-6 checks pre-committed: every entry input stamped <= 17:00 D-1; settlement is the official close;
+  holdout sessions never loaded (calendar is sealed; the holdout can serve this new hypothesis later);
+  half days excluded; no session double counted; em_mismatch count must be 0.
+
+## 2026-10-07 | Study 4 built tests-first; real-data run PENDING (this session's container has no data/)
+- commit: see git log (branch claude/affectionate-gauss-7nuqm8). Tests: tests/test_study4.py (hand-
+  verified ATM selection, short/long straddle and iron-fly payoffs incl. wing caps and tolerance,
+  regime lag, eligibility rules, generalised permutation test, report on synthetic frames) and a
+  synthetic end-to-end run in tests/test_pipeline.py (holdout excluded, em_mismatch 0, fly loss bounded
+  by max_loss, regime equals the prior session's percentile). src/study3.permutation_test gained
+  value/pct arguments (defaults unchanged).
+- config diff: the Study 4 entries above. No other change.
+- result: no real-data numbers yet. Run on the data machine: `python -m src.study4` (reads gex_daily,
+  the D-1 EOD files and data/raw/daily; writes data/derived/straddle_trades.parquet; prints the report
+  with verdict_vs_rules per variant). Zero Databento spend. Then log the headline here.
+
+## 2026-10-07 | Study 4 first run on real data (Matteo's machine, commit f89b0e1, config as approved): KILL on all three variants
+- run: `python -m src.study4`, 502 sessions (2023-12 .. 2025-12). Skipped: half_day 8, no_gex_row 47
+  (the ~40 calendar sessions before 2023-06-02 from the two-month bar warm-up plus the 7 known), no_prev_regime
+  130 (the 126-session percentile warm-up), nearest_not_spxw_0dte 2. em_mismatch_sessions 0 (rule-6 check passes).
+- S4a short straddle, gex_pct(D-1) >= 0.5: n=266, win 62.8%, +0.059 EM (+2.4 pts, +$238 per straddle),
+  90% CI -0.021..+0.135 (FAILS ci_lower>0); complement -0.071 EM; regime contrast +0.130 (CI +0.012..+0.247);
+  permutation p=0.035; PF 1.22; max DD 7.4 EM; worst day 2025-10-10 -5.3 EM (-154 pts); mean ex-best-5
+  +0.041, ex-worst-5 +0.119. 4 of 5 gates pass. Verdict vs rules: KILL.
+- S4b long straddle, gex_pct(D-1) < 0.5: n=236, win 47.0%, +0.033 EM (+1.9 pts), CI -0.050..+0.121 (FAILS);
+  complement -0.099; contrast +0.132 (CI +0.013..+0.248); permutation p=0.036; mean ex-best-5 -0.031 (the long
+  side leans on its best days). KILL.
+- S4c iron fly, high gamma, 1 EM wings: n=265, -0.010 EM, CI -0.046..+0.025; contrast +0.046 (CI -0.006..+0.098);
+  permutation p=0.063. Wings cost 0.33 EM of the 0.98 EM credit and double the spread. KILL on 4 of 5 gates.
+  Pre-registered tie-break: S4c carries the decision when S4a and S4c disagree -> KILL.
+- contrasts: short straddle on all sessions -0.002 EM (the 0DTE variance premium is about zero in this sample,
+  as REVIEW.md expected); terciles low/mid/high: short -0.096 / +0.078 / +0.011, long +0.057 / -0.116 / -0.052,
+  fly -0.058 / -0.011 / -0.027. NOT monotonic: the effect is "low gamma is bad for the short straddle", not
+  "high gamma is good"; the top tercile is about zero.
+- Stage 1 restated on straddle P&L: beta on the lagged percentile +0.19, p=0.17 (ln VIX), +0.18, p=0.18 (ln EM/S0):
+  not significant. Same-day percentile (OI published after entry, NOT tradeable): +0.35, p=0.001; S4a/S4b under it
+  +0.060 / +0.034 with contrasts CI > 0 and permutation p 0.03 / 0.027: the lag costs little, so the point-in-time
+  version is a fair test of the tradeable thing.
+- reading: friction is not the problem (half-spread 0.019 EM + fees 0.001 EM vs a 0.13 EM regime contrast);
+  variance is. Per-session sd ~0.77 EM, SE ~0.047 on 266 sessions, so the +0.059 mean is 1.2 SE from zero. At this
+  mean a CI lower bound above zero needs ~460 high-gamma sessions (about 3.5 more years). Pooling S4a and S4b into
+  one switching strategy (not pre-registered, reported for information only) gives +0.047 EM on 502 sessions,
+  SE ~0.035, 90% lower bound about -0.01: still a fail. The defined-risk version has no edge at all.
+- rule-6 notes: point in time by construction (lagged regime, D-1 quotes, official settlement); holdout untouched;
+  the permutation test treats sessions as exchangeable although the percentile is persistent, so its p is
+  anti-conservative (a block permutation would be stricter), which only strengthens the kill.
+- Variant count: 15 of 20. Decision is Matteo's. No holdout run.
+- PowerShell note: the "NativeCommandError" in the console is PowerShell treating the module's stderr log line as
+  an error under `2>&1`; the run completed normally.
+
+## 2026-10-07 | Study 4 code hardening after a six-lens review (no run; numbers above are from commit f89b0e1)
+- change: s4_regime_lag < 1 now raises (a lag of 0 would silently gate on the same-day, non-tradeable
+  percentile); sessions whose quotes imply a riskless structure (iron-fly credit >= its narrower wing, or a
+  non-positive premium) are dropped and counted as quote_sanity; sessions where no admissible wing exists are
+  counted (fly_no_wing) so S4c's sample size is visible; friction_em_mean (half-spread + fees) reported next
+  to the full spread; tail block reports the sums and only forms shares when the total is positive; a
+  21-session block permutation is reported as a diagnostic beside the pre-registered session permutation
+  (the lagged percentile is persistent, so the session shuffle is anti-conservative); --report-only recomputes
+  the em_mismatch check from the saved table; permutation p is (count + 1) / (draws + 1), never exactly 0.
+  Gates, formulas and variants unchanged. Tests added; 90 pass.
+- config diff: none.
+- effect on the logged result: none of the changes touch a gate or a payoff; a re-run would add the diagnostic
+  fields (block_permutation p, friction_em_mean, fly_no_wing, quote_sanity counts) to the same verdicts.

@@ -68,7 +68,9 @@ def label(bars: pd.DataFrame, t: int, L: float, d: int, em: float, cfg) -> dict:
     adv = lo if d == 1 else hi      # price moving against
     success, timeout, k_out = False, True, np.nan
     for k in range(t, last + 1):
-        win = d * (fav[k] - L) >= R
+        # The touch bar's favourable extreme is the approach before the touch, not a reversal after
+        # it: count the favourable move from the next bar on; the adverse move counts from bar t.
+        win = k > t and d * (fav[k] - L) >= R
         loss = d * (adv[k] - L) <= -F
         if win or loss:
             success, timeout, k_out = (win and not loss), False, k - t

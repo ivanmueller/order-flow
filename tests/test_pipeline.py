@@ -43,7 +43,7 @@ def test_end_to_end(synth_env):
     assert np.isfinite(done["pnl_r"]).all()
     # Exits respect the fill rules: no exit ever better than target, R_k always positive
     assert (done["R_k"] > 0).all()
-    trade_dir = np.where(done["mode"].isin(["continuation", "mirror"]), -done["d"], done["d"])   # V5 and the mirror diagnostic trade against d
+    trade_dir = np.where(done["mode"].isin(["continuation", "mirror", "s2_retest"]), -done["d"], done["d"])   # V5, the mirror diagnostic and the E2 retest trade against d
     assert (trade_dir * (done["X"] - done["T"]) <= 1e-9).all()
 
     s1 = analysis.stage1(cfg)
@@ -169,3 +169,50 @@ def test_levels_skip_stale_nearest_expiry(synth_env):
     assert lv.stale_nearest_expiry(g.set_index("date").loc[d]) and not lv.stale_nearest_expiry(g.set_index("date").loc[g["date"].iloc[8]])
     out = levels.build(cfg=cfg, gex=g)
     assert out["date"].nunique() == n_all - 1 and d not in set(out["date"])
+
+
+def test_study3_end_to_end(synth_env):
+    from src import study3
+    cfg, _ = synth_env
+    gex.build(cfg=cfg)
+    T = study3.run(cfg)
+    assert not T.empty and set(T["mode"]) == {"fade", "breakout"}
+    assert (T.groupby("date").size() == 2).all()                       # one touch -> two simulated trades per session
+    assert (T["R_k"] > 0).all() and np.isfinite(T["pnl_r"]).all()
+    fade = T[T["mode"] == "fade"]
+    assert ((fade["d"] * (fade["X"] - fade["T"])) <= 1e-9).all()       # never better than the target
+    out = study3.report(cfg, T)
+    assert set(out["variants"]) == set(study3.VARIANTS)
+    for v in out["variants"].values():
+        assert v["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") and "permutation" in v
+    analysis.to_json(out)
+
+
+def test_study4_end_to_end(synth_env):
+    """Synthetic chains (tests/synth.py) always list the D-expiring SPXW, so every session with a
+    lagged percentile and a close trades all three structures; the straddle mid must equal the
+    engine's EM and the iron fly can never lose more than its max loss."""
+    from src import study4
+    cfg, _ = synth_env
+    g = gex.build(cfg=cfg)
+    T = study4.run(cfg)
+    assert not T.empty and set(T["mode"]) == set(study4.MODES)
+    assert (T["date"] < calm.holdout_start(cfg)).all()
+    assert (T.groupby("date")["mode"].nunique() == 3).all()
+    assert np.isfinite(T["pnl_em"]).all() and (T["em"] > 0).all()
+    assert T.attrs["skipped"]["em_mismatch_sessions"] == 0
+    ss = T[T["mode"] == "short_straddle"]
+    assert np.allclose(ss["pnl_pts"], ss["premium_pts"] - (ss["settle"] - ss["K"]).abs() - ss["fees_pts"])
+    fly = T[T["mode"] == "iron_fly"]
+    assert (fly["pnl_pts"] >= -fly["max_loss_pts"] - 1e-9).all() and (fly["K_up"] > fly["K"]).all() and (fly["K_dn"] < fly["K"]).all()
+    # The regime is the prior session's percentile, never the same day's.
+    gi = g.set_index("date")["gex_pct"]
+    cal = store.load_calendar(cfg).set_index("date")
+    for r in ss.itertuples():
+        assert r.regime_pct == gi[cal.loc[r.date, "prev_date"]]
+    out = study4.report(cfg, T)
+    assert set(out["variants"]) == set(study4.VARIANTS)
+    for v in out["variants"].values():
+        assert v["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") and "permutation" in v and "tail" in v
+    assert "short_straddle_ln_vix" in out["stage1_restated"]
+    analysis.to_json(out)

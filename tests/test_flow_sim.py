@@ -189,6 +189,110 @@ def test_fairness_block(cfg):
     done = pd.DataFrame({"mode": ["naive"] * 4 + ["mirror"] * 4, "R_k": 2.5, "pnl_r": [1.4, -1.1, -1.1, -1.1, 1.4, -1.1, 1.4, -1.1],
                          "exit_reason": ["target", "stop", "stop", "stop", "target", "stop", "target", "stop"]})
     fb = analysis.fairness(done, cfg)
-    assert fb["naive"]["rw_win_rate"] == pytest.approx(2.5 / (2.5 * 2.5 + 0.25))
+    assert fb["naive"]["rw_win_rate"] == pytest.approx((2.5 - 0.25) / (2.5 * 2.5 + 0.25))
     assert fb["naive"]["R_k_ticks_median"] == 10 and fb["naive"]["win_rate"] == 0.25
     assert "naive_plus_mirror" in fb and fb["naive_plus_mirror"]["sum_expectancy_r"] == pytest.approx(0.25 * 1.4 - 0.75 * 1.1 + 0.5 * 1.4 - 0.5 * 1.1)
+
+
+def test_simulator_is_fair_on_a_driftless_tick_walk(cfg):
+    """Naive and mirror trades on a symmetric random walk must win at the rate the barrier geometry
+    implies, (R_k - tick) / (2.5 R_k + tick), and their expectancy must equal that rate applied to
+    the observed average win and loss. Any systematic shortfall would be a simulator penalty."""
+    import numpy as np
+    from src import analysis
+    rng = np.random.default_rng(11)
+    rows = []
+    for _ in range(400):
+        n = 1800
+        px = L + 0.5 + np.cumsum(rng.choice([-0.25, 0.0, 0.25], size=n, p=[0.3, 0.4, 0.3]))
+        t = pd.date_range(f"{DAY} 10:00:00", periods=n, freq="1s", tz=ET).tz_convert("UTC")
+        tr = pd.DataFrame({"ts_event_utc": t, "price": px, "size": 1, "side": 1, "instrument_id": 1,
+                           "sequence": np.arange(n)})
+        for mode, fn in (("naive", sim.naive_trade), ("mirror", sim.mirror_trade)):
+            r = fn(tr, t[0], L, 1, 30.0, DAY, cfg)
+            if r and "pnl_r" in r:
+                rows.append({"mode": mode, "pnl_r": r["pnl_r"], "R_k": r["R_k"], "exit_reason": r["exit_reason"]})
+    done = pd.DataFrame(rows)
+    fb = analysis.fairness(done, cfg)
+    for mode in ("naive", "mirror"):
+        assert fb[mode]["n"] > 250
+        assert abs(fb[mode]["win_rate"] - fb[mode]["rw_win_rate"]) < 0.05
+        assert abs(fb[mode]["expectancy_r"] - fb[mode]["rw_expectancy_r"]) < 0.15   # ~2 SE at 400 paths
+
+
+# ---------------------------------------------------------------------------
+# Study 2 (RUNLOG 2026-10-07): tape-footprint features, E1 limit entry, E2 retest entry
+# ---------------------------------------------------------------------------
+def test_study2_features_hand_values(cfg):
+    """abs_window prints: 100.5(20,-1) 100.0(30,-1) 99.75(50,-1) 100.0(40,+1) 100.25(60,+1) 100.75(50,+1).
+    At-level (within 2 ticks of 100): all but the 100.75 print -> 200 of 250 contracts.
+    delta_at_level = -d * sum(side*size) at level = -(-20-30-50+40+60) = 0.
+    big lots (>= 50): 50 + 60 + 50 = 160 / 250. Tape speed: 6 prints / 3 min over 6 prints / 10 min."""
+    f = flow.features(trades(), BAR_OPEN, L, 1, BASELINE, cfg)
+    assert f["delta_at_level"] == 0.0
+    assert f["at_level_share"] == pytest.approx(200 / 250)
+    assert f["big_lot_share"] == pytest.approx(160 / 250)
+    assert f["tape_speed"] == pytest.approx((6 / 3) / (6 / 10))
+    assert f["delta_div"] is True            # approach delta -0.667 against the level, break_pen 1 < 4
+    assert f["confirmed_s2"] is False        # 0 contracts absorbed < s2_delta_min
+    # 150 more contracts sold AT the level and 200 bought off the level (100.75): the at-level delta
+    # becomes 250 sold - 100 bought = 150, the reclaim still holds (net flow since t0 is +100).
+    t = trades()
+    extra = make_trades([("10:01:10", 100.0, 150, -1), ("10:02:20", 100.75, 200, 1)], DAY)
+    t = pd.concat([t, extra]).sort_values("ts_event_utc").reset_index(drop=True)
+    f2 = flow.features(t, BAR_OPEN, L, 1, BASELINE, cfg)
+    assert f2["delta_at_level"] == 150.0 and f2["reclaim"] and f2["confirmed_s2"] is True
+
+
+def test_e1_limit_trade(cfg):
+    """t_dec = 10:03:05. Limit at L + 1 tick = 100.25, filled by a print one tick through (<= 100.0)
+    inside fill_window. The 10:04:00 print at 100.0 fills it: E = 100.25, stop under the extreme seen
+    up to the fill (99.75) minus 2 ticks = 99.25, R_k = 1.0, target 101.75, hit by the 103.0 print."""
+    t = trades([("10:04:00", 100.0, 5, -1), ("10:05:00", 103.0, 1, 1), ("10:06:00", 104.25, 1, 1)])
+    f = flow.features(t, BAR_OPEN, L, 1, BASELINE, cfg)
+    r = sim.limit_trade(t, f, L, 1, EM, DAY, cfg)
+    assert r["entry_ts"] == ts("10:04:00") and r["E"] == 100.25 and r["S"] == 99.25 and r["R_k"] == 1.0
+    assert r["T"] == 101.75 and r["exit_reason"] == "target" and r["X"] == 101.75
+    assert r["pnl_r"] == pytest.approx(1.5 - 3.98 / (1.0 * 50))
+    # No print through the limit inside the window -> no trade.
+    f0 = flow.features(trades(), BAR_OPEN, L, 1, BASELINE, cfg)
+    assert sim.limit_trade(trades(), f0, L, 1, EM, DAY, cfg) == {"skip": "no_fill"}
+    # Longer-horizon overrides change only target and time exit.
+    rh = sim.limit_trade(t, f, L, 1, EM, DAY, cfg, target_mult=2.5, time_exit=60)
+    assert rh["T"] == 102.75 and rh["exit_reason"] == "target" and rh["X"] == 102.75
+
+
+def retest_break_trades():
+    """Support at 100 breaks: sellers push 4 ticks through with net selling, no reclaim for 10 minutes,
+    then price retests the level from below at 10:12:00, the 10:12 minute closes at 99.5 (fails to
+    reclaim), the short enters on the 10:13:10 print."""
+    rows = [
+        ("09:52:00", 101.0, 10, -1), ("09:55:00", 101.0, 10, -1), ("09:59:00", 100.75, 10, -1),
+        ("10:00:05", 100.5, 20, -1),   # t0
+        ("10:00:30", 100.0, 30, -1), ("10:01:00", 99.5, 50, -1), ("10:02:00", 99.0, 50, -1),
+        ("10:05:00", 99.25, 10, 1), ("10:09:00", 99.0, 10, -1),
+        ("10:12:00", 99.75, 10, 1),    # retest from below, within 2 ticks of L
+        ("10:12:40", 99.5, 10, -1),    # the 10:12 minute closes at 99.5: no reclaim
+        ("10:13:10", 99.5, 10, -1),    # entry print
+        ("10:14:00", 97.0, 10, -1),    # target
+    ]
+    return make_trades(rows, DAY)
+
+
+def test_e2_retest_trade(cfg):
+    t = retest_break_trades()
+    f = flow.features(t, BAR_OPEN, L, 1, BASELINE, cfg)
+    assert f["broke"] and not f["reclaim"] and f["t_break"] == ts("10:10:05")
+    r = sim.retest_trade(t, f, L, 1, EM, DAY, cfg)
+    assert r["entry_ts"] == ts("10:13:10") and r["E"] == 99.25        # 99.5 print, one tick of slippage against a short
+    assert r["S"] == 100.5 and r["R_k"] == 1.25 and r["T"] == 97.375
+    assert r["exit_reason"] == "target" and r["X"] == 97.375
+    assert r["pnl_r"] == pytest.approx(1.5 - 3.98 / (1.25 * 50))
+    # If the retest minute reclaims the level, there is no trade.
+    t2 = t.copy(); t2.loc[t2["price"].eq(99.5) & (t2["ts_event_utc"] == ts("10:12:40")), "price"] = 100.75
+    f2 = flow.features(t2, BAR_OPEN, L, 1, BASELINE, cfg)
+    assert sim.retest_trade(t2, f2, L, 1, EM, DAY, cfg) == {"skip": "reclaimed"}
+    # No retest inside the window -> no trade.
+    t3 = t[t["ts_event_utc"] < ts("10:12:00")]
+    f3 = flow.features(t3, BAR_OPEN, L, 1, BASELINE, cfg)
+    assert sim.retest_trade(t3, f3, L, 1, EM, DAY, cfg) == {"skip": "no_retest"}

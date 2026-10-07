@@ -14,7 +14,7 @@ import pandas as pd
 
 from src import calendar as calm
 from src import flow, sim, store
-from src.config import load_config
+from src.config import param, load_config
 from src.ingest_futures import load_trades
 
 log = logging.getLogger("stage3")
@@ -62,6 +62,18 @@ def run(cfg=None, include_holdout: bool = False, touches: pd.DataFrame | None = 
             trades_out.append({**common, "mode": "naive", **n})
             m = sim.mirror_trade(tr, f["t0_trade"], tc.level_es, tc.d, tc.em, tc.date, cfg)   # fairness diagnostic
             trades_out.append({**common, "mode": "mirror", **m})
+        # Study 2 (RUNLOG 2026-10-07): E1 limit entries on S2-confirmed touches, E2 retest after a break.
+        if f.get("confirmed_s2"):
+            e1 = sim.limit_trade(tr, f, tc.level_es, tc.d, tc.em, tc.date, cfg)
+            if e1 is not None:
+                trades_out.append({**common, "mode": "s2_limit", **e1})
+            e1h = sim.limit_trade(tr, f, tc.level_es, tc.d, tc.em, tc.date, cfg,
+                                  target_mult=param(cfg, "s2h_target_mult"), time_exit=param(cfg, "s2h_time_exit"))
+            if e1h is not None:
+                trades_out.append({**common, "mode": "s2_limit_h", **e1h})
+        e2 = sim.retest_trade(tr, f, tc.level_es, tc.d, tc.em, tc.date, cfg)
+        if e2 is not None:
+            trades_out.append({**common, "mode": "s2_retest", **e2})
     if missing:
         log.warning("%d of %d touches have no downloaded trades", missing, len(touches))
     F = pd.DataFrame(feats)

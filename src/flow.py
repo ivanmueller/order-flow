@@ -17,6 +17,13 @@ t0 is reset to the first trade at or through L + d b (i.e. d (p - L) <= b) from 
       at least break_ticks through the level inside that window, and -d * sum v over [t0, t0 + rw) > 0.
       Decision time t0 + reclaim_window; the continuation trade goes in direction -d.
 
+Study 2 (RUNLOG 2026-10-07), all inside W = [t0, t0 + abs_window):
+  delta_at_level = -d * sum(side*size) over prints within proximity_b of L (flow into the level absorbed)
+  at_level_share = at-level volume / W volume;  big_lot_share = volume of prints >= q_big / W volume
+  tape_speed     = prints per minute in W / prints per minute in the 10-minute approach window
+  delta_div      = approach_delta * d < 0 and break_pen < break_ticks
+  confirmed_s2   = reclaim and delta_at_level >= s2_delta_min
+
 Point-in-time fix (flagged in README): AbsRatio needs trades through t0 + abs_window, but a reclaim
 can complete earlier. The entry decision time is therefore t_dec = max(t_r, t0 + abs_window), and the
 stop extreme is taken over [t0, t_dec]. With the default 3-minute window this only delays fast reclaims.
@@ -112,6 +119,15 @@ def features(trades: pd.DataFrame, bar_open: pd.Timestamp, L: float, d: int, bas
     pre = (ts >= t0 - pd.Timedelta(minutes=APPROACH_MIN)) & (ts < t0)
     q_pre = trades.loc[pre, "size"].sum()
     out["approach_delta"] = float(v[pre].sum() / q_pre) if q_pre > 0 else np.nan
+
+    # Study 2 tape-footprint features (RUNLOG 2026-10-07), all inside the abs_window.
+    q_w = float(W["size"].sum())
+    at_level = W[(W["price"] - L).abs() <= b + 1e-9]
+    out["delta_at_level"] = float(-d * (at_level["side"] * at_level["size"]).sum())
+    out["at_level_share"] = float(at_level["size"].sum() / q_w) if q_w > 0 else np.nan
+    out["big_lot_share"] = float(W.loc[W["size"] >= param(cfg, "q_big"), "size"].sum() / q_w) if q_w > 0 else np.nan
+    n_pre = int(pre.sum())
+    out["tape_speed"] = float((len(W) / param(cfg, "abs_window")) / (n_pre / APPROACH_MIN)) if n_pre > 0 else np.nan
     recent = trades[(ts >= t0 - pd.Timedelta(minutes=EXH_RECENT_MIN)) & (ts < t0)]
     early = trades[(ts >= t0 - pd.Timedelta(minutes=APPROACH_MIN)) & (ts < t0 - pd.Timedelta(minutes=EXH_RECENT_MIN))]
     den = agg_in(early, d) / (APPROACH_MIN - EXH_RECENT_MIN)
@@ -140,6 +156,9 @@ def features(trades: pd.DataFrame, bar_open: pd.Timestamp, L: float, d: int, bas
     out["broke"] = bool(t_r is None and out.get("break_pen", 0) >= param(cfg, "break_ticks")
                         and out.get("break_flow", 0) > 0)
     out["t_break"] = t0 + rw
+    ad = out["approach_delta"]
+    out["delta_div"] = bool(np.isfinite(ad) and ad * d < 0 and out.get("break_pen", 0) < param(cfg, "break_ticks"))
+    out["confirmed_s2"] = False
     if t_r is None:
         return out
     t_dec = max(t_r, t0 + aw)
@@ -147,4 +166,5 @@ def features(trades: pd.DataFrame, bar_open: pd.Timestamp, L: float, d: int, bas
     out.update(reclaim=True, t_r=t_r, t_dec=t_dec,
                p_ext=float(span["price"].min() if d == 1 else span["price"].max()))
     out["confirmed"] = bool(np.isfinite(out["abs_ratio"]) and out["abs_ratio"] >= param(cfg, "abs_threshold"))
+    out["confirmed_s2"] = bool(out["delta_at_level"] >= param(cfg, "s2_delta_min"))   # S2: absorbed at the level + reclaim
     return out
