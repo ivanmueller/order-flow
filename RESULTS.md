@@ -250,3 +250,9 @@ Study 5 decision: pending Matteo's call.
 - **Verdict.** Holdout gate PASS (positive and at least half the in-sample mean). The reversal replicates;
   the after-cost edge (about 0.4-0.5 points a trade) is not statistically resolved. Next by SPEC: nudges,
   splits, NQ replication, paper trading. Decision pending Matteo.
+- **Robustness (in sample).** Nudge rule PASS (7 of 8 positive, timing positive in all 8), but one extra
+  tick of slippage or a 15:55 exit takes the ES edge to about zero.
+- **NQ replication (in sample, 621 sessions).** +0.0243 EM_V (CI +0.004..+0.044), timing contrast +0.027
+  (CI > 0), perm p 0.012 / block 0.008: replication gate PASS. Four of the five best days are shared with ES,
+  so this confirms the pattern rather than adding an independent sample; NQ's edge is larger after costs
+  mainly because its friction is about a third of ES's in EM_V terms.

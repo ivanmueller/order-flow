@@ -46,7 +46,9 @@ Update this block at the end of every session.
   +0.0145 EM_V (CI -0.006..+0.036), timing contrast CI > 0, gate PASS. Reversal replicated; after-cost
   edge small and unresolved (~0.4-0.5 pts/trade pooled). Holdout spent for this fade. Robustness run: nudge rule PASS (7 of 8
   positive; timing positive in all 8) but one extra tick of slippage or a 15:55 exit takes the edge to ~0.
-  NQ bars priced $3.55 (ledger $81.05), awaiting approval, then --fade-replication. Then paper trading; then the pure order-flow study (to be priced).
+  NQ replication run (ledger ~$84.60): +0.0243 EM_V (CI +0.004..+0.044), timing CI > 0, perm p 0.012, gate PASS;
+  4 of 5 best days shared with ES, so not independent. Multiple testing now per study family (<= 4 gated variants
+  plus own out-of-sample). Awaiting Matteo: paper trading, optional RTY check, or price the pure order-flow family.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.

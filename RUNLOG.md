@@ -1001,3 +1001,25 @@ Outcome language: passes on all three -> "robust in sample and on NQ"; the next 
 - Rationale: false positives scale with the number of tests on the same data; new families will bring new
   data (fresh ticks, other markets) and their own holdouts, which is the stronger guard.
 - Also noted: NQ bar pull under config.nq.yaml in progress (~$0.10-0.12 a month, quote $3.55).
+
+## 2026-10-07 | Study 5f NQ replication run (Matteo's machine, config.nq.yaml; in sample only)
+- Data: NQ.v.0 1-minute bars 2023-04..2025-12, 33 months, actual $3.55 (approved; shared ledger about
+  $84.60 of $125). Databento flagged degraded days 2024-09-18, 2025-09-17, 2025-09-24, 2025-11-28 (the last
+  is a skipped half day); not inspected. Calendar: 709 sessions, 690 equity, 11 rolls, 27 half days.
+- Rules frozen as for ES 5f (S5b stop 0.5 EM_V, 15:30 decision, 16:00 exit, 1-tick fills, $3.98 a round
+  trip, NQ tick 0.25 at $20 = 0.699 points a trade). EM_V = 0.75 x VIX(D-1) on the NQ price, unchanged.
+- Result: n 621 (skipped roll 11, half day 8, prev half day 8), 2023-06-02..2025-12-31. Fade mean +0.0243
+  EM_V (90% CI +0.0038..+0.0443), win 53.1%, PF 1.24, max DD 5.31 EM_V, longest losing streak 9. Without the
+  best 5: +0.0126. Timing contrast +0.0269 (CI +0.0075..+0.0459); session perm p 0.012, 21-block p 0.008.
+  Momentum direction -0.0285. Gamma slopes n 0 (no SPX GEX table under data_nq; descriptive only).
+- Replication gate (fade mean > 0 and timing contrast > 0): PASS.
+- Checks (rule 6): last session 2025-12-31, no holdout dates; rolls skipped; worst trades -0.506 = the 0.5
+  stop plus friction, as built. Four of the five best NQ days (2024-05-01, 05-31, 07-12, 07-25) are also
+  ES's best five, so NQ is not independent evidence (ES/NQ ~0.9 correlated): it shows the effect is not an
+  ES quirk, not a second sample.
+- Reading: friction is about 0.005 EM_V on NQ versus about 0.014 on ES (NQ's tick is smaller relative to
+  its range), so the pre-cost fades are similar (~+0.02-0.03 EM_V) and NQ's better after-cost number is
+  mostly cheaper friction. Rough size: ~3.5 NQ points (~$70) a contract a trade, before overnight/margin
+  considerations. Programme count unchanged at 18 of 20; this run satisfies the over-20 NQ rule for 5f.
+- Gate call is Matteo's. Options: paper trading per SPEC "Partial" (ES and/or NQ), an RTY check under the
+  same frozen rules, or move on to pricing the pure order-flow family.
