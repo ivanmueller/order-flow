@@ -48,9 +48,10 @@ Update this block at the end of every session.
   positive; timing positive in all 8) but one extra tick of slippage or a 15:55 exit takes the edge to ~0.
   NQ replication run (ledger ~$84.60): +0.0243 EM_V (CI +0.004..+0.044), timing CI > 0, perm p 0.012, gate PASS;
   4 of 5 best days shared with ES, so not independent. Multiple testing now per study family (<= 4 gated variants
-  plus own out-of-sample). Order-flow family pricing: src/price_menu.py built (quotes only); awaiting Matteo's
-  menu run. Usage-based full-RTH ES trades ~$0.60/session (~$380 in sample) exceed the credit; options are the
-  Databento Standard plan ($199/month, last 12 months of trades) or Sierra Chart tick history. Then other-market fades.
+  plus own out-of-sample). Price menu run: ES RTH trades ~$0.41/session (~$280 in sample, out of reach);
+  bars for CL/GC/ZN/6E ~$13 in sample. Study 6 (pure order flow) pre-registered as a DRAFT: $0 pilot on the 110
+  on-disk ES sessions, F1-F4 (continuation/fade at 5 and 15 min), pilot can only KILL or ADVANCE, confirmation on
+  fresh random sessions. Expected KILL. Awaiting approval. Then other-market fades (needs an EM unit per market).
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.

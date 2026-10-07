@@ -1038,3 +1038,64 @@ Outcome language: passes on all three -> "robust in sample and on NQ"; the next 
   Chart historical service (packages from $26-56/month) carries CME tick data with aggressor bid/ask volume
   from about 2011-2013, exchange fees separate.
 - Next on Matteo's machine: run the two price menus below, then choose the data route.
+
+## 2026-10-07 | Price menu run (Matteo's machine, commit 5bb4849; quotes only, nothing pulled; ledger $84.61)
+- 2023-06-01..2025-12-31 (675 weekdays), USD: trades 24h / trades RTH (24-day sample, extrapolated) / bars 24h
+  ES 352.18 / 279.67 / 3.34; NQ 307.03 / 224.26 / 3.34; CL 80.10 / 42.85 / 3.29; GC 80.39 / 35.80 / 3.31;
+  ZN 80.19 / 41.01 / 3.12; 6E 39.59 / 15.89 / 3.28.
+- 2025-10-01..2026-09-30 (261 weekdays): ES 153.27 / 137.93 / 1.29; NQ 121.23 / 95.94 / 1.29; CL 35.13 /
+  19.99 / 1.28; GC 36.54 / 16.02 / 1.28; ZN 30.66 / 18.01 / 1.18; 6E 11.47 / 6.22 / 1.26.
+- Reading: ES RTH trades ~$0.41/session in sample (~$0.53 in the last 12 months), lower than the $0.60
+  prior. A full in-sample ES trades set (~$280) is out of reach on credit. Bars for the four non-equity
+  fade markets cost ~$13.0 in sample (ledger would reach ~$97.6, under the $100 line).
+- Decision (Matteo): pure order flow starts as a $0 pilot on the 110 ES sessions already on disk; only if
+  the pilot finds an edge, a confirmation run on freshly drawn random sessions (priced then).
+
+## 2026-10-07 | Study 6 pre-registration DRAFT: pure order flow pilot (ES, on-disk ticks) -- awaiting approval
+Family: pure order flow (new family; budget <= 4 gated variants; Go needs its own out-of-sample run).
+Reuse note: the pilot reuses the Stage 3 trade windows (110 stratified sessions 2023-06..2025-12, seed in
+config stage3_sample, windows t0-10..t0+45 min around Stage 2 touches). Flow features were studied there
+AT LEVELS only; nothing here conditions on a level, but the sessions are not fresh and the windows are not
+random clock times. Hence: the pilot can only KILL or ADVANCE, never Go.
+
+Signal (point in time, ticks only): at decision time t, I_L(t) = sum(side x size) / sum(size) over ES
+trades in [t - L, t) (side B +1, A -1, N dropped). Decision times on a clock grid every H minutes, t >= 09:40
+and t + H <= 15:50 ET (keeps clear of the open and of the 5f close window). A slot counts only if [t - L,
+t + H] lies inside one downloaded span with one instrument_id (rolls excluded by the Stage 3 day set).
+Threshold: trade when |I_L(t)| >= the 80th percentile of |I_L| over all eligible slots of the previous 20
+pilot sessions (strictly earlier dates; the first 10 sessions are warm-up and not traded).
+
+Trades (time exit only, no stop, so no same-bar ambiguity): entry at the first trade print at or after t,
+one tick adverse; exit at the first print at or after t + H, one tick adverse; $3.98 a round trip. Friction
+0.5796 points a trade. PnL in points (ticks and $ per contract reported).
+Variants (4; F1/F2 and F3/F4 are mirror images, so at most one of each pair can pass after costs):
+  F1 continuation L = H = 5 min (trade with the aggressor)    F2 fade L = H = 5 min
+  F3 continuation L = H = 15 min                              F4 fade L = H = 15 min
+
+Pilot gates, per variant (all must hold to ADVANCE):
+  1. n trades >= 300.
+  2. Existence: gross (pre-cost) mean > 0 with within-session permutation p < 0.05 (shuffle the signal
+     across a session's eligible slots, 1000 draws).
+  3. Economics: after-cost mean >= 0.25 points (one tick) a trade, and 90% session-bootstrap CI lower bound > 0.
+  4. Tail: after-cost mean without the best 5 sessions > 0.
+Reported, not gated: slope of forward H-min return on I_L (session-clustered), year splits, deciles of I_L,
+long/short split, mean |I_L| by time of day.
+
+Confirmation (only for a variant that ADVANCES; registered now, run later): fresh sessions drawn uniformly
+at random (seed 20261007) from in-sample 2023-06..2025-12 sessions outside the Stage 3 day set, excluding
+roll and half days; RTH ES trades priced with get_cost first (~$0.41 a session); thresholds and rules frozen
+from the pilot. Pass: after-cost mean > 0 and gross permutation p < 0.05 on the fresh set. Sample size fixed
+when it is priced, before any pull.
+
+Power (rough): ES 5-min SD ~5 pts, so a top-quintile trade needs a signal-return correlation near 0.08 to
+clear friction at H = 5 (near 0.04 at H = 15); published intraday trade-imbalance predictability in index
+futures is ~0.01-0.03 at these horizons. Pilot MDE roughly 0.3-0.4 pts at H = 5 and ~1.5-2 pts at H = 15
+(slot coverage to be counted first). Expected outcome stated in advance: KILL on all four.
+
+Build order: tests first (signal, threshold point-in-time, fills, permutation on synthetic ticks with
+hand-checked answers); step 0 prints eligible slot counts from timestamps only; then the run.
+Proposed config entries (not yet added): s6_grid_start "09:40", s6_grid_end "15:50", s6_horizons [5, 15],
+s6_threshold_pct 0.80, s6_threshold_lookback 20, s6_warmup_sessions 10, s6_perm_draws 1000, s6_conf_seed
+20261007; gates study6_min_trades 300, study6_min_expectancy_pts 0.25, study6_perm_p 0.05, study6_tail_drop 5.
+Budget note: ledger $84.61. Other-market fade bars ~$13 (to ~$97.6); a confirmation run would then cross the
+$100 line (~$0.41 a session; the $40.39 of credit left buys ~65 sessions after those bars).
