@@ -293,3 +293,47 @@ Variant count so far: 5 of 20.
   every 90% interval below zero.
 - Stage 3 verdict vs rules: KILL, robust to nudges and splits. Per SPEC: no holdout run on a Stage 3
   kill; write up what was learned. Decision is Matteo's.
+
+## Study 2 pre-registration: tape-footprint confirmation and at-level entries (DRAFT 2026-10-07, awaiting Matteo's approval; no run before approval)
+Status of study 1: Stage 3 KILL, robust. Pre-cost finding that motivates study 2: naive fades at
+touched levels beat a driftless walk by ~+0.10R (win 34.9% vs 31%), i.e. about 0.6 ticks per trade at
+a 6-tick risk, against ~2.3 ticks of friction (1 tick slippage, 1 tick stop-through, $3.98 RT).
+Tape-only absorption (abs_ratio) did not improve on that. Study 2 asks whether finer tape features and
+entries at the level raise the pre-cost edge enough to clear the friction. Same data (110 sampled days,
+existing trades), no spend. Same holdout, sealed.
+
+Hypotheses (all point-in-time, decision data ends at t_dec):
+- H1 selection: touches where aggressive flow AT the level is absorbed carry a larger reversal edge.
+  New features over the abs_window, prints within proximity_b ticks of L only:
+    delta_at_level = -d * sum(side*size) at-level (positive = flow into the level being absorbed);
+    at_level_share = at-level volume / window volume;
+    big_lot_share  = volume in prints >= q_big / window volume (q_big new param, 50 contracts);
+    tape_speed     = prints per minute in the window / baseline prints per minute (same slot, prior
+                     baseline_sessions);
+    delta_div      = approach_delta * d < 0 (flow against the level on the approach) while
+                     break_pen < break_ticks (price did not give) -> boolean.
+  Pre-registered confirmation rule S2: delta_at_level >= s2_delta_min (new param, 150 contracts) AND
+  reclaim as in study 1. No other combinations will be scored.
+- H2 execution: enter at the level instead of after the reclaim close. E1: at t_dec place a limit at
+  L + d*entry_offset ticks (new param, 1 tick), live for fill_window (new param, 10 min), filled only
+  by a print one tick through it (SPEC rule 5); stop p_ext - d*stop_buffer; target target_mult R;
+  time exit time_exit from fill. No fill -> no trade (reported as a skip).
+- H3 continuation in low gamma (gex_pct < 0.5 or below flip): E2 retest-fail entry. After a V5 break,
+  wait for a print back within proximity_b of L from the far side within retest_window (new param,
+  15 min); enter with the break direction on the first print after a 1-minute close that fails to
+  reclaim L; stop L + d*stop_buffer back on the original side; target target_mult R; time exit.
+Variants scored (each counts toward the 20 limit; study 1 used 5):
+  S2   = S2 rule + E1, all real level groups (per-group table reported as in study 1)     [6]
+  S2r  = S2 restricted to gex_pct >= 0.5                                                  [7]
+  S2c  = E2 continuation on low-gamma days                                                [8]
+  S2h  = S2 with target_mult 2.5 and time_exit 60 (longer horizon)                        [9]
+Gates (unchanged from SPEC Stage 3): n >= 200, after-cost expectancy >= 0.10R, bootstrap CI lower > 0,
+and variant minus its naive baseline > 0. Pre-cost diagnostic reported alongside: market share vs the
+driftless baseline from the fairness block, in R and in ticks. A variant with market share below +0.15R
+is recorded as "no pre-cost edge" even if n is short. Placebo levels run through every variant.
+Kill: no variant passes -> stop; write-up. Pass -> robustness nudges/splits, then the holdout on the
+passing variant only (one shot).
+New config params proposed (need approval before any code runs): q_big 50, s2_delta_min 150,
+entry_offset 1 tick, fill_window 10 min, retest_window 15 min. Nudges: q_big [25, 100],
+s2_delta_min [100, 250], fill_window [5, 15], retest_window [10, 20].
+Tests first: every new feature and both entries on synthetic prints with hand-verified answers.
