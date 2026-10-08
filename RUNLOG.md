@@ -1612,3 +1612,11 @@ session returned 504 gateway timeouts after ~2 minutes each (QQQ.OPT tcbbo, IWM.
 Fix (commit 2203f6d): each session is priced in 30-minute pieces, in parallel (6 workers), and summed; 2 tries per
 piece, then the piece is reported as failed and that row shows no price. Defaults now 1 day (the middle in-sample
 weekday, 2024-09-16) and the two pilot schemas. 5 tests pass.
+
+## 2026-10-08 | Transfer tooling (no analysis run)
+Matteo is moving to a laptop via a USB drive (E:). Added backup_to_usb.bat + scripts/backup_to_usb.ps1 (robocopy of
+the repo minus .venv and caches; asks before copying .env; free-space and FAT32 4 GB checks; file-by-file size check;
+TRANSFER_NOTE.txt) and restore_from_usb.bat + scripts/restore_from_usb.ps1 (copy to C:\order-flow, check, build
+.venv, quick pytest). Shared check in scripts/transfer_common.ps1. All three parse under PowerShell 7.4; the check was
+tested on a synthetic tree (passes a good copy, catches a missing and a resized file, skips .venv, caches, .pyc, .env).
+Not runnable here: robocopy and drive checks (Windows only). The data stay where they are; nothing is changed in data/.

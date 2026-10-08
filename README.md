@@ -178,3 +178,17 @@ notebooks/ 00_gex_validation  01_regime  02_levels  03_flow  04_holdout
 tests/      formula tests with hand-checked answers + synthetic end-to-end pipeline
 data/       raw/ and derived/ Parquet (git-ignored)
 ```
+
+## Moving to another computer (USB)
+
+On the current PC (after `git pull`), plug in the drive and double-click `backup_to_usb.bat` (default E:; for
+another letter run `backup_to_usb.bat F:`). It copies the whole project to `E:\order-flow`: code, docs, configs,
+git history, every data folder (data, data_nq, data_cl, data_gc, data_zn, data_6e) and the spend ledger
+(`data\spend_ledger.csv`). It skips `.venv` and caches, asks before copying `.env` (your Databento key), checks
+every file by size, and writes `TRANSFER_NOTE.txt`. Running it again copies only what changed.
+
+On the laptop: install Python 3.11+ (tick "Add python.exe to PATH") and Git, then double-click
+`E:\order-flow\restore_from_usb.bat`. It copies the project to `C:\order-flow` (or the folder you name), checks
+every file, builds `.venv` from requirements.txt and runs a quick test. Then use `open_venv.bat` /
+`open_venv_api.bat` as before. Without a copied `.env`, create one from `.env.example` with your key. The
+ThetaData Terminal is needed only for new end-of-day option quotes, not for anything on disk.
