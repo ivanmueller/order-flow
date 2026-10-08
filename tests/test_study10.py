@@ -260,3 +260,31 @@ def test_session_pipeline_end_to_end(cfg, tmp_path):
     rep = study10.report(F, cfg, n_sessions=1, excluded=ex)
     assert rep["verdict"]["verdict"] == "KILL"                      # far below 1,000 fills
     assert "0.02-0.05" in rep["by_spread"]
+
+
+# ---- rule-6 diagnostics ------------------------------------------------------------------------
+def test_snapshot_convention_end_stamped():
+    qa, qb, qc = (1.00, 1.02), (1.01, 1.03), (1.02, 1.04)
+    # state: qa from 10:00:00, qb from 10:00:30, qc from 10:01:30; a print every minute + 0.5 s carries the state
+    tr = trades([("10:00:00.5", C, qa[0], 1, *qa, 1), ("10:01:00.5", C, qb[0], 1, *qb, 1),
+                 ("10:02:00.5", C, qc[0], 1, *qc, 1)])
+    snaps = quotes([("10:01:00", C, *qb)])                       # end-stamped: the state at 10:01:00
+    r = study10.snapshot_convention(tr, snaps, tol_s=1)
+    assert r["match_state_at_stamp"] == 1.0
+    assert r["match_state_one_minute_before"] == 0.0 and r["match_state_one_minute_after"] == 0.0
+    snaps2 = quotes([("10:01:00", C, *qc)])                      # start-stamped: the state a minute later
+    r2 = study10.snapshot_convention(tr, snaps2, tol_s=1)
+    assert r2["match_state_one_minute_after"] == 1.0 and r2["match_state_at_stamp"] == 0.0
+
+
+def test_by_session_and_capture():
+    F = pd.DataFrame({"date": [dt.date(2024, 1, 2)] * 2 + [dt.date(2024, 1, 3)] * 2,
+                      "spread_b": ["0.02-0.05"] * 4, "spread": [0.02, 0.04, 0.02, 0.02],
+                      "rs_5": [1.0, 2.0, -1.0, 0.0], "rs_15": [0.0] * 4, "later_5": [True, True, False, True]})
+    d = study10.stability(F, horizon=5)
+    b = d["0.02-0.05"]
+    assert b["by_session"]["2024-01-02"]["rs_5"] == pytest.approx(1.5) and b["by_session"]["2024-01-03"]["rs_5"] == -0.5
+    assert b["sessions_positive"] == 1
+    # half-spread $ per contract: 1, 2, 1, 1 -> mean 1.25; mean rs_5 0.5 -> capture 0.4
+    assert b["capture_of_half_spread"] == pytest.approx(0.5 / 1.25)
+    assert b["rs_5_no_newer_quote"] == pytest.approx(-1.0) and b["share_no_newer_quote"] == pytest.approx(0.25)

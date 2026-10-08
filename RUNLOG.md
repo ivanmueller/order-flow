@@ -1675,3 +1675,32 @@ verdict cases, pull quote/write/idempotent with a fake budget, one synthetic ses
 Sessions (seed 20261008): 2023-08-09, 2023-09-27, 2023-10-10, 2023-12-14, 2025-12-02. --pull --price-only: 130
 pieces (5 x 13 x tcbbo, cbbo-1m), $8.19 exact (get_cost per piece; three 504s retried). Ledger $99.40 -> $107.59
 if pulled. Fix: the pull now reuses one Databento client per worker thread (it opened one per piece).
+
+## 2026-10-08 | Study 10 pilot run (Matteo's laptop, commit 59aa87a; in sample; pull $8.19, ledger $107.58)
+Pull: 130 pieces written (0 empty); 504s each succeeded on the first retry.
+Data: 413,571 RTH prints on 5 sessions (40.5k-150.2k a session; 1,317-2,053 contracts traded); prices in dollars
+(median print $0.47-1.95); cbbo-1m 1.5-2.0 M snapshots a session, 100% on whole minutes (every listed contract,
+every minute). Prints at the bid or ask 61-83% by session; excluded: inside 104,805 (auctions, improvement),
+outside 5,218, locked/crossed 2,500, no quote 3,160. 215,533 fill opportunities after the 10 ms sweep merge
+(43.1k a session). A quote newer than the fill was seen for 98-99% of 5-minute marks.
+RS ($ a contract, all fills, gate fee $0), 5-minute mean (90% session CI), 15-minute mean, by quoted spread:
+  0.01-0.02  n 138,749  +0.11 (-0.06..+0.21)  15m +0.18   cleared 12%: -2.18; not cleared +0.43
+  0.02-0.05  n  62,036  +0.50 (+0.34..+0.76)  15m +0.64   cleared 14%: -3.08; not cleared +1.08   ADVANCE
+  0.05-0.10  n   8,520  +0.78 (+0.44..+1.36)  15m +1.23   cleared 15%: -6.60; not cleared +2.06   ADVANCE
+  0.10-0.25  n   5,403  -0.16 (-1.07..+2.82)  15m +1.01   cleared 15%: -16.2; not cleared +2.69
+  0.25+      n     825  +14.5 (-4.82..+17.2)  15m +18.9
+Verdict by the pre-registered rule: ADVANCE (buckets 0.02-0.05 and 0.05-0.10); also ADVANCE at the $0.05
+pass-through. At IBKR fees only 0.05-0.10 stays positive (+0.08 tiered); one-lot negative everywhere but 0.25+.
+Descriptive: positive at 5 min in every DTE, premium, time-of-day and size bucket; by venue from -0.95 to +1.22.
+Rule 6 (result looks strong; assume a bug): checked from the output: units, every session in every bucket, no
+holdout date (latest 2025-12-02), marks almost always on a newer quote, snapshots on whole minutes. Not yet
+checked: (1) whether one session carries the advance, (2) whether a cbbo-1m snapshot stamped T describes T or
+T + 60 s (marks up to a minute late; outcome side only), (3) the share of the half-spread kept. Added --diagnose
+(tests first, 17 tests): snapshot_convention (snapshot vs the market state at T - 60 s, T, T + 60 s read from
+pre-trade quotes of prints within 1 s) and stability (by session, sessions positive, capture of half-spread,
+marks with no newer quote). Gate decision is Matteo's; no next stage started.
+What the tape cannot show (stated in the draft): whether a retail order gets these fills. Cleared fills (the
+level traded through within 60 s; 12-15% of fills) lose $2-7 a contract; a resting order that does not move with
+IWM is hit exactly then, and would also create pick-off fills absent from this tape. Exiting by crossing the
+spread costs a half-spread ($1-2.50 in these buckets), more than the measured RS: the edge exists only if the exit
+is passive too.

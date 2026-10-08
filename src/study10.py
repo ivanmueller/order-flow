@@ -458,6 +458,58 @@ def sanity(raw_t: pd.DataFrame, raw_q: pd.DataFrame, F: pd.DataFrame, ex: dict) 
             "median_quoted_spread_at_fills": float(F["spread"].median()) if len(F) else np.nan}
 
 
+# ---------------------------------------------------------------------------
+# Rule-6 diagnostics (descriptive; data already on disk)
+# ---------------------------------------------------------------------------
+def snapshot_convention(tr: pd.DataFrame, snaps: pd.DataFrame, tol_s: float = 1.0) -> dict:
+    """Which moment a cbbo-1m snapshot stamped T describes: compare it with the market state at T - 60 s, T and
+    T + 60 s, each read from the pre-trade quote of the first print within tol_s after that moment. If the
+    state at T matches best, marks at t + D use no quote from after t + D."""
+    q = tr[["ts", "symbol", "bid", "ask"]].rename(columns={"ts": "p_ts", "bid": "pb", "ask": "pa"}).sort_values("p_ts")
+    out = {}
+    for name, off in (("one_minute_before", -60), ("at_stamp", 0), ("one_minute_after", 60)):
+        left = snaps[["ts", "symbol", "bid", "ask"]].copy()
+        left["at"] = left["ts"] + pd.Timedelta(seconds=off)
+        m = pd.merge_asof(left.sort_values("at"), q, left_on="at", right_on="p_ts", by="symbol",
+                          direction="forward", tolerance=pd.Timedelta(seconds=tol_s)).dropna(subset=["pb"])
+        hit = ((m["bid"] - m["pb"]).abs() < EPS) & ((m["ask"] - m["pa"]).abs() < EPS)
+        out[f"match_state_{name}"] = float(hit.mean()) if len(m) else np.nan
+        out[f"n_{name}"] = int(len(m))
+    return out
+
+
+def stability(F: pd.DataFrame, horizon: int = 5) -> dict:
+    """Per spread bucket: the mean by session, sessions positive, the share of the quoted half-spread kept,
+    and the marks that saw no quote newer than the fill."""
+    out = {}
+    col = f"rs_{horizon}"
+    for b, x in F.groupby("spread_b"):
+        per = {str(d): {"n": int(len(g)), col: float(g[col].mean())} for d, g in x.groupby("date")}
+        half = float((x["spread"] / 2 * 100).mean())
+        stale = ~x[f"later_{horizon}"].astype(bool)
+        out[str(b)] = {"by_session": per, "sessions_positive": int(sum(v[col] > 0 for v in per.values())),
+                       "mean_half_spread_usd": half,
+                       "capture_of_half_spread": float(x[col].mean()) / half if half else np.nan,
+                       "share_no_newer_quote": float(stale.mean()),
+                       f"{col}_no_newer_quote": float(x.loc[stale, col].mean()) if stale.any() else np.nan,
+                       f"{col}_newer_quote": float(x.loc[~stale, col].mean()) if (~stale).any() else np.nan}
+    return out
+
+
+def diagnose(cfg=None) -> dict:
+    cfg = cfg or load_config()
+    F = store.load_derived("study10_fills", cfg)
+    days = sorted(F["date"].unique())
+    conv = {}
+    for d in days:
+        t = norm_trades(_read_pieces(cfg, "tcbbo", d))
+        q = norm_quotes(_read_pieces(cfg, "cbbo-1m", d))
+        conv[str(d)] = snapshot_convention(t, q)
+    return {"note": "Study 10 rule-6 diagnostics (descriptive, in sample)", "snapshot_convention": conv,
+            "stability_5min": stability(F, cfg["gates"]["study10_advance_horizon_min"]),
+            "stability_15min": stability(F, cfg["gates"]["study10_confirm_horizon_min"])}
+
+
 def run(cfg=None, save: bool = True) -> dict:
     cfg = cfg or load_config()
     days = draw_sessions(store.load_calendar(cfg), cfg)
@@ -489,6 +541,7 @@ def main(argv=None):
     ap.add_argument("--allow-past-total", action="store_true")
     ap.add_argument("--run", action="store_true", help="fills, marks and the report")
     ap.add_argument("--report-only", action="store_true")
+    ap.add_argument("--diagnose", action="store_true", help="rule-6 checks on the saved fills and raw data")
     ap.add_argument("--parents", nargs="+", default=DEFAULT_PARENTS)
     ap.add_argument("--schemas", nargs="+", default=DEFAULT_SCHEMAS)
     ap.add_argument("--days", type=int, default=1, help="weekdays priced, evenly spaced over the in-sample period")
@@ -518,6 +571,9 @@ def main(argv=None):
         return
     if a.run:
         print(to_json(run(cfg)))
+        return
+    if a.diagnose:
+        print(to_json(diagnose(cfg)))
         return
     if a.report_only:
         F = store.load_derived("study10_fills", cfg)
