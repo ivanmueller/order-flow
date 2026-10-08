@@ -1620,3 +1620,16 @@ TRANSFER_NOTE.txt) and restore_from_usb.bat + scripts/restore_from_usb.ps1 (copy
 .venv, quick pytest). Shared check in scripts/transfer_common.ps1. All three parse under PowerShell 7.4; the check was
 tested on a synthetic tree (passes a good copy, catches a missing and a resized file, skips .venv, caches, .pyc, .env).
 Not runnable here: robocopy and drive checks (Windows only). The data stay where they are; nothing is changed in data/.
+
+## 2026-10-08 | Study 10 step 0 price quote (commit cb6b249; nothing pulled; ledger $99.40)
+One RTH session priced (2024-09-16, the middle in-sample weekday), 30-minute pieces; 343 s. USD per session
+(tcbbo + cbbo-1m = pilot) and for 5 sessions:
+  SPY.OPT  13.23 + 0.77 = 14.00   (5: 70.02)
+  QQQ.OPT   7.31 + 0.56 =  7.87   (5: 39.33)
+  IWM.OPT   1.65 + 0.38 =  2.02   (5: 10.12)
+  XSP.OPT   0.15 + 1.10 =  1.25   (5:  6.26)
+  SPXW.OPT  tcbbo unpriced (1 of 13 pieces kept timing out) + cbbo-1m 1.27
+Remaining credit ~$25.60. SPY and QQQ whole chains are out of reach; IWM and XSP fit. One priced day only, so
+session costs may differ by tens of percent (volume varies by day and grew over 2023-25); the pull prices every
+session exactly with get_cost first. Wealthsimple lists options on US stocks and ETFs only, so the index options
+(XSP, SPXW) would be IBKR trades with Cboe customer index fees on top; IWM is the zero-commission candidate.
