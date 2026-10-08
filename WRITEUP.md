@@ -3,7 +3,7 @@
 Period: in-sample 2023-06-02 to 2025-12-31 (642 sessions with GEX, 502 with a lagged regime and a
 0DTE straddle, ~620 ES and NQ close sessions, 110 sampled sessions with tick trades). Holdout 2026-01-01
 to 2026-09-30: opened once, for the study 5f fade on ES only; untouched for every other test and market.
-Data spend: about $85 of the $125 Databento credit (~$98 once the Study 7 bars land); ThetaData free tier.
+Data spend: about $98.4 of the $125 Databento credit; ThetaData free tier.
 Every run, config change and gate decision is in RUNLOG.md. The prompt for choosing the next study is
 NEXT.md.
 
@@ -21,7 +21,7 @@ NEXT.md.
 | study 5 | Does the rest-of-day move continue into the ES close (last 30 minutes)? | S5a -0.037 EM_V (CI -0.054..-0.020), S5b -0.031; timing contrast CI below zero: the close reverses the day (slope t -2.3) | kill |
 | study 5f | Does fading that move pay (S5b reversed), out of sample? | in sample +0.008 EM_V; holdout 2026-01..09 +0.0145 (184 sessions, CI -0.006..+0.036, contrast CI > 0); nudges 7 of 8 positive; NQ +0.024 (CI +0.004..+0.044) | holdout gate pass; edge about one tick wide; paper trading next |
 | study 6 | Does pure aggressor imbalance predict ES at 5-15 minutes? | net -0.49 to -1.19 points a trade on all four variants; gross at most +0.09 points; imbalance-return corr 0.009 / 0.020 | kill |
-| study 7 | Does last-30-minute momentum into settlement pay in CL, GC, ZN, 6E? | running (RUNLOG) | pending |
+| study 7 | Does last-30-minute momentum into settlement pay in CL, GC, ZN, 6E? | after costs CL -0.013, GC -0.011, ZN -0.066, 6E -0.020 EM_R, all CIs below zero; timing real only in ZN (contrast CI > 0, p 0.001), led by FOMC days; fade loses after costs everywhere | kill |
 
 ## What held up
 
@@ -57,6 +57,10 @@ NEXT.md.
   a level is followed by continuation more often than reversal within 30 to 60 minutes.
 - Entering at the level instead of after the reclaim, a longer horizon, and the retest-fail
   continuation in low gamma do not change that.
+- Momentum into settlement does not carry over to crude, gold or euro FX (study 7), and the ES fade does
+  not either. In 10-year notes the momentum timing is real (p 0.001) but led by FOMC days and worth about
+  0.6 of a tick before costs, against two ticks of cost. Diversifying the close effect across markets is
+  not available in this sample.
 - Pure aggressor imbalance carries no direction at 5 to 15 minutes (study 6): continuation, absorption
   and pressure-reversal readings all lose, and the deciles of imbalance are flat against the next move.
 - Execution dominates at this size. With 6 to 11 ticks of risk, a tick of slippage, a tick through on

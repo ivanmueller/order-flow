@@ -1220,3 +1220,35 @@ VIX path unchanged), then price, approve, pull, run --fade-replication per marke
 - Bug caught by the tests: YAML read the 6E tick "5e-05" as a string; written as 0.00005.
 - Next on Matteo's machine, per market: ingest_daily (free), bars 2023-04-01..2025-12-31 --price-only, then
   --approve-usd 4.00 (each ~$3.4; ledger stays under $100), then study7 --market; then --cross and --bridge.
+
+## 2026-10-07 | Study 7 run (Matteo's machine, commit 2cb2fb0; in sample 2023-06-02..2025-12-31)
+- Pulls (each priced with get_cost first, --approve-usd 4.00 each): CL $3.50, GC $3.52, ZN $3.32, 6E $3.49 for
+  1-minute bars 2023-04..2025-12; ledger $84.61 -> ~$98.43 (under the $100 line). Degraded days flagged by
+  Databento as before (2024-09-18, 2025-09-17, 2025-09-24, 2025-11-28). Calendars: CL 33 rolls, GC 13, ZN 11
+  (26 early-close days, SIFMA), 6E 11.
+- S5a momentum (gated), EM_R units, 90% CI; timing contrast (CI); session / block permutation p; pre-cost
+  = mean + friction:
+  CL n 610: -0.0131 (-0.0256..-0.0007); contrast +0.006 (-0.006..+0.019); p 0.18/0.19; slope t -0.08; friction 0.019; pre-cost +0.006
+  GC n 626: -0.0109 (-0.0203..-0.0017); contrast +0.001 (-0.008..+0.011); p 0.40/0.39; slope t +0.03; friction 0.011; pre-cost 0.000
+  ZN n 624: -0.0657 (-0.0772..-0.0542); contrast +0.027 (+0.015..+0.038); p 0.001/0.001; slope t +3.18; friction 0.092; pre-cost +0.027
+  6E n 618: -0.0200 (-0.0305..-0.0088); contrast +0.010 (-0.001..+0.021); p 0.073/0.062; slope t +0.81; friction 0.030; pre-cost +0.010
+  Gates: KILL on all four (economics fails everywhere; mean ex-best-5 negative everywhere). Existence PASSES in
+  ZN only. Not gated: S5b KILL in all four; fade mirror after costs negative in all four (CL -0.025, GC
+  -0.012, ZN -0.119, 6E -0.039); years negative in every market and year.
+- Cross-market (descriptive): pooled equal-weight momentum -0.027 (CI -0.033..-0.021); daily PnL correlations
+  near zero except ZN-6E +0.20. BUG in the descriptive report: "pooled_fade_mirror_mean_em +0.027" was minus the
+  momentum mean, which ignores that the fade pays its own costs; the per-market fades after costs are all
+  negative. Fixed (study7.direction_frames; cross_report now reports per-market and pooled fades after costs);
+  no gate used it.
+- ES bridge (EM_R instead of EM_V, descriptive): S5a -0.034 (EM_V -0.037); 5f fade +0.0066 (CI -0.011..+0.024),
+  timing contrast +0.021 (CI +0.003..+0.037); median EM_R / price 0.0075. The unit change does not move ES.
+- Rule-6 checks: in sample only (last 2025-12-31); roll, half-day and after-half-day sessions skipped; no
+  duplicate bars; no |r_L30| above 3 EM. ZN's existence pass deserves suspicion of a narrow cause: its five best
+  days (2025-09-17, 2024-12-18, 2025-10-29, 2025-07-30, 2023-07-26) are all FOMC days, and the ZN/6E window
+  (14:30-15:00 ET) holds the Fed chair's press conference. 6E's best and worst days are FOMC days too, hence
+  the ZN-6E correlation. Added a descriptive FOMC split (fomc_split: event-day mean, and mean, contrast and
+  slope without the 21 FOMC days) to --market; free to rerun from the bars on disk.
+- Reading: the literature's momentum shows up only in ZN, and possibly only on Fed days; it is worth about
+  0.6 of a 1/64 tick before costs against two ticks of cost. Commodities and FX show nothing. The fade does not
+  generalize either. Family closed: 4 of 4 used.
+- Gate call is Matteo's.

@@ -115,3 +115,28 @@ def test_pooled_daily_equal_weight(cfg):
     P = study7.pooled_daily(frames)
     assert list(P["pnl_em"]) == pytest.approx([0.20, -0.20])            # mean of the markets trading that day
     assert list(P["n_markets"]) == [2, 1]
+
+
+def test_pooled_fade_pays_its_own_costs():
+    """The fade mirror after costs is not minus the momentum mean: both directions pay friction."""
+    d = [dt.date(2024, 1, 2), dt.date(2024, 1, 3)]
+    T = pd.DataFrame({"date": d, "d": [1, -1],
+                      "pnl_em_momentum_long": [0.05, -0.30], "pnl_em_momentum_short": [-0.15, 0.10]})
+    mom, fade = study7.direction_frames(T)
+    assert list(mom["pnl_em"]) == pytest.approx([0.05, 0.10])
+    assert list(fade["pnl_em"]) == pytest.approx([-0.15, -0.30])     # both negative: costs on each side
+
+
+def test_event_split_by_hand():
+    d = [dt.date(2024, 1, k) for k in (2, 3, 4, 5)]
+    T = pd.DataFrame({"date": d, "d": [1, 1, -1, -1], "r_rod_em": [1.0, 2.0, -1.0, -2.0],
+                      "r_l30_em": [0.1, 0.2, -0.1, 0.0],
+                      "pnl_em_momentum_long": [0.5, 0.1, 0.0, 0.0], "pnl_em_momentum_short": [0.0, 0.0, -0.2, 0.3],
+                      "pnl_em_momentum": [0.5, 0.1, -0.2, 0.3]})
+    out = study7.event_split(T, {d[0]})
+    assert out["n_event"] == 1 and out["event_mean_em"] == pytest.approx(0.5)
+    assert out["ex_event"]["n"] == 3 and out["ex_event"]["mean_em"] == pytest.approx(0.2 / 3)
+    # contrast ex-event: strategy (0.1 - 0.2 + 0.3)/3; long share 1/3; bench = 1/3*mean(long) + 2/3*mean(short)
+    strat = 0.2 / 3
+    bench = (1 / 3) * (0.1 / 3) + (2 / 3) * (0.1 / 3)
+    assert out["ex_event"]["timing_contrast"] == pytest.approx(strat - bench)

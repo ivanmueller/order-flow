@@ -62,6 +62,29 @@ def sigma_by_session(cal: pd.DataFrame, by_day: dict, cfg) -> dict:
     return realized_sigma(cal["date"], closes, insts, param(cfg, "s5_rv_sessions"))
 
 
+def direction_frames(T: pd.DataFrame):
+    """(momentum, fade) per-session frames with pnl_em after costs; the fade is chosen from the same
+    precomputed long and short outcomes, so each direction pays its own friction."""
+    mom = study5.variant_frame(T, "momentum")
+    return mom, study5.fade(mom)
+
+
+def event_split(T: pd.DataFrame, events: set, lags: int = 5) -> dict:
+    """Descriptive rule-6 check: S5a on event days (FOMC) versus the rest, and the existence statistics
+    without event days."""
+    ev = T["date"].isin(events)
+    rest = T[~ev]
+    f = study5.variant_frame(rest, "momentum")
+    out = {"n_event": int(ev.sum()),
+           "event_mean_em": float(T.loc[ev, "pnl_em_momentum"].mean()) if ev.any() else np.nan,
+           "ex_event": {"n": int(len(rest)), "mean_em": float(rest["pnl_em_momentum"].mean()) if len(rest) else np.nan,
+                        "timing_contrast": study5._contrast(f["d"].to_numpy(int), f["long"].to_numpy(float),
+                                                            f["short"].to_numpy(float))[2] if len(f) else np.nan}}
+    if len(rest) >= 30:
+        out["ex_event"]["slope_r_l30_on_r_rod"] = study5.nw_slope(rest, "r_l30_em", "r_rod_em", lags)
+    return out
+
+
 def market_verdict(variants: dict) -> str:
     return variants[GATED]["verdict_vs_rules"]
 
@@ -72,8 +95,8 @@ def momentum_market(cfg=None) -> dict:
         raise RuntimeError("study 7 runs under a market overlay (config.cl/gc/zn/6e.yaml), not the ES config")
     T = study5.run(cfg)
     rep = study5.report(cfg, T)
-    f = study5.variant_frame(T, "momentum")
-    fade = study5.fade(f)
+    f, fade = direction_frames(T)
+    from src.analysis import _event_dates
     out = {"market": cfg["data"]["es_symbol"], "first": rep["first"], "last": rep["last"],
            "gated_variant": GATED, "verdict_vs_rules": market_verdict(rep["variants"]),
            GATED: rep["variants"][GATED],
@@ -84,7 +107,8 @@ def momentum_market(cfg=None) -> dict:
                          "by_year": rep["descriptive"]["by_year"],
                          "friction": rep["descriptive"]["friction"],
                          "drift": rep["descriptive"]["drift"],
-                         "sanity": rep["descriptive"]["sanity"]},
+                         "sanity": rep["descriptive"]["sanity"],
+                         "fomc_split": event_split(T, _event_dates(), param(cfg, "nw_lags"))},
            "skipped": T.attrs.get("skipped", {})}
     return out
 
@@ -99,19 +123,23 @@ def pooled_daily(frames: dict) -> pd.DataFrame:
 def cross_report(paths: list[str]) -> dict:
     if os.environ.get("GAMMA_EDGE_CONFIG"):
         raise RuntimeError("unset GAMMA_EDGE_CONFIG first: --cross loads each overlay by path")
-    frames = {}
+    frames, fades = {}, {}
     for p in paths:
         c = load_config(p)
         T = store.load_derived("close_momentum_trades", c)
-        frames[c["data"]["es_symbol"]] = study5.variant_frame(T, "momentum")[["date", "pnl_em"]]
+        mom, fd = direction_frames(T)
+        frames[c["data"]["es_symbol"]] = mom[["date", "pnl_em"]]
+        fades[c["data"]["es_symbol"]] = fd[["date", "pnl_em"]]
     P = pooled_daily(frames)
+    PF = pooled_daily(fades)
     base = load_config()
     draws, seed, lvl = param(base, "bootstrap_draws"), param(base, "bootstrap_seed"), param(base, "ci_level")
     wide = pd.concat({m: f.set_index("date")["pnl_em"] for m, f in frames.items()}, axis=1)
     return {"note": "descriptive, not gated (RUNLOG Study 7)",
             "per_market_mean_em": {m: float(f["pnl_em"].mean()) for m, f in frames.items()},
             "pooled": stats.day_bootstrap_mean(P, "pnl_em", draws, seed, lvl),
-            "pooled_fade_mirror_mean_em": float(-P["pnl_em"].mean()),
+            "per_market_fade_mean_em": {m: float(f["pnl_em"].mean()) for m, f in fades.items()},
+            "pooled_fade": stats.day_bootstrap_mean(PF, "pnl_em", draws, seed, lvl),
             "daily_corr": wide.corr().round(3).to_dict()}
 
 

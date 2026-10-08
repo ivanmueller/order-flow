@@ -271,5 +271,11 @@ Study 5 decision: pending Matteo's call.
   decision 30 minutes before settlement, entry next bar + 1 tick, time exit at settlement - 1 tick, $3.98;
   unit EM_R = 20-session realized volatility x P_prev; Study 5 gates per market. Direction chosen from the
   literature (Baltussen et al. 2021) before any of these markets' data was read.
-- **Result.** Running on Matteo's machine (RUNLOG 2026-10-07).
+- **Result.** S5a after costs: CL -0.013, GC -0.011, ZN -0.066, 6E -0.020 EM_R, every CI below zero. Timing
+  (existence) passes only in ZN: contrast +0.027 (CI +0.015..+0.038), permutation p 0.001, slope t +3.2, but
+  its best days are all FOMC days (the 14:30 ET press conference sits in the window). ZN friction is 0.092
+  EM_R a trade against +0.027 before costs. The fade loses after costs in all four. ES rerun under EM_R
+  gives the same ES results (fade +0.0066, contrast CI above zero).
+- **Verdict.** KILL on all four. Momentum into settlement is absent in CL, GC and 6E, and in ZN it is real but
+  about 0.6 of a tick wide and possibly a Fed-day effect. Neither direction diversifies the ES fade.
 

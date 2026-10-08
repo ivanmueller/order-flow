@@ -3,7 +3,7 @@
 Paste the block below into a new session on this repository. It does not name the next hypothesis; it
 asks the next system to inventory what exists, enumerate candidates, score them, and pre-register the
 one it judges best, then stop for approval. A KILL is an acceptable outcome of whatever it picks.
-Last updated 2026-10-07, after studies 1-6, the 5f fade (holdout, robustness, NQ) and the Study 7 build.
+Last updated 2026-10-08, after studies 1-7 and the 5f fade (holdout, robustness, NQ).
 
 ---
 
@@ -15,8 +15,7 @@ inventory and the 15 candidates scored before study 5; several are now spent), S
 gate rules), the RUNLOG.md entries from the Study 5 pre-registration onward, config.yaml and the market
 overlays (config.nq/cl/gc/zn/6e.yaml). Then skim the docstrings of src/gex.py, src/flow.py, src/study4.py,
 src/study5.py, src/study6.py, src/study7.py and src/price_menu.py so you know which quantities and tools
-already exist as code. If the Study 7 result is not yet in RUNLOG.md, it is still running; do not
-pre-register anything that depends on it until it is.
+already exist as code. 
 
 ## What has been learned (short form; WRITEUP.md has the numbers)
 
@@ -35,9 +34,9 @@ pre-register anything that depends on it until it is.
 - Pure aggressor order flow on ES (study 6, $0 pilot on the 110 on-disk tick sessions): imbalance has no
   directional information at 5-15 minutes (corr 0.009 / 0.020, t < 1); best gross edge +0.09 points vs
   0.58 points of friction. Family closed (4 of 4 variants).
-- Study 7 (running or done; see RUNLOG.md): Study 5 momentum on CL, GC, ZN, 6E anchored to each market's
-  settlement, unit EM_R (20-session realized volatility). Prior from Baltussen et al. (JFE 2021):
-  momentum across asset classes 1974-2020. Family budget 4 of 4.
+- Cross-market momentum into settlement (study 7, CL/GC/ZN/6E, unit EM_R): KILL on all four after costs.
+  Timing is real only in ZN (p 0.001), led by FOMC days in the 14:30-15:00 window, and worth about 0.6 of a
+  tick against two ticks of cost; the fade loses everywhere after costs. Family closed (4 of 4).
 - The repeated lesson: the intraday ideas that found any pattern died on friction. Signals of a fraction
   of a tick per trade cannot pay 2-3 ticks of cost. The one survivor (the fade) holds a
   30-minute window once a day and is still only about one tick wide.
@@ -87,10 +86,10 @@ the holdout".
 
 On disk: SPX/SPXW EOD chains and start-of-day OI (2023-06..2025-12), the GEX engine's tables, ES 1-minute
 bars, ES tick trades on 110 sampled sessions (around level touches), FRED SPX/VIX, NQ 1-minute bars
-(data_nq), and, once Study 7's pulls finish, CL/GC/ZN/6E 1-minute bars 2023-04..2025-12 (data_<mkt>).
+(data_nq), and CL/GC/ZN/6E 1-minute bars 2023-04..2025-12 (data_<mkt>), with Study 7's per-market tables.
 Price menu (RUNLOG 2026-10-07, quotes only): full ES RTH tick trades ~$0.41 a session (~$280 in sample);
 1-minute bars ~$3.3 per market for 2023-06..2025-12; tick trades for CL/GC/ZN ~$36-43 RTH, 6E ~$16.
-Databento credit: ~$98 of $125 spent once Study 7's bars land; the $100 ask line is effectively reached,
+Databento credit: ~$98.4 of $125 spent; the $100 ask line is effectively reached,
 so every further pull needs Matteo's approval. Cheaper routes priced or found: Databento Standard plan
 ($199/month; trades/MBP-1 for the last 12 months, OHLCV for 16+ years across CME, CBOT, NYMEX, COMEX),
 Sierra Chart historical service (CME tick data with aggressor volume from about 2011-2013, from about

@@ -56,7 +56,10 @@ Update this block at the end of every session.
   imbalance-return corr 0.009/0.020, t < 1). No confirmation, no spend. KILL accepted (Matteo: "yes" to moving on).
   Study 7 APPROVED as MOMENTUM (S5a, no stop) on CL, GC, ZN, 6E anchored to each settlement, unit EM_R
   (20-session realized vol), Study 5 gates per market, ~$13.7 of bars (ledger -> ~$98.3). Built tests-first
-  (src/study7.py, overlays config.cl/gc/zn/6e.yaml). Awaiting Matteo's pulls and runs.
+  (src/study7.py, overlays config.cl/gc/zn/6e.yaml). Run: KILL on all four (after costs CL -0.013, GC -0.011,
+  ZN -0.066, 6E -0.020 EM_R); timing real only in ZN (p 0.001, FOMC-led), ~0.6 tick vs 2 ticks of cost; fade
+  negative after costs everywhere; ES bridge under EM_R unchanged. Ledger ~$98.43. Descriptive pooled-fade
+  bug fixed, FOMC split added. Awaiting Matteo's call.
   Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),
   WRITEUP, RESULTS, README and CANDIDATES brought up to date.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
