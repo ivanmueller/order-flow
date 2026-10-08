@@ -1605,3 +1605,10 @@ Amendment (proposed; needs approval): three fee scenarios a contract a side, all
 With the zero-commission fee a penny-wide series offers $0.50 of half-spread a contract against $0.05, so the
 spread restriction is lifted: the advance rule applies to every spread bucket, $0.01 included (study10_min_spread
 dropped). Everything else in the draft is unchanged. FX is assumed zero (USD account) and stated as such.
+
+## 2026-10-08 | Study 10 step 0 price quote: first attempt timed out (nothing priced, nothing spent)
+Matteo ran python -m src.study10 --price: get_cost on whole option chains (parent symbology) over a full RTH
+session returned 504 gateway timeouts after ~2 minutes each (QQQ.OPT tcbbo, IWM.OPT cbbo-1m), with up to 7 retries.
+Fix (commit 2203f6d): each session is priced in 30-minute pieces, in parallel (6 workers), and summed; 2 tries per
+piece, then the piece is reported as failed and that row shows no price. Defaults now 1 day (the middle in-sample
+weekday, 2024-09-16) and the two pilot schemas. 5 tests pass.
