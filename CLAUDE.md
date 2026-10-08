@@ -91,7 +91,9 @@ Update this block at the end of every session.
 - Study 10 (priority-customer option liquidity, pilot) pre-registered as a DRAFT (RUNLOG 2026-10-08): realized
   spread to at-NBBO option fills from OPRA tcbbo + cbbo-1m on 5 random in-sample sessions, net of IBKR retail fees
   (~$0.70 a side, $1.05 for a one-lot); advance only in spreads >= $0.05. Step 0 built: `python -m src.study10
-  --price` (quotes only, 3 tests). Awaiting Matteo's price run, parent choice and approval; any pull needs his yes.
+  --price` (quotes only, 3 tests). Amended: $0-commission scenario (Wealthsimple: $0/contract; ~$0.05 pass-through
+  assumed) proposed as the gate fee, penny spreads back in scope; IBKR fees reported beside it. Wealthsimple has no
+  official API (automation is the binding constraint). Awaiting Matteo's price run, parent choice and approval.
   Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),
   WRITEUP, RESULTS, README and CANDIDATES brought up to date.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero

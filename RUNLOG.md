@@ -1589,3 +1589,19 @@ s10_horizons_min [1, 5, 15], s10_spread_edges [0.01, 0.02, 0.05, 0.10, 0.25], s1
 s10_premium_edges [0.10, 1.0, 5.0], s10_commission_tiers {0.05: 0.25, 0.10: 0.50, else: 0.65}, s10_order_min_usd
 1.00, s10_other_fee_usd 0.05, s10_clearing_window_s 60; gates study10_min_fills 1000, study10_min_spread 0.05.
 Build so far: src/study10.py --price (quotes only) with tests/test_study10.py (3 tests, fake client).
+
+## 2026-10-08 | Study 10 draft amended: $0-commission fee scenario (Matteo: Wealthsimple)
+Matteo: Wealthsimple removed options commissions, so a $0-commission world exists. Checked 2026-10-08: Wealthsimple's
+options page states no commission and no per-contract fee on US-listed stock and ETF options (its table also lists
+Questrade at $0/$0 and IBKR at $0.15-0.65 with a $1 minimum); regulatory/clearing pass-through is not stated. Options
+orders go through two routing brokers (Wealthsimple smart-order-routing note); US-listed options execute only on
+exchanges, so a resting customer limit order still rests on an exchange with priority-customer status, but the venue
+is not the customer's choice. No official trading API (only unofficial wrappers), so hundreds of orders a day could
+not be automated there. USD premium from a CAD account pays 1.5% FX each way (USD account: $10/month on Core).
+Amendment (proposed; needs approval): three fee scenarios a contract a side, all reported:
+  zero_commission  $0.05 (OCC $0.025 + ORF + CAT, conservative pass-through; the gate scenario if Matteo chooses it)
+  ibkr_multi_lot   premium-tiered $0.25/0.50/0.65 + $0.05
+  ibkr_one_lot     $1.00 minimum + $0.05
+With the zero-commission fee a penny-wide series offers $0.50 of half-spread a contract against $0.05, so the
+spread restriction is lifted: the advance rule applies to every spread bucket, $0.01 included (study10_min_spread
+dropped). Everything else in the draft is unchanged. FX is assumed zero (USD account) and stated as such.
