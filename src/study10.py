@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -504,7 +505,13 @@ def main(argv=None):
         print("pilot sessions:", ", ".join(str(d) for d in days))
         if a.pull:
             budget = spend.Budget(cfg, a.approve_usd, a.allow_past_total)
-            r = pull(cfg, spend.client, budget, days, a.price_only, workers=min(a.workers, 4))
+            local = threading.local()
+
+            def thread_client():          # one Databento client per worker thread, reused for every piece
+                if not hasattr(local, "cl"):
+                    local.cl = spend.client()
+                return local.cl
+            r = pull(cfg, thread_client, budget, days, a.price_only, workers=min(a.workers, 4))
             what = "quote (nothing pulled)" if a.price_only else "pulled"
             print(f"{what}: {r['pieces']} pieces, ${r['usd']:.2f}; already on disk {r['skipped']}; "
                   f"written {r['written']} ({r['empty']} empty); ledger ${spend.total_spent(cfg):.2f}")

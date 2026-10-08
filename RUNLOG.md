@@ -1670,3 +1670,8 @@ Build: src/study10.py (draw_sessions, pull, classify, dedupe_sweeps, clearing_fl
 bucket, fee_table, session_fills, verdict, report, sanity, run); tests/test_study10.py 15 tests (pricing 5; fills and
 exclusions, sweep merge, clearing, marks with staleness and the close, RS by hand, buckets, fees, session draw,
 verdict cases, pull quote/write/idempotent with a fake budget, one synthetic session end to end).
+
+## 2026-10-08 | Study 10 pilot: sessions drawn and exact quote (commit b961f55; nothing pulled)
+Sessions (seed 20261008): 2023-08-09, 2023-09-27, 2023-10-10, 2023-12-14, 2025-12-02. --pull --price-only: 130
+pieces (5 x 13 x tcbbo, cbbo-1m), $8.19 exact (get_cost per piece; three 504s retried). Ledger $99.40 -> $107.59
+if pulled. Fix: the pull now reuses one Databento client per worker thread (it opened one per piece).
