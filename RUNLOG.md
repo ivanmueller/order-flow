@@ -1424,3 +1424,34 @@ study9_advance_fee_usd 2.79.
 Build: src/study9.py; tests/test_study9.py (inferred mid, RS by hand at 30/60 s, span-end drop, clearing flag,
 spread check, buckets, resting fills perfect vs trade-through, reversion P&L long and short with truncation, fee
 points, bootstrap) and a synthetic end-to-end test (same fill bar: conservative = perfect - 1 tick). Full suite passes.
+
+## 2026-10-08 | Study 9 run (Matteo's machine, commit aa86bdf; in sample; $0)
+Part A, realized spread (106 sessions with ticks, 89.4 M contracts):
+- Quote check: of 7.94 M consecutive opposite-side print pairs, 37.2% are one tick apart and 62.4% at the same
+  price (level flips); only ~0.4% imply a wider spread, so the one-tick inferred quote holds.
+- Passive result per fill, ticks, contract-weighted (90% session CI), at 5 / 30 / 60 s:
+  all fills       +0.002 (-0.005..+0.009) / -0.008 (-0.021..+0.005) / -0.020 (-0.040..-0.001)
+  clearing fills  -0.574 (-0.617..-0.531) / -0.605 (-0.671..-0.540) / -0.633 (-0.725..-0.543)   [back of queue]
+  other fills     +0.062 (+0.058..+0.067) / +0.054 (+0.044..+0.065) / +0.044 (+0.029..+0.060)   [front of queue]
+  Fee per side: 0.112 tick at $2.79 a round trip, 0.159 at $3.98. Clearing fills lose 0.47-0.68 tick before fees
+  in every time bucket; other fills earn under half the $0-commission fee. Only the passive side of 1-lot
+  aggressor trades (non-clearing) clears the $2.79 fee (+0.14 tick, net +0.03), and a resting order cannot choose
+  its counterparty. Advance rule (clearing, 60 s CI lb and 30 s mean > fee in some bucket): no bucket. KILL.
+Part B, level reversion with a resting order (9,113 touches: 6,888 real-level, 2,225 placebo):
+- perfect (fill at the level on touch, exit at the close, no slippage), real levels, gross points per trade by hold
+  1/3/5/10/15/30/45/60 min: +0.081 / +0.033 / -0.033 / -0.088 / -0.123 / -0.119 / -0.282 / -0.667; net of $2.79
+  +0.025 at 1 min (CI -0.157..+0.170), negative from 3 min on, CI below zero at 60 min. Placebo levels beat real
+  ones at every hold (1 min +0.19). Fill rate 91%.
+- conservative (fill only on a one-tick trade-through, exit one tick worse), real levels: -0.42 / -0.48 / -0.55 /
+  -0.59 / -0.59 / -0.60 / -0.75 / -1.18 points gross; every CI below zero; real minus placebo negative at every
+  hold. Fill rate 86%. The ~0.5-point gap between perfect and conservative (one tick of exit slippage plus about one
+  tick of adverse selection on trade-through fills) is the cost of not being at the front of the queue.
+- Advance rule (conservative, real, net of $2.79, CI lb > 0 and real > placebo at some hold): none. KILL.
+- Not acted on (64 cells, no correction, data seen): the "both" group (gamma and structural levels together, n
+  ~1,120) is positive in the perfect case at most holds and +0.48 conservative at 30 min. Recorded only; it could
+  be revisited only as a new pre-registered test on data not yet seen.
+Reading: the average passive ES fill earns about zero within a minute: the half-tick effective spread is matched
+by about half a tick of adverse selection. The front of the queue keeps a few hundredths of a tick; the back of
+the queue, where a retail resting order sits, pays about 0.6 tick per fill. Even with perfect fills and $0
+commission, level reversion is worth at most about a third of a tick at a 1-minute hold, and real levels do worse
+than random prices. Track B on ES at a retail queue position is closed.

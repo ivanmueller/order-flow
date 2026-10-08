@@ -285,3 +285,15 @@ Study 5 decision: pending Matteo's call.
 - **Verdict.** KILL on all four. Momentum into settlement is absent in CL, GC and 6E, and in ZN it is real but
   about 0.6 of a tick wide and possibly a Fed-day effect. Neither direction diversifies the ES fade.
 
+## Study 9, can a passive ES trader earn the spread? (report-only, $0)
+- **Build.** Part A: realized spread to the passive side of every ES print on the 106 tick sessions (quote
+  inferred from the one-tick tape, checked), by queue proxy, time of day and trade size. Part B: every in-sample
+  level touch traded with a resting order at the level, held 1-60 minutes, perfect fills ($0 commission scenario)
+  versus rule-5 fills.
+- **Result.** Average passive fill: ~0 tick at 5-60 s. Back-of-queue (clearing) fills: -0.57 to -0.63 tick before
+  fees. Front-of-queue fills: +0.04 to +0.06 tick, under the $0-commission fee (0.11 tick a side). Level reversion,
+  perfect fills: +0.08 points at 1 minute (CI includes 0), negative beyond 3 minutes, and worse than placebo levels
+  throughout; conservative fills: -0.42 to -1.18 points, every CI below zero.
+- **Verdict.** KILL on both advance rules. Market makers leave hundredths of a tick at the front of the queue; a
+  retail resting order at the back pays about 0.6 tick per fill.
+

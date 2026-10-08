@@ -74,7 +74,9 @@ Update this block at the end of every session.
   design, needs L1 quotes priced. Awaiting Matteo's approval of Study 8 parameters.
 - Study 9 APPROVED and built (src/study9.py, report-only, $0): Part A realized spread to passive ES fills on the
   110 tick sessions; Part B level reversion with a resting order (perfect upper bound and rule-5 conservative) at
-  1-60 min holds, fees $0/$2.79/$3.98. Awaiting Matteo's run.
+  1-60 min holds, fees $0/$2.79/$3.98. Run: KILL on both. Passive fills ~0 tick at 5-60 s; back-of-queue -0.6 tick;
+  front-of-queue +0.05 (< fee); level reversion perfect +0.08 pts at 1 min (CI incl. 0), worse than placebo;
+  conservative -0.4 to -1.2 pts. Track B closed for ES at retail queue position. Track A (Study 8) still awaits approval.
   Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),
   WRITEUP, RESULTS, README and CANDIDATES brought up to date.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero

@@ -21,6 +21,7 @@ NEXT.md.
 | study 5 | Does the rest-of-day move continue into the ES close (last 30 minutes)? | S5a -0.037 EM_V (CI -0.054..-0.020), S5b -0.031; timing contrast CI below zero: the close reverses the day (slope t -2.3) | kill |
 | study 5f | Does fading that move pay (S5b reversed), out of sample? | in sample +0.008 EM_V; holdout 2026-01..09 +0.0145 (184 sessions, CI -0.006..+0.036, contrast CI > 0); nudges 7 of 8 positive; NQ +0.024 (CI +0.004..+0.044) | ES holdout gate pass; NQ holdout 2026 +0.0072 (needs 0.0122): fail; edge about one tick wide |
 | study 6 | Does pure aggressor imbalance predict ES at 5-15 minutes? | net -0.49 to -1.19 points a trade on all four variants; gross at most +0.09 points; imbalance-return corr 0.009 / 0.020 | kill |
+| study 9 | Can a passive (resting-order) ES trader earn the spread? | realized spread ~0 for the average fill; back-of-queue fills -0.6 tick; level reversion with perfect fills +0.08 pts at 1 min, worse than placebo; conservative -0.4 to -1.2 pts | kill |
 | study 7 | Does last-30-minute momentum into settlement pay in CL, GC, ZN, 6E? | after costs CL -0.013, GC -0.011, ZN -0.066, 6E -0.020 EM_R, all CIs below zero; timing real only in ZN (contrast CI > 0, p 0.001), led by FOMC days; fade loses after costs everywhere | kill |
 
 ## What held up

@@ -172,6 +172,14 @@ order fills only on a print one tick through), with a queue-position estimate fr
 as a secondary, less conservative scenario. Data: ES MBP-1 or TBBO for chosen windows only (to be priced;
 the Databento Standard plan includes 12 months of L1). Design: RUNLOG, Track B note.
 
+**Track B result (Study 9, 2026-10-08): closed for ES at a retail queue position.** The average passive ES fill
+earns about zero within a minute; the front of the queue keeps +0.04 to +0.06 tick (below even the $0-commission
+exchange fee); the back of the queue, where a retail resting order sits, loses about 0.6 tick per fill. Level
+reversion with perfect resting fills and $0 commission is worth at most a third of a tick at one minute and does
+worse than random levels. The money market makers leave on the table in ES is hundredths of a tick, and it goes to
+whoever is first in the queue. A high-frequency retail edge would need a venue where queue position is not decided
+by speed (pro-rata matching, maker rebates, thinner books) and that is a new market, not a new ES signal.
+
 ## Sources (checked 2026-10-08)
 
 - Cboe market-maker quoting obligations: SEC release 34-90482, https://www.sec.gov/files/rules/sro/cboe/2020/34-90482.pdf
