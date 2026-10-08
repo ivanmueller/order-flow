@@ -14,6 +14,7 @@ Stress: the registered entry_slippage nudge (2 ticks) on entry and exit, i.e. (n
 per contract. Outputs: summary per scheme and the equity path per scheme (saved as bankroll_<scheme>).
 
   $env:GAMMA_EDGE_CONFIG = "config.nq.yaml"; python -m src.bankroll
+  ... GAMMA_EDGE_RUN_HOLDOUT=1, after study5 --fade-holdout: python -m src.bankroll --holdout
 """
 from __future__ import annotations
 
@@ -115,13 +116,21 @@ def _summary(P: pd.DataFrame, start: float, skipped: int) -> dict:
     }
 
 
-def run(cfg=None, save: bool = True) -> dict:
+def run(cfg=None, save: bool = True, holdout: bool = False) -> dict:
+    """In sample by default. holdout=True reads the saved holdout table (study5 --fade-holdout must have run)
+    and needs GAMMA_EDGE_RUN_HOLDOUT=1; the account starts fresh at start_usd on the first holdout session."""
+    from src import calendar as calm
     cfg = cfg or load_config()
-    T = store.load_derived("close_momentum_trades", cfg)          # in sample (sealed loader)
+    if holdout and not calm.holdout_unsealed():
+        raise calm.HoldoutSealed(f"bankroll on the holdout needs {calm.HOLDOUT_ENV}=1 (and Matteo's word)")
+    T = (store.load_derived("close_momentum_trades_holdout", cfg, include_holdout=True) if holdout
+         else store.load_derived("close_momentum_trades", cfg))     # sealed loader
     L = fade_legs(T, cfg)
     schemes = [("full_fixed", None), ("micro_fixed", None)] + [("micro_risk", x) for x in cfg["bankroll"]["risk_pcts"]]
     out = {"market": cfg["data"]["es_symbol"], "first": str(L["date"].min()), "last": str(L["date"].max()),
-           "note": "hypothetical, in sample only, descriptive; not a gate decision and not out-of-sample evidence",
+           "period": "holdout (out of sample)" if holdout else "in sample",
+           "note": ("hypothetical, descriptive; not a gate decision" if holdout else
+                    "hypothetical, in sample only, descriptive; not a gate decision and not out-of-sample evidence"),
            "assumptions": {"start_usd": cfg["bankroll"]["start_usd"], "cost_rt_usd": cfg["params"]["cost_rt_usd"]["value"],
                            "micro_cost_rt_usd": cfg["bankroll"]["micro_cost_rt_usd"],
                            "fills": "entry and time exit one tick adverse, stops one tick through (SPEC rule 5)"},
@@ -133,16 +142,17 @@ def run(cfg=None, save: bool = True) -> dict:
         out["schemes"][name] = {**base.summary, "stress_extra_tick_each_side": {
             k: stressed.summary[k] for k in ("final_usd", "total_return_pct", "max_dd_usd", "max_dd_pct", "ruined")}}
         if save:
-            store.save_derived(base.path, f"bankroll_{name}", cfg)
+            store.save_derived(base.path, f"bankroll_{'holdout_' if holdout else ''}{name}", cfg)
     return out
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.parse_args(argv)
+    ap.add_argument("--holdout", action="store_true", help="the holdout table (needs GAMMA_EDGE_RUN_HOLDOUT=1)")
+    a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     from src.analysis import to_json
-    print(to_json(run()))
+    print(to_json(run(holdout=a.holdout)))
 
 
 if __name__ == "__main__":

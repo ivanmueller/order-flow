@@ -13,7 +13,10 @@ C = 3.98 / 20  # NQ cost in points
 @pytest.fixture
 def nq(monkeypatch):
     monkeypatch.delenv("GAMMA_EDGE_CONFIG", raising=False)
-    return load_config("config.nq.yaml")
+    c = load_config("config.nq.yaml")
+    assert c["bankroll"]["micro_cost_rt_usd"] == 1.18          # broker rate (2026-10-08)
+    c["bankroll"]["micro_cost_rt_usd"] = 3.98                   # hand numbers below were worked at 3.98
+    return c
 
 
 @pytest.fixture
@@ -66,3 +69,16 @@ def test_too_small_to_size_skips(T, nq):
     r = bankroll.simulate(bankroll.fade_legs(T, nq), nq, "micro_risk", risk_pct=0.01)
     assert (r.path["contracts"] == 0).all() and r.summary["skipped_too_small"] == 3
     assert r.summary["final_usd"] == pytest.approx(1000.0)
+
+
+def test_micro_fixed_at_broker_rate(T, nq):
+    nq["bankroll"]["micro_cost_rt_usd"] = 1.18
+    r = bankroll.simulate(bankroll.fade_legs(T, nq), nq, "micro_fixed")
+    assert list(r.path["pnl_usd"]) == pytest.approx([8.82, -21.68, 2.82])
+
+
+def test_holdout_needs_the_flag(nq, monkeypatch):
+    from src import calendar as calm
+    monkeypatch.delenv(calm.HOLDOUT_ENV, raising=False)
+    with pytest.raises(calm.HoldoutSealed):
+        bankroll.run(nq, save=False, holdout=True)

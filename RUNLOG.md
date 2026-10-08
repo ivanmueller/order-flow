@@ -1285,3 +1285,18 @@ VIX path unchanged), then price, approve, pull, run --fade-replication per marke
   results are dominated by the assumed $3.98 micro cost (about 45% of the MNQ gross edge). All of this is the
   sample the fade was found on (ES) or a ~0.9-correlated twin (NQ): it describes the ride, not the expectation.
 - No gate, no spend, no holdout read.
+
+## 2026-10-08 | NQ holdout for the 5f fade: pre-registration (Matteo: "lets run it on that new data"), before any read
+- Authorization: Matteo asked to run the fade on the new data (the NQ holdout, 2026-01-02..2026-09-30), which no
+  analysis has touched for NQ. Recorded here as his "run the holdout" for this one NQ run.
+- Rule (frozen, unchanged from 5f): S5b reversed, 15:30 ET decision, 16:00 exit, 0.5 EM_V stop, EM_V from VIX
+  (NQ overlay), entry and exit one tick adverse, $3.98 a round trip. Reference = the NQ in-sample fade mean
+  +0.0243149640941187 EM_V (RUNLOG Study 5f NQ replication). Gate (the 5f holdout rule): holdout mean > 0 and
+  >= holdout_min_fraction (0.5) x reference = 0.01216 EM_V. Reported: CI, timing contrast, permutations, tail.
+- Data: NQ 1-minute bars 2026-01..2026-09, priced with get_cost first (~$0.97 expected from the price menu),
+  --approve-usd 1.50; ledger ~$98.43 -> ~$99.4, under the $100 line.
+- Bankroll on the holdout (descriptive, fresh $30,000 on the first holdout session): src/bankroll.py --holdout
+  added (refused without GAMMA_EDGE_RUN_HOLDOUT=1; reads close_momentum_trades_holdout). In-sample bankroll
+  rerun at the broker micro rate as well.
+- config diff (approved): bankroll.micro_cost_rt_usd 3.98 -> 1.18 (Matteo's broker, all-in micro round trip).
+- tests: broker-rate micro case by hand (8.82, -21.68, 2.82), holdout refused without the flag. Full suite passes.
