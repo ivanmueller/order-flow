@@ -24,6 +24,10 @@ cp .env.example .env                   # then put your Databento key in .env (gi
 pytest -q                              # 41 tests: hand-verified formulas + an end-to-end synthetic run
 ```
 
+Windows shortcuts (repo root): `open_venv.bat` opens PowerShell as administrator in the repo with `.venv`
+active; `open_venv_api.bat` does the same, then checks the Databento key in `.env` (never printed), makes one
+free Databento call, and checks or starts the ThetaData Terminal (set `THETA_JAR` to its jar to auto-start).
+
 ## Pilot first (3 months, Mar-May 2025)
 
 `config.pilot.yaml` overlays `config.yaml` for a cheap first pass on real data. Turn it on by adding
