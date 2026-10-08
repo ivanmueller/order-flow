@@ -28,7 +28,8 @@ already exist as code.
   day (slope t -2.3), consistent with 0DTE-era dampening of intraday momentum. Momentum closed.
 - The fade (study 5f, the S5b stop trade reversed): in sample +0.008 EM_V, holdout 2026-01..09 +0.0145
   (gate PASS), nudge rule PASS (7 of 8), NQ replication +0.024 (CI above zero), NQ holdout 2026 +0.0072
-  (gate FAIL: needed 0.0122; timing p 0.38). But one extra tick of
+  (gate FAIL: needed 0.0122; timing p 0.38). A $30,000 bankroll simulation (src/bankroll.py) shows micros roughly
+  flat on the 2026 data and 1 NQ +17% with a 31% drawdown. But one extra tick of
   slippage or a 15:55 exit takes the ES edge to zero, and NQ shares four of its five best days with ES.
   Status: real timing, thin economics; SPEC "Partial" means paper trading next, not more variants. NQ's
   edge is larger after costs mainly because its tick is a smaller share of its range.

@@ -99,6 +99,11 @@ python -m src.study7 --market
 python -m src.study7 --cross config.cl.yaml config.gc.yaml config.zn.yaml config.6e.yaml
 python -m src.study7 --bridge
 
+# 7g. Hypothetical $30,000 bankroll of the 5f fade (descriptive; config.yaml bankroll section)
+#     NQ: GAMMA_EDGE_CONFIG=config.nq.yaml; --holdout needs GAMMA_EDGE_RUN_HOLDOUT=1 after study5 --fade-holdout
+python -m src.bankroll
+python -m src.bankroll --holdout
+
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges
 python -m src.robustness splits

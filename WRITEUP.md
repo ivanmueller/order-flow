@@ -45,6 +45,10 @@ NEXT.md.
   mainly because its tick is a smaller share of its range, and it shares four of its five best days
   with ES, so it is a confirmation of the pattern, not a second sample. On NQ's own 2026 holdout the
   fade kept its sign but only about a third of its size (+0.0072 EM_V) and failed its gate.
+- A hypothetical $30,000 account on the fade (src/bankroll.py, micros at the broker's $1.18): in sample
+  (2023-06..2025-12) 1 NQ -> $81,948 with a 27.7% drawdown, 1 MNQ -> $34,709, 2% risk in MNQ -> $46,685;
+  on NQ's 2026 holdout 1 NQ -> $34,968 with a 31% drawdown, micros roughly flat (+0.9% to +5.4%). Half the
+  in-sample NQ profit came from five sessions.
 - Touched prices revert a little at the one-minute scale: hold rates of 43 to 47% against a 33%
   driftless baseline, and naive fades win 35% against a 31% baseline. That is worth about 0.6 ticks
   per trade.
