@@ -1392,3 +1392,35 @@ gates study8_min_events 25, study8_min_friction_multiple 3, study8_tail_drop 3.
 - Needs L1 quotes (MBP-1/TBBO) for the chosen windows; to be priced with get_cost before any proposal
   (Databento Standard plan alternative: $199/month, 12 months of L1). Conservative fills: SPEC rule 5 (fill only
   on a print one tick through) as the primary scenario, queue estimate as secondary.
+
+## 2026-10-08 | Study 9 APPROVED and built tests-first: can a passive ES trader earn the spread? (report-only)
+Matteo: "lets do study 9 ... realized-spread study", plus the ES level reversion redone with $0 commission and
+perfect resting-order execution at the level, at holds of 1, 3, 5, 10, 15, 30, 45 and 60 minutes.
+Both parts are measurements, not gated variants; their advance rules decide only whether to price L1 quote data
+for a proper queue study. In sample only.
+
+Part A, realized spread (110 on-disk Stage 3 tick sessions). Quote inferred from the tape (ES one tick wide: buy
+aggressor at the ask, mid = p - 1/2 tick; sell aggressor at the bid, mid = p + 1/2 tick), validated by the share of
+opposite-side consecutive prints exactly one tick apart. RS_i(D) = -s_i (mid(t_i + D) - p_i)/tick at D = 5, 30, 60 s,
+contract-weighted, session-bootstrap CI. Classes: clearing (last print of a same-price same-side run after which the
+next print goes through the level: the back-of-queue fill) vs other. Splits: time of day (09:30-10:00, 10:00-11:30,
+11:30-14:00, 14:00-15:30, 15:30-16:00) and trade size (1, 2-9, 10-49, 50+). Fees per side: $0, $2.79 and $3.98 a
+round trip ($2.79 = $0 commission: CME exchange fee $1.386 + regulatory $0.011 per side, IBKR schedule 2026-10-08).
+ADVANCE (to pricing L1 data) if clearing fills in some time bucket have a 60 s CI lower bound and a 30 s mean above
+the $2.79 per-side fee (0.112 tick). Otherwise KILL passive ES market-making at a retail queue position.
+
+Part B, level reversion with a resting order (all in-sample Stage 2 touches, all groups incl. placebo). Order at L
+from the touch bar for 10 bars; long at support, short at resistance. perfect: filled at L when a bar trades at L,
+exit at the close of fill bar + H, no slippage (Matteo's explicit upper-bound scenario; it departs from SPEC rule 5
+on purpose and can never ADVANCE alone). conservative: filled only when a bar trades through L by a tick, exit one
+tick worse (rule 5). Holds past 15:59 close at the last RTH bar (share reported). Fees $0 / $2.79 / $3.98.
+ADVANCE if conservative, real levels, net of $2.79: 90% CI lower bound > 0 and real minus placebo > 0 at some hold.
+Expected: the perfect case looks positive at short holds (it counts touches that bounce without trading through,
+which a queued order rarely gets); the gap between perfect and conservative is the adverse-selection cost.
+
+config diff (approved): params s9_rs_horizons_sec [5,30,60], s9_tod_edges, s9_size_edges [1,2,10,50],
+s9_lr_horizons_min [1,3,5,10,15,30,45,60], s9_fill_window 10, s9_fee_scenarios_usd [0,2.79,3.98]; gate
+study9_advance_fee_usd 2.79.
+Build: src/study9.py; tests/test_study9.py (inferred mid, RS by hand at 30/60 s, span-end drop, clearing flag,
+spread check, buckets, resting fills perfect vs trade-through, reversion P&L long and short with truncation, fee
+points, bootstrap) and a synthetic end-to-end test (same fill bar: conservative = perfect - 1 tick). Full suite passes.

@@ -359,3 +359,27 @@ def test_calendar_rebuild_reads_two_columns(synth_env, monkeypatch):
     ingest_futures.rebuild_calendar(cfg)
     after = store.load_calendar(cfg, include_holdout=True, equity_only=False)
     pd.testing.assert_frame_equal(before.reset_index(drop=True), after.reset_index(drop=True))
+
+
+def test_study9_on_synthetic_store(synth_env):
+    """Both parts run end to end on the synthetic store, in sample only; the conservative fill never beats the
+    perfect fill on the same touch and horizon; reports carry a verdict."""
+    from src import study9
+    cfg, bars = synth_env
+    gex.build(cfg=cfg)
+    levels.build(cfg=cfg)
+    tc = touches.build(cfg=cfg)
+    synth.write_trades_for_touches(cfg, bars, tc, np.random.default_rng(1))
+    cfg["params"]["s9_lr_horizons_min"]["value"] = [1, 5]
+    T = study9.run_lr(cfg)
+    assert len(T) == len(tc) and (T["date"] < calm.holdout_start(cfg)).all()
+    same = T.dropna(subset=["perfect_gross_5", "cons_gross_5"])
+    same = same[same["perfect_fill_bar"] == same["cons_fill_bar"]]
+    assert len(same) and np.allclose(same["cons_gross_5"], same["perfect_gross_5"] - 0.25)   # same fill bar: one tick worse
+    assert (T["cons_fill_bar"].dropna() >= T.loc[T["cons_fill_bar"].notna(), "perfect_fill_bar"]).all()
+    assert study9.report_lr(cfg, T)["verdict"] in ("ADVANCE", "KILL")
+    A, chk = study9.run_rs(cfg)
+    assert len(A) and chk["opposite_pairs"] > 0
+    out = study9.report_rs(cfg, A, chk)
+    assert out["verdict"] in ("ADVANCE", "KILL") and "clearing" in out["cells"]["60s"]
+    analysis.to_json(out)

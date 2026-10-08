@@ -72,6 +72,9 @@ Update this block at the end of every session.
   FRED existence check, plus a free FX-fix check (M3). Study 8 (M1 ZN month-end, M2 ES rebalancing, E0 free
   FRED existence check) pre-registered as a DRAFT; Track B (passive liquidity in compelled windows) noted as a
   design, needs L1 quotes priced. Awaiting Matteo's approval of Study 8 parameters.
+- Study 9 APPROVED and built (src/study9.py, report-only, $0): Part A realized spread to passive ES fills on the
+  110 tick sessions; Part B level reversion with a resting order (perfect upper bound and rule-5 conservative) at
+  1-60 min holds, fees $0/$2.79/$3.98. Awaiting Matteo's run.
   Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),
   WRITEUP, RESULTS, README and CANDIDATES brought up to date.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
@@ -143,5 +146,6 @@ See README.md for the full runbook in order.
 - Study 7 (per overlay): `python -m src.study7 --market`; then (no overlay) `--cross config.cl.yaml ...`, `--bridge`
 - Bankroll simulation of the 5f fade (descriptive): `python -m src.bankroll [--holdout]` (NQ: GAMMA_EDGE_CONFIG=config.nq.yaml;
   --holdout needs GAMMA_EDGE_RUN_HOLDOUT=1 after study5 --fade-holdout)
+- Study 9: `python -m src.study9 --realized-spread`, `python -m src.study9 --level-reversion` [--report-only]
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`

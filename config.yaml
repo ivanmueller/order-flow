@@ -178,6 +178,13 @@ params:
       F2: {kind: absorption, L: 15, H: 15}
       F3: {kind: pressure, L: 15, H: 15}
       F4: {kind: absorption, L: 5, H: 5}
+  # Study 9 (RUNLOG 2026-10-08, approved): realized spread to passive fills; level reversion with resting orders.
+  s9_rs_horizons_sec: {value: [5, 30, 60]}                  # realized-spread horizons (seconds after the fill)
+  s9_tod_edges:       {value: ["09:30", "10:00", "11:30", "14:00", "15:30", "16:00"]}  # open/morning/midday/afternoon/close
+  s9_size_edges:      {value: [1, 2, 10, 50]}               # trade-size buckets: 1, 2-9, 10-49, 50+
+  s9_lr_horizons_min: {value: [1, 3, 5, 10, 15, 30, 45, 60]}  # level-reversion holds (minutes after the fill bar)
+  s9_fill_window:     {value: 10}                           # bars a resting order at the level stays working
+  s9_fee_scenarios_usd: {value: [0.0, 2.79, 3.98]}          # round trip: theoretical zero; $0 commission (CME 1.386 + reg 0.011 per side); broker now
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -201,6 +208,7 @@ gates:
   study6_min_trades: 300           # study 6 pilot gates (RUNLOG 2026-10-07), per variant
   study6_min_expectancy_pts: 0.25  # after costs, ES points a trade (one tick)
   study6_tail_drop: 5              # after-cost mean without this many best sessions must stay > 0
+  study9_advance_fee_usd: 2.79      # study 9 advance rules use the $0-commission round trip (exchange + regulatory fees only)
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 
