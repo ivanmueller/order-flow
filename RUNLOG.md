@@ -1350,3 +1350,45 @@ VIX path unchanged), then price, approve, pull, run --fade-replication per marke
 - Recommendation (Matteo's call): new family "month-end compelled flow" (M1 month-end Treasury demand in ZN,
   M2 pension rebalancing in ES/ZN), preceded by a free FRED existence check; M3 FX fix in 6E as a separate free
   check with a cost KILL expected. No spend, no pre-registration yet.
+
+## 2026-10-08 | Study 8 pre-registration DRAFT: month-end compelled flow (Track A) -- awaiting approval
+Matteo: on board with multi-day holds if the edge is there; also wants a fast small-edge track (Track B below).
+Family: month-end compelled flow (new; at most 4 gated variants; own out-of-sample before any Go). Reuses the
+2023-06..2025-12 ES and ZN bars already on disk; the ES 2026 data was read only for the 15:30-16:00 close window,
+and ZN 2026 is untouched. Both are stated here as the family's out-of-sample period, to be opened once.
+
+Step E0, existence check (free, descriptive, no gate). FRED daily series DGS10 (10-year CMT yield, from 1990)
+and SP500 (about 10 years on FRED), via the existing FRED loader. Reported, per calendar month: the 10-year yield
+change over the last k trading days, k = 1..5, its mean in bp with Newey-West t, split 1990-2019 (the paper's
+era) and 2020-2026-09 (post-publication); and the next-day S&P return on the last trading day regressed on
+month-to-date (S&P return minus 10-year price-return proxy). The period after the paper (2020 on) is reported
+first. This decides whether M1 and M2 are worth building; it is not a gate.
+
+M1, month-end Treasury demand (gated). Long 1 ZN at the 15:00 ET settlement-minute bar of the 5th-to-last
+trading day of each month (open + 1 tick); exit at the same bar on the last trading day (open - 1 tick);
+$3.98 a round trip. Roll rule: the position is on the front contract at entry; if ZN rolls inside the window
+(late Feb/May/Aug/Nov), the session is skipped unless the back-month bars are bought (priced separately).
+Unit: ZN ticks (1/64) and EM_R (20-day realized vol x price, from the Study 7 tooling).
+M2, rebalancing pressure (gated). At the ES 16:00 close two trading days before month end, compute
+R = month-to-date ES return minus month-to-date ZN return. If R > 0 (stocks overweight), short 1 ES; if R < 0,
+long 1 ES. Exit at the 16:00 close of the last trading day. Entry and exit one tick adverse, $3.98.
+Variants: M1 and M2 only (2 of 4); no threshold, no window search.
+Gates per variant (proposed): n >= 25 in sample (month-ends); after-cost mean > 3 x friction (M1 > 6.75 ZN
+ticks, M2 > 1.75 ES points); 90% month-block bootstrap lower bound > 0; same sign in the 2026 out-of-sample
+months; mean without the best 3 months > 0. With ~31 in-sample months the study is underpowered by design:
+it can only find an effect near the published size (~0.2-0.25 sigma needs ~100+ events), so E0's longer history
+carries the existence question and our futures sample carries the costs question. Expected outcome: M1 positive
+before costs (published, in futures), M2 uncertain.
+Proposed config (needs approval): s8_m1_entry_days_before_end 4 (enter at the close of T-4, i.e. the 5th-to-last
+day), s8_m1_entry_time "15:00", s8_m2_entry_days_before_end 2, s8_fred_series [DGS10, SP500], s8_e0_k_max 5,
+gates study8_min_events 25, study8_min_friction_multiple 3, study8_tail_drop 3.
+
+## 2026-10-08 | Track B design note: passive liquidity in compelled windows (not pre-registered)
+- Arithmetic: of ES's ~2.3-tick round-trip cost, ~2 ticks are the spread paid in and out; measured gross edges
+  at minute scale are 0.25-0.6 tick. Repetition cannot fix a negative after-cost edge; only not paying the spread
+  can. Passive (maker) execution earns it, but takes adverse selection.
+- Hypothesis for later: resting orders filled during compelled-flow windows (close auction lead-in, month-end,
+  fixes) suffer less adverse selection than at random times, because the counterparty is forced, not informed.
+- Needs L1 quotes (MBP-1/TBBO) for the chosen windows; to be priced with get_cost before any proposal
+  (Databento Standard plan alternative: $199/month, 12 months of L1). Conservative fills: SPEC rule 5 (fill only
+  on a print one tick through) as the primary scenario, queue estimate as secondary.

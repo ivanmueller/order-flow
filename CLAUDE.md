@@ -69,7 +69,9 @@ Update this block at the end of every session.
   NQ holdout now spent. Awaiting Matteo's call (paper trading, or stop the fade).
 - Thesis v2 (2026-10-08, THESIS.md): trade against compelled flow from the dealer's side. Recommends a new family
   "month-end compelled flow" (M1 Treasury month-end demand in ZN, M2 pension rebalancing in ES/ZN) after a free
-  FRED existence check, plus a free FX-fix check (M3). Not pre-registered; awaiting Matteo.
+  FRED existence check, plus a free FX-fix check (M3). Study 8 (M1 ZN month-end, M2 ES rebalancing, E0 free
+  FRED existence check) pre-registered as a DRAFT; Track B (passive liquidity in compelled windows) noted as a
+  design, needs L1 quotes priced. Awaiting Matteo's approval of Study 8 parameters.
   Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),
   WRITEUP, RESULTS, README and CANDIDATES brought up to date.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero

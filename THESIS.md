@@ -134,6 +134,44 @@ Open questions for Matteo before any pre-registration:
   how you trade, including overnight margin on ZN and ES?
 - Should the family trade ZN only, or ZN and ES together as one rebalancing basket?
 
+## 8. Two tracks (Matteo, 2026-10-08)
+
+Matteo's premise: dealers are not perfect, they leave money on the table that is too small for them to chase,
+and an educated retail quant can collect it. Two tracks follow from that.
+
+**Track A, slow and large: compelled flow over days.** Month-end Treasury demand and pension rebalancing (M1,
+M2). The concession is many times our costs, and dealers leave it because holding inventory over days around
+a deadline is what their balance sheets are not built for. Pre-registration draft: RUNLOG, Study 8.
+
+**Track B, fast and small: the blackjack idea, done honestly.** A card counter wins because the edge per hand
+is larger than the house edge, and repetition turns a small positive edge into a reliable total. In trading,
+the house edge is the spread plus fees, paid on every hand. Repetition multiplies whatever is left after costs,
+negative or positive; it cannot turn a negative into a positive. Our measured numbers:
+
+| Measured gross edge per trade (ES) | Cost per round trip | Net |
+|---|---|---|
+| Touch reversion at levels: ~0.6 tick | ~2.3 ticks (one tick each way + $3.98) | negative |
+| Aggressor-flow continuation (study 6): ~0.25 tick | ~2.3 ticks | negative |
+| Close fade (5f): ~2-3 ticks | ~2.3 ticks | about +1 tick in sample, ~0 in stress |
+
+So Track B is a cost problem before it is a signal problem. Of the 2.3 ticks, about 2 are the spread we cross on
+entry and exit; the $3.98 is under a third of a tick on ES. Contract size does not help: on MES the $1.18 fee
+alone is about 0.94 tick. The only way to change the table's rules is to stop paying the spread and start
+earning it, which means passive limit orders: being the market maker for a moment. That opens the real
+risk of the maker's business, adverse selection. A resting order is filled most often when the price is
+about to move through it. HFT market makers win the queue race and the fills an outsider gets are the ones they
+decline.
+
+The niche where a slow maker can win combines the two tracks: rest passive orders only when the counterparty
+is compelled rather than informed (benchmark windows, month-end, index and ETF rebalancing, scheduled fixes).
+The forced trader pays the spread for reasons unrelated to the next minute's price, so adverse selection
+should be lower exactly then.
+
+Testing it honestly needs quotes (the L1 order book), not bars. Fills follow the SPEC rule-5 rule (a resting
+order fills only on a print one tick through), with a queue-position estimate from the L1 order book
+as a secondary, less conservative scenario. Data: ES MBP-1 or TBBO for chosen windows only (to be priced;
+the Databento Standard plan includes 12 months of L1). Design: RUNLOG, Track B note.
+
 ## Sources (checked 2026-10-08)
 
 - Cboe market-maker quoting obligations: SEC release 34-90482, https://www.sec.gov/files/rules/sro/cboe/2020/34-90482.pdf
