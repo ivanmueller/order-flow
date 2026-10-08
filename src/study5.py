@@ -543,6 +543,10 @@ def run_fade_holdout(cfg=None, reference: float = np.nan, save: bool = True):
     if not calm.holdout_unsealed():
         raise calm.HoldoutSealed(f"Study 5f holdout run needs {calm.HOLDOUT_ENV}=1 (and Matteo's 'run the holdout').")
     T = run(cfg, save=save, include_holdout=True, holdout_only=True)
+    if T.empty:
+        return {"gate": "NO_DATA", "reference_in_sample_mean_em": reference,
+                "note": "no holdout sessions in the calendar (rebuild it: python -m src.ingest_futures calendar); "
+                        "nothing was computed, so the one-shot run is not spent"}, T
     out = fade_report(cfg, T)
     out["reference_in_sample_mean_em"] = reference
     out["gate"] = fade_gate(out["mean_em"], reference, frac)

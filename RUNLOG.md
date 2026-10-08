@@ -1300,3 +1300,20 @@ VIX path unchanged), then price, approve, pull, run --fade-replication per marke
   rerun at the broker micro rate as well.
 - config diff (approved): bankroll.micro_cost_rt_usd 3.98 -> 1.18 (Matteo's broker, all-in micro round trip).
 - tests: broker-rate micro case by hand (8.82, -21.68, 2.82), holdout refused without the flag. Full suite passes.
+
+## 2026-10-08 | NQ holdout attempt FAILED before any holdout read (Matteo's machine, commit be52e3f)
+- Bars: NQ 2026-01..09 priced $0.97, pulled (each month logged; Databento flagged 2026-01-31, 03-15, 03-16,
+  03-21, 04-10, 05-24, 08-29 as degraded, mostly weekends). Ledger ~$99.40.
+- Then the calendar rebuild ran out of memory (numpy MemoryError allocating 37.8 MiB; the next command failed
+  importing statsmodels with MemoryError too): the Windows machine was short of free RAM. The calendar kept no
+  2026 sessions, so `study5 --fade-holdout` found 0 sessions and crashed on an empty table (KeyError 'date'),
+  and `bankroll --holdout` found no holdout table. No holdout session was computed or printed: the one-shot
+  NQ holdout run is NOT spent and the pre-registration stands unchanged.
+- In-sample bankroll at the broker micro rate ($1.18) did run (descriptive): 1 MNQ $30,000 -> $34,709 (+15.7%,
+  DD 4.6%, Sharpe 1.18; stress $34,088); risk 1% -> $35,582 (+18.6%, DD 9.4%, max 3 micros); risk 2% ->
+  $46,685 (+55.6%, DD 17.6%, max 7 micros; stress $44,160); 1 NQ unchanged at $81,948.
+- Fixes: rebuild_calendar reads only ts_open_utc and instrument_id (about half the memory); run_fade_holdout
+  returns gate NO_DATA instead of crashing when the calendar has no holdout sessions, and says the run is not
+  spent. Tests for both; full suite passes.
+- Next: free memory (close other programs, fresh PowerShell), `python -m src.ingest_futures calendar` under the
+  NQ overlay (no spend: bars are on disk), holdout-check, then the pre-registered holdout run.

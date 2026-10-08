@@ -337,3 +337,25 @@ def test_bankroll_on_synthetic_store(synth_env):
     assert out["schemes"]["full_fixed"]["final_usd"] == pytest.approx(exp)
     assert out["last"] < str(calm.holdout_start(cfg))
     assert len(store.load_derived("bankroll_full_fixed", cfg)) == len(L)
+
+
+def test_fade_holdout_without_holdout_sessions_is_not_spent(synth_env, monkeypatch):
+    """If the calendar has no holdout sessions (e.g. the rebuild failed), the holdout run computes nothing and
+    says so instead of crashing; the one-shot run is not spent."""
+    from src import study5
+    cfg, _ = synth_env
+    cal = store.load_calendar(cfg, include_holdout=False, equity_only=False)
+    store.save_derived(cal, "calendar", cfg)                  # drop every holdout session from the calendar
+    monkeypatch.setenv(calm.HOLDOUT_ENV, "1")
+    out, T = study5.run_fade_holdout(cfg, reference=0.02, save=False)
+    assert out["gate"] == "NO_DATA" and T.empty
+
+
+def test_calendar_rebuild_reads_two_columns(synth_env, monkeypatch):
+    from src import ingest_futures
+    cfg, _ = synth_env
+    monkeypatch.setenv(calm.HOLDOUT_ENV, "1")
+    before = store.load_calendar(cfg, include_holdout=True, equity_only=False)
+    ingest_futures.rebuild_calendar(cfg)
+    after = store.load_calendar(cfg, include_holdout=True, equity_only=False)
+    pd.testing.assert_frame_equal(before.reset_index(drop=True), after.reset_index(drop=True))
