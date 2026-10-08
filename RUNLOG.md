@@ -1252,3 +1252,18 @@ VIX path unchanged), then price, approve, pull, run --fade-replication per marke
   0.6 of a 1/64 tick before costs against two ticks of cost. Commodities and FX show nothing. The fade does not
   generalize either. Family closed: 4 of 4 used.
 - Gate call is Matteo's.
+
+## 2026-10-08 | Study 7 KILL accepted; hypothetical bankroll of the 5f fade built (nothing run on real data)
+- Matteo accepted Study 7's KILL and asked for the inverse in other markets (answered from the run: the fade
+  is <= 0 before costs in CL/GC/ZN/6E, so no test). Then asked for a $30,000 hypothetical bankroll of the 5f
+  fade on NQ over the in-sample period already on disk, knowing it is not out-of-sample evidence.
+- Choices (Matteo, via questions): show all sizing schemes; risk-based at both 1% and 2%; micro cost $3.98 a
+  round trip until the broker confirms (never lower than real, rule 5).
+- code: src/bankroll.py (fade_legs from the saved Study 5 table, simulate per scheme with compounding for
+  micro_risk, stress rows with the registered entry_slippage nudge on entry and exit, summary with CAGR,
+  max drawdown, months, Sharpe, max notional / equity). Descriptive only, never a gate.
+- tests: tests/test_bankroll.py (three hand sessions: legs, 1 NQ, 1 MNQ, 1% risk in whole micros with
+  compounding, stress, too-small-to-size) and a synthetic end-to-end test. Full suite passes.
+- config diff (approved): new bankroll section (start_usd 30000, full_contracts 1, micro_point_value 5.0 for
+  MES with config.nq.yaml setting 2.0 for MNQ, micro_cost_rt_usd 3.98, risk_pcts [0.01, 0.02]).
+- Next on Matteo's machine: python -m src.bankroll under config.nq.yaml (and under config.yaml for ES).

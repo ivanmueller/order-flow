@@ -321,3 +321,19 @@ def test_study7_realized_unit_on_synthetic_store(synth_env):
     sig = study7.sigma_by_session(cal, by_day, c)
     for r in T.itertuples():
         assert r.em_v == pytest.approx(sig[r.date] * r.P_prev)
+
+
+def test_bankroll_on_synthetic_store(synth_env):
+    """The bankroll simulation reads the saved Study 5 table (in sample), runs every scheme with and without
+    stress, and the fixed one-contract equity equals the start plus the summed fade dollars."""
+    from src import bankroll, study5
+    cfg, _ = synth_env
+    gex.build(cfg=cfg)
+    T = study5.run(cfg)
+    out = bankroll.run(cfg)
+    assert set(out["schemes"]) == {"full_fixed", "micro_fixed", "micro_risk_1pct", "micro_risk_2pct"}
+    L = bankroll.fade_legs(T, cfg)
+    exp = cfg["bankroll"]["start_usd"] + (L["gross_pts"] * cfg["market"]["point_value"] - 3.98).sum()
+    assert out["schemes"]["full_fixed"]["final_usd"] == pytest.approx(exp)
+    assert out["last"] < str(calm.holdout_start(cfg))
+    assert len(store.load_derived("bankroll_full_fixed", cfg)) == len(L)

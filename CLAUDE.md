@@ -59,7 +59,8 @@ Update this block at the end of every session.
   (src/study7.py, overlays config.cl/gc/zn/6e.yaml). Run: KILL on all four (after costs CL -0.013, GC -0.011,
   ZN -0.066, 6E -0.020 EM_R); timing real only in ZN (p 0.001, FOMC-led), ~0.6 tick vs 2 ticks of cost; fade
   negative after costs everywhere; ES bridge under EM_R unchanged. Ledger ~$98.43. Descriptive pooled-fade
-  bug fixed, FOMC split added. Awaiting Matteo's call.
+  bug fixed, FOMC split added. KILL accepted 2026-10-08. Hypothetical $30k bankroll of the 5f fade built
+  (src/bankroll.py, config bankroll section; descriptive, in sample); awaiting Matteo's NQ/ES runs.
   Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),
   WRITEUP, RESULTS, README and CANDIDATES brought up to date.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
@@ -129,5 +130,6 @@ See README.md for the full runbook in order.
 - Price menu (no pulls): `python -m src.price_menu --start YYYY-MM-DD --end YYYY-MM-DD [--symbols ES.v.0 ...]`
 - Study 6 order flow pilot: `python -m src.study6 --count`, then `python -m src.study6 [--report-only]`
 - Study 7 (per overlay): `python -m src.study7 --market`; then (no overlay) `--cross config.cl.yaml ...`, `--bridge`
+- Bankroll simulation of the 5f fade (descriptive): `python -m src.bankroll` (NQ: GAMMA_EDGE_CONFIG=config.nq.yaml)
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`

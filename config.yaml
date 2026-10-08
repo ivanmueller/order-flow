@@ -76,6 +76,17 @@ stage3_sample:
   holdout_days: 45
 
 # ---------------------------------------------------------------------------
+# Hypothetical bankroll simulation of the 5f fade (Matteo 2026-10-08; descriptive, never a gate)
+# ---------------------------------------------------------------------------
+bankroll:
+  start_usd: 30000.0
+  full_contracts: 1             # scheme "full_fixed": this many full-size contracts every trade
+  micro_point_value: 5.0        # MES $5/pt on ES; config.nq.yaml sets MNQ $2/pt
+  micro_cost_rt_usd: 3.98       # all-in micro round trip: set to the full-size rate until the broker confirms (rule 5)
+  risk_pcts: [0.01, 0.02]       # scheme "micro_risk": risk this share of equity at the stop, in whole micros
+  # stress rows use entry_slippage's registered nudge (2 ticks) on entry and exit; no new number here
+
+# ---------------------------------------------------------------------------
 # Spending guard (CLAUDE.md rule 7)
 # ---------------------------------------------------------------------------
 budget:

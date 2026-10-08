@@ -11,3 +11,6 @@ data:
 
 market:
   point_value: 20.0        # $ per NQ point (tick 0.25 unchanged)
+
+bankroll:
+  micro_point_value: 2.0   # MNQ $2/pt (hypothetical bankroll simulation, 2026-10-08)
