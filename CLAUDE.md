@@ -81,7 +81,11 @@ Update this block at the end of every session.
   config s8_* params and study8_* gates added). Two changes to the draft, both conservative: E0 stops at 2025-12
   (2026 10-year yields are in effect M1's out-of-sample result), and E0's split/start are config entries.
   Known risk: ZN rolls late Feb/May/Aug/Nov can fall inside M1's 4-day window (skipped), so M1 may miss n >= 25;
-  `--count` reports this before any P&L is seen. Awaiting Matteo's run: --count, --e0, then M1/M2.
+  `--count` reports this before any P&L is seen. Run (all three at once): KILL on both. E0: 10-year yields fall
+  ~2.5 bp over the last 4 sessions in 2020-25 (t -2.2) as in 1990-2019 (t -4.1), vs +0.6 drift; no S&P rebalancing
+  effect (t -0.24). M1 -0.30 ZN ticks (n 21 < 25, CI -12.7..+12.5); M2 +8.7 ES pts (n 30, CI -6.6..+24.5, -1.9
+  without the best 3). Family 2 of 4 used. Effect real in yields (~10 ticks gross vs 2.25 friction) but needs ~90
+  futures month-ends. Awaiting Matteo's call (accept, or pre-register M1 on a longer ZN history, priced first).
   Venue question answered (no study): options priority-customer liquidity provision ranked first for a fast
   track; pro-rata SR3 second; prediction-market making third. Nothing scoped or spent.
   Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),

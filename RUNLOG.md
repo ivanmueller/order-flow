@@ -1506,3 +1506,37 @@ matching summary), capital-heavy; (3) prediction-market making (Polymarket: make
 taker fees back; Kalshi taker 0.07 p(1-p), maker 0 in most series), outside scope. Crypto is not more edge by
 default: Hyperliquid retail maker 0.015% / taker 0.045% versus ES ~0.001% of notional per round trip; rebates start
 at 0.5% of exchange maker volume. Nothing scoped; a Study 10 desk scope of option 1 offered.
+
+## 2026-10-08 | Study 8 run (Matteo's machine, commit 491dcb3; in sample; $0; FRED downloaded once)
+Matteo ran --count, --e0 and the M1/M2 run in one go, so the back-month decision for M1 was not taken separately;
+M1 runs on the months the on-disk ZN.v.0 bars allow.
+Count: M1 21 tradable month-ends of 33 (2023-04..2025-12): roll_in_window 9 (of 11 roll months), no_entry_bar 3
+(the T-4 entry fell on a half day: Christmas Eve, the day after Thanksgiving). M2 30 of 33: no_mtd 1 (first
+month, no previous month-end close), no_exit_bar 2 (last session of November was a half day).
+E0 (FRED, 1990-01-02..2025-12-31, sealed at holdout_start), month-end 10-year yield change over the last k days:
+  2020-2025 (72 months), bp (NW t) vs the all-days mean of the same window:
+    k1 -0.96 (-1.5) vs +0.15; k2 -1.51 (-2.0) vs +0.30; k3 -2.35 (-2.2) vs +0.45; k4 -2.57 (-2.2) vs +0.60;
+    k5 -2.62 (-1.8) vs +0.75
+  1990-2019 (360 months): k1 -1.39 (-4.9); k2 -2.03 (-5.2); k3 -2.39 (-4.7); k4 -2.24 (-4.1); k5 -2.44 (-4.1);
+    all-days -0.08 to -0.41
+  Rebalancing (S&P last-day return on MTD stocks minus a 10-year par bond): slope t -0.24 (2020-25, 72 months),
+  -0.88 (2016-19, 38). Last-day mean -10.5 bp vs +5.9 all days (2020-25), about 1 SE; -15.7 bp when stocks led,
+  -1.4 bp when bonds led. No reliable Harvey et al. effect in the last-day return.
+M1 (long ZN T-4 settlement to T0 settlement), ZN ticks after costs: n 21, mean -0.30 (90% month CI -12.7..+12.5),
+  gross -0.05, win 48%; without the best 3 months -10.5; by year 2023 -3.7, 2024 -2.7, 2025 +5.5 (7 each).
+  Threshold 3 x 2.255 = 6.76 ticks. Checks: n FAIL (21 < 25), friction FAIL, CI FAIL, tail FAIL. KILL.
+  Descriptive: the same 4-session long from every session averaged -6.6 ticks (the 2023-25 bond sell-off), so the
+  month-end windows were ~6 ticks better than any window; not gated, not significant (SE ~7.7 ticks).
+M2 (fade month-to-date stock-bond outperformance, T-2 close to T0 close), ES points after costs: n 30, mean +8.73
+  (CI -6.6..+24.5), gross +8.81, win 53%, short 67% of months; without the best 3 months -1.93; by year 2023 -4.3
+  (8), 2024 +26.8 (11), 2025 +0.2 (11). Threshold 1.74. Checks: n PASS, friction PASS, CI FAIL, tail FAIL. KILL.
+  Long-side return on R: slope t -0.35 (no relation). Any-day 2-session long +6.0 points (drift).
+  Rule 6 on the positive mean: inputs close at or before 16:00:00, entry at the 16:00 bar's open; month-ends come
+  from the exchange calendar (known in advance); one row per month; last month 2025-12 (no holdout). The mean is
+  three months of 2024; the regression and E0 both show no relation to R.
+Reading: the Treasury month-end effect exists and has not decayed: 10-year yields fall ~2.5 bp over the last 4
+sessions of the month in 2020-25 (t -2.2), the same size as 1990-2019 (t -4.1), against a +0.6 bp drift. At
+roughly 4 ZN ticks per bp (DV01 ~$60-70, depends on the cheapest-to-deliver) that is ~10 ticks gross against
+2.25 ticks of friction, about the published Sharpe (~0.7 a year from 12 trades). Our 21 ZN month-ends cannot
+resolve it (SE ~7.7 ticks; ~90 month-ends are needed for t = 2 at that size). Rebalancing (M2): no evidence in
+E0 or in futures. Both variants KILL by the rules; 2 of 4 used in the family.

@@ -297,3 +297,15 @@ Study 5 decision: pending Matteo's call.
 - **Verdict.** KILL on both advance rules. Market makers leave hundredths of a tick at the front of the queue; a
   retail resting order at the back pays about 0.6 tick per fill.
 
+
+## Study 8, month-end compelled flow (Track A; family budget 2 of 4; $0)
+- **Build.** E0: FRED 10-year yield change over the last 1-5 sessions of each month (1990-2025, in sample) and
+  the S&P last-day return on stock-minus-bond month-to-date performance. M1: long ZN from the settlement 4 sessions
+  before month end to the last session's settlement. M2: at the ES close 2 sessions before month end, short ES if
+  stocks beat bonds month to date (long otherwise), out at the last close. Rule-5 fills, $3.98.
+- **Result.** E0: yields fall ~2.5 bp over the last 4 sessions in 2020-25 (t -2.2) as in 1990-2019 (t -4.1),
+  versus a +0.6 bp drift; no rebalancing effect in the S&P last day (slope t -0.24). M1: -0.30 ZN ticks after
+  costs on 21 month-ends (CI -12.7..+12.5; 12 months skipped for rolls and half days). M2: +8.7 ES points on 30
+  months (CI -6.6..+24.5), all from three 2024 months (-1.9 without them).
+- **Verdict.** KILL on both by the rules. The Treasury month-end effect is real and post-publication (~10 ZN ticks
+  gross vs 2.25 of friction), but 21 futures month-ends cannot resolve it; it needs ~90.
