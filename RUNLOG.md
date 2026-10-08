@@ -1334,3 +1334,19 @@ VIX path unchanged), then price, approve, pull, run --fade-replication per marke
   +0.0072 (fail). Consistent with a small positive effect near +0.01 EM_V that nine months cannot resolve.
 - Checks: holdout read once with the env flag and Matteo's instruction; same frozen rules; no parameter changed
   after the result. Ledger ~$99.40. Gate call is Matteo's.
+
+## 2026-10-08 | Thesis v2: clean-slate review from the market maker's side (not a run)
+- Matteo asked for a clean-slate review of the repository plus two research briefs (Additional Intraday Edge
+  Research; First-Principles Alpha Research) and a change of thesis: think from the market makers' side
+  (obligations, constraints, regulations) to find exploitable, compelled behaviour.
+- Written to THESIS.md: the obligations and constraints of options market makers, Treasury primary dealers,
+  FX fixing banks, LETF sponsors, pensions, index trackers and banks at period ends, checked against primary
+  sources; seven rules for the new thesis (named compelled actor; gross concession >= 3x our friction; horizon
+  of hours to days; clock from the mandate); our studies reread through that lens; candidates scored.
+- Key fact checks: NY Fed SR 1188 puts post-2014 Treasury auction pressure at under half of 0.7-1.2 bp, so the
+  auction reversal is about 1-2 ZN ticks gross against 2.25 of friction (not worth a study). Hartley-Schwarz
+  month-end Treasury returns are about 20 bp at the 10-year, Sharpe ~1 after costs, present in futures.
+  Harvey et al. rebalancing: about -17 bp next-day equity return when stocks are overweight.
+- Recommendation (Matteo's call): new family "month-end compelled flow" (M1 month-end Treasury demand in ZN,
+  M2 pension rebalancing in ES/ZN), preceded by a free FRED existence check; M3 FX fix in 6E as a separate free
+  check with a cost KILL expected. No spend, no pre-registration yet.

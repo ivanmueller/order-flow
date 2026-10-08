@@ -119,6 +119,7 @@ the measurements here. NEXT.md asks the next study to say where it sits on horiz
 | Design, formulas and gate rules for modules 1-3 and stages 1-3, the parameter registry | SPEC.md |
 | Pre-registrations with formulas for studies 2-7 (tape features, band trades, straddles, close momentum and the fade, pure order flow, cross-market momentum), every run with config diffs, every gate decision, the per-family variant rule | RUNLOG.md |
 | The prompt for choosing the next study (current findings, practitioner priors, data and budget) | NEXT.md |
+| Thesis v2: market makers' obligations and constraints, compelled flows, ranked candidates | THESIS.md |
 | One entry per backtest: hypothesis, build, headline, verdict | RESULTS.md |
 | Lessons and verdicts (this file) | WRITEUP.md |
 | Code and log audit of studies 1-3, modeling caveats, the study 4 and study 5 proposals | REVIEW.md |

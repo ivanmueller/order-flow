@@ -67,6 +67,9 @@ Update this block at the end of every session.
   hit a MemoryError (nothing read); calendar made leaner. Rerun: NQ holdout +0.0072 EM_V (CI -0.022..+0.037,
   timing p 0.38) < 0.0122: gate FAIL. Holdout bankroll: 1 NQ $30k -> $35.0k (DD 31%); micros ~flat. Ledger ~$99.40.
   NQ holdout now spent. Awaiting Matteo's call (paper trading, or stop the fade).
+- Thesis v2 (2026-10-08, THESIS.md): trade against compelled flow from the dealer's side. Recommends a new family
+  "month-end compelled flow" (M1 Treasury month-end demand in ZN, M2 pension rebalancing in ES/ZN) after a free
+  FRED existence check, plus a free FX-fix check (M3). Not pre-registered; awaiting Matteo.
   Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),
   WRITEUP, RESULTS, README and CANDIDATES brought up to date.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero

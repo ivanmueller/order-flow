@@ -8,7 +8,8 @@ Last updated 2026-10-08, after studies 1-7 and the 5f fade (holdout, robustness,
 ---
 
 You are taking over a research programme with seven studies behind it and choosing what to test next.
-Start by reading, in this order: CLAUDE.md (rules, status block), WRITEUP.md (verdicts, lessons, the
+Start by reading, in this order: THESIS.md (the current thesis: trade against compelled flow, from the
+dealer's side, and the candidates it ranks), CLAUDE.md (rules, status block), WRITEUP.md (verdicts, lessons, the
 "Where everything is" index), RESULTS.md (every backtest with its build and verdict), REVIEW.md (the
 audit of studies 1-3 and the regime-variable caveats in section 3b), CANDIDATES.md (the 2026-10-07 data
 inventory and the 15 candidates scored before study 5; several are now spent), SPEC.md (formulas, fills,
