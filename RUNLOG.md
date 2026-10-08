@@ -1317,3 +1317,20 @@ VIX path unchanged), then price, approve, pull, run --fade-replication per marke
   spent. Tests for both; full suite passes.
 - Next: free memory (close other programs, fresh PowerShell), `python -m src.ingest_futures calendar` under the
   NQ overlay (no spend: bars are on disk), holdout-check, then the pre-registered holdout run.
+
+## 2026-10-08 | NQ holdout run of the 5f fade (Matteo's machine, commit 7e2c52c; one shot, as pre-registered)
+- Calendar rebuilt (902 sessions, 877 equity, 14 rolls); holdout-check ok (2026-01..09 bars present, daily to
+  2026-10-06). 184 holdout sessions 2026-01-02..2026-09-30 (3 roll days skipped).
+- Fade (S5b reversed), EM_V: mean +0.0072 (90% CI -0.022..+0.037), win 49.5%, PF 1.08, max DD 3.06 EM_V, losing
+  streak 5; mean without the best 5 sessions -0.010; timing contrast +0.006 (CI -0.025..+0.036); session
+  permutation p 0.38, block p 0.49; momentum direction -0.0035.
+- Gate (frozen): holdout mean > 0 and >= 0.5 x 0.02431 = 0.01216. +0.0072 < 0.01216: FAIL.
+- Bankroll on the holdout (descriptive, fresh $30,000, micros at $1.18): 1 NQ -> $34,968 (+16.6%) but max DD
+  $14,534 (31.2%), 44% positive months, Sharpe 0.68, stress $33,128; 1 MNQ -> $30,353 (+1.2%); risk 1% ->
+  $30,280 (+0.9%); risk 2% -> $31,634 (+5.4%, DD 8.5%). In-sample bankroll rerun identical to the previous entry.
+- Reading: in 2026 the NQ fade kept its sign but not its size (about 0.3x in sample), and neither the mean nor
+  the timing is distinguishable from zero; the 1-NQ profit sits on a handful of days (ex-best-5 negative). Across
+  the four looks at the fade: ES in sample +0.008, ES holdout +0.0145 (pass), NQ in sample +0.024, NQ holdout
+  +0.0072 (fail). Consistent with a small positive effect near +0.01 EM_V that nine months cannot resolve.
+- Checks: holdout read once with the env flag and Matteo's instruction; same frozen rules; no parameter changed
+  after the result. Ledger ~$99.40. Gate call is Matteo's.

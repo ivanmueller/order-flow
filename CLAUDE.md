@@ -64,8 +64,9 @@ Update this block at the end of every session.
   stress $75.7k); 1 ES -> $43.5k (stress -6.5%); micros hurt by the pessimistic $3.98 micro cost; half the NQ
   profit from 5 sessions. 2026-10-08: micro cost set to the broker's $1.18 (approved); NQ holdout run of the
   fade pre-registered (Matteo authorized; gate mean > 0 and >= 0.01216 EM_V) with bankroll --holdout. First attempt
-  hit a MemoryError in the calendar rebuild after the bars pull (ledger ~$99.40); nothing read, one-shot not spent;
-  calendar made leaner and empty-holdout guarded. Awaiting rerun.
+  hit a MemoryError (nothing read); calendar made leaner. Rerun: NQ holdout +0.0072 EM_V (CI -0.022..+0.037,
+  timing p 0.38) < 0.0122: gate FAIL. Holdout bankroll: 1 NQ $30k -> $35.0k (DD 31%); micros ~flat. Ledger ~$99.40.
+  NQ holdout now spent. Awaiting Matteo's call (paper trading, or stop the fade).
   Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),
   WRITEUP, RESULTS, README and CANDIDATES brought up to date.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero

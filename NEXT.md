@@ -27,7 +27,8 @@ already exist as code.
 - Last-30-minute ES momentum (study 5): the opposite holds in 2023-25. The close REVERSES the rest of the
   day (slope t -2.3), consistent with 0DTE-era dampening of intraday momentum. Momentum closed.
 - The fade (study 5f, the S5b stop trade reversed): in sample +0.008 EM_V, holdout 2026-01..09 +0.0145
-  (gate PASS), nudge rule PASS (7 of 8), NQ replication +0.024 (CI above zero). But one extra tick of
+  (gate PASS), nudge rule PASS (7 of 8), NQ replication +0.024 (CI above zero), NQ holdout 2026 +0.0072
+  (gate FAIL: needed 0.0122; timing p 0.38). But one extra tick of
   slippage or a 15:55 exit takes the ES edge to zero, and NQ shares four of its five best days with ES.
   Status: real timing, thin economics; SPEC "Partial" means paper trading next, not more variants. NQ's
   edge is larger after costs mainly because its tick is a smaller share of its range.
@@ -78,8 +79,8 @@ study family gets at most 4 gated variants, frozen in its pre-registration, and 
 out-of-sample confirmation (an untouched holdout period or a fresh, independent market) before any Go.
 A family that reuses the 2023-06..2025-12 ES sample says so.
 
-The holdout is 2026-01-01..2026-09-30. For ES it has been read once, for the 5f fade, and is spent for any
-test involving the ES close; for every other market it is untouched. It opens only when Matteo says "run
+The holdout is 2026-01-01..2026-09-30. For ES it has been read once, for the 5f fade, and for NQ once, for the same fade; both are spent for any
+test involving the equity close. For every other market it is untouched. It opens only when Matteo says "run
 the holdout".
 
 ## Data and budget as of this update
@@ -89,7 +90,7 @@ bars, ES tick trades on 110 sampled sessions (around level touches), FRED SPX/VI
 (data_nq), and CL/GC/ZN/6E 1-minute bars 2023-04..2025-12 (data_<mkt>), with Study 7's per-market tables.
 Price menu (RUNLOG 2026-10-07, quotes only): full ES RTH tick trades ~$0.41 a session (~$280 in sample);
 1-minute bars ~$3.3 per market for 2023-06..2025-12; tick trades for CL/GC/ZN ~$36-43 RTH, 6E ~$16.
-Databento credit: ~$98.4 of $125 spent; the $100 ask line is effectively reached,
+Databento credit: ~$99.4 of $125 spent; the $100 ask line is effectively reached,
 so every further pull needs Matteo's approval. Cheaper routes priced or found: Databento Standard plan
 ($199/month; trades/MBP-1 for the last 12 months, OHLCV for 16+ years across CME, CBOT, NYMEX, COMEX),
 Sierra Chart historical service (CME tick data with aggressor volume from about 2011-2013, from about

@@ -3,7 +3,7 @@
 Period: in-sample 2023-06-02 to 2025-12-31 (642 sessions with GEX, 502 with a lagged regime and a
 0DTE straddle, ~620 ES and NQ close sessions, 110 sampled sessions with tick trades). Holdout 2026-01-01
 to 2026-09-30: opened once, for the study 5f fade on ES only; untouched for every other test and market.
-Data spend: about $98.4 of the $125 Databento credit; ThetaData free tier.
+Data spend: about $99.4 of the $125 Databento credit; ThetaData free tier.
 Every run, config change and gate decision is in RUNLOG.md. The prompt for choosing the next study is
 NEXT.md.
 
@@ -19,7 +19,7 @@ NEXT.md.
 | study 3 | Does the gamma regime pay as a session-scale band trade? | fade in high gamma -0.24R (207), breakout in low gamma -0.06R (190), fade above flip -0.22R (204); every regime contrast negative, permutation p > 0.9 | kill |
 | study 4 | Does the gamma regime pay as a 0DTE straddle sold or bought at the prior close? | short straddle in high gamma +0.059 EM (266, CI -0.02..+0.14, contrast CI > 0, perm p 0.035); long straddle in low gamma +0.033 EM (236, CI fails); iron fly in high gamma -0.010 EM (265) | kill |
 | study 5 | Does the rest-of-day move continue into the ES close (last 30 minutes)? | S5a -0.037 EM_V (CI -0.054..-0.020), S5b -0.031; timing contrast CI below zero: the close reverses the day (slope t -2.3) | kill |
-| study 5f | Does fading that move pay (S5b reversed), out of sample? | in sample +0.008 EM_V; holdout 2026-01..09 +0.0145 (184 sessions, CI -0.006..+0.036, contrast CI > 0); nudges 7 of 8 positive; NQ +0.024 (CI +0.004..+0.044) | holdout gate pass; edge about one tick wide; paper trading next |
+| study 5f | Does fading that move pay (S5b reversed), out of sample? | in sample +0.008 EM_V; holdout 2026-01..09 +0.0145 (184 sessions, CI -0.006..+0.036, contrast CI > 0); nudges 7 of 8 positive; NQ +0.024 (CI +0.004..+0.044) | ES holdout gate pass; NQ holdout 2026 +0.0072 (needs 0.0122): fail; edge about one tick wide |
 | study 6 | Does pure aggressor imbalance predict ES at 5-15 minutes? | net -0.49 to -1.19 points a trade on all four variants; gross at most +0.09 points; imbalance-return corr 0.009 / 0.020 | kill |
 | study 7 | Does last-30-minute momentum into settlement pay in CL, GC, ZN, 6E? | after costs CL -0.013, GC -0.011, ZN -0.066, 6E -0.020 EM_R, all CIs below zero; timing real only in ZN (contrast CI > 0, p 0.001), led by FOMC days; fade loses after costs everywhere | kill |
 
@@ -43,7 +43,8 @@ NEXT.md.
   ES, its nudges and an NQ replication. The timing is robust; the money is not: the edge is about one
   tick a trade on ES, gone with one more tick of slippage or a 15:55 exit. NQ looks better after costs
   mainly because its tick is a smaller share of its range, and it shares four of its five best days
-  with ES, so it is a confirmation of the pattern, not a second sample.
+  with ES, so it is a confirmation of the pattern, not a second sample. On NQ's own 2026 holdout the
+  fade kept its sign but only about a third of its size (+0.0072 EM_V) and failed its gate.
 - Touched prices revert a little at the one-minute scale: hold rates of 43 to 47% against a 33%
   driftless baseline, and naive fades win 35% against a 31% baseline. That is worth about 0.6 ticks
   per trade.
