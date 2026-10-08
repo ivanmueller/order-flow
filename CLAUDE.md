@@ -98,7 +98,10 @@ Update this block at the end of every session.
   Price run: per session SPY $14.00, QQQ $7.87, IWM $2.02, XSP $1.25 (SPXW unpriced). APPROVED 2026-10-08 as IWM,
   one gated variant at $0.00 commission (Matteo); config s10_* and study10_* added; built tests-first (15 tests;
   full suite 215 pass). Choices flagged: 10 ms sweep merge, equal weight per opportunity, newest-quote marks.
-  Next: --sessions-list, --pull --price-only (exact quote), Matteo's yes (ledger $99.40 -> ~$110), pull, --run.
+  Pulled ($8.19, ledger $107.58; sessions 2023-08-09, 09-27, 10-10, 12-14, 2025-12-02) and run: ADVANCE by the
+  rule in spreads 0.02-0.05 (+$0.50/contract at 5 min, CI +0.34..+0.76, n 62k) and 0.05-0.10 (+$0.78, n 8.5k);
+  penny spreads +$0.11 (CI incl. 0). Cleared fills lose $2-7. Rule-6 diagnostics added (--diagnose), awaiting
+  Matteo's run; gate call is his. Caveats: queue position, pick-offs, passive exit needed (half-spread > RS).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
