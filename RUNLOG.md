@@ -1633,3 +1633,40 @@ Remaining credit ~$25.60. SPY and QQQ whole chains are out of reach; IWM and XSP
 session costs may differ by tens of percent (volume varies by day and grew over 2023-25); the pull prices every
 session exactly with get_cost first. Wealthsimple lists options on US stocks and ETFs only, so the index options
 (XSP, SPXW) would be IBKR trades with Cboe customer index fees on top; IWM is the zero-commission candidate.
+
+## 2026-10-08 | Study 10 APPROVED (IWM, zero commission) and built tests-first; no data pulled yet
+Matteo: "Lets build the IWM test ... test 1 variation with completely $0 commission since this is an execution
+heavy strategy". New family "option liquidity provision": 1 gated variant (V1: IWM options, every at-NBBO fill,
+gate fee $0.00 a contract a side). Sessions: 5, drawn with seed 20261008 from in-sample equity sessions from
+2023-06-01 (no half days); printed by --sessions-list before any data exists.
+Rules as in the draft (2026-10-08 entries) with these settled at approval:
+- Gate fee $0.00 (Matteo). Reported beside it, not gated: pass-through $0.05, IBKR tiered + $0.05, IBKR one-lot
+  $1.05, and whether the verdict would also be ADVANCE at the $0.05 pass-through.
+- No spread restriction: the advance rule looks at every quoted-spread bucket ($0.01 / 0.02-0.04 / 0.05-0.09 /
+  0.10-0.24 / 0.25+). Five buckets are looked at, so an ADVANCE is a lead for fresh sessions, not a result.
+Implementation choices made before any data (flagged for Matteo):
+- One fill opportunity per sweep: prints of one contract, side and price, each within 10 ms of the previous
+  (s10_sweep_ms), count once, because a single resting order is filled once by a multi-venue sweep. Each
+  opportunity has equal weight (a resting one-lot gets one contract), not contract weight.
+- Marks: the newest valid quote at or before t + D from cbbo-1m snapshots and the pre-trade quotes of later
+  prints in the contract (the draft said "the last cbbo-1m snapshot at or after t"; the newest quote of either
+  kind is the better estimate). When no quote newer than the fill is seen, the quote is taken as unchanged; the
+  share of such marks is reported (quote_seen_after_fill_D).
+- Time-of-day buckets reuse s9_tod_edges. Timestamps: ts_recv for prints and snapshots; the sanity block reports
+  the share of snapshots on whole minutes (whether cbbo-1m stamps the interval end).
+Pull: tcbbo + cbbo-1m, IWM.OPT parent, 5 sessions x 13 thirty-minute pieces x 2 schemas = 130 requests, each
+priced with get_cost (spend.Budget) before it is pulled, written to data/raw/opra/iwm/<schema>/<date>/<HHMM>.parquet,
+idempotent. Estimate from the price quote: ~$2.02 a session, ~$10 in all; the exact quote is --pull --price-only.
+The ledger is at $99.40, so the pull needs Matteo's yes on the exact figure and --allow-past-total.
+Stated in advance: the tape measure may well be positive at $0 (market makers earn the spread on average). What
+it cannot show is whether a retail order gets those fills (queue position among customers on one exchange,
+cancels when the stock moves); an ADVANCE leads to a quote-level fill model on fresh sessions, not to trading.
+config diff (approved): params s10_parent "IWM.OPT", s10_sessions 5, s10_seed 20261008, s10_chunk_min 30,
+s10_horizons_min [1, 5, 15], s10_spread_edges [0.01, 0.02, 0.05, 0.10, 0.25], s10_dte_edges [0, 1, 8, 31],
+s10_premium_edges [0.10, 1.0, 5.0], s10_size_edges [1, 2, 10], s10_clearing_window_s 60, s10_sweep_ms 10,
+s10_gate_fee_usd 0.0, s10_other_fee_usd 0.05, s10_commission_tiers [[0.05, 0.25], [0.10, 0.50], [1e6, 0.65]],
+s10_order_min_usd 1.00; gates study10_min_fills 1000, study10_advance_horizon_min 5, study10_confirm_horizon_min 15.
+Build: src/study10.py (draw_sessions, pull, classify, dedupe_sweeps, clearing_flags, mark_mids, realized_spread_usd,
+bucket, fee_table, session_fills, verdict, report, sanity, run); tests/test_study10.py 15 tests (pricing 5; fills and
+exclusions, sweep merge, clearing, marks with staleness and the close, RS by hand, buckets, fees, session draw,
+verdict cases, pull quote/write/idempotent with a fake budget, one synthetic session end to end).

@@ -95,6 +95,10 @@ Update this block at the end of every session.
   assumed) proposed as the gate fee, penny spreads back in scope; IBKR fees reported beside it. Wealthsimple has no
   official API (automation is the binding constraint). Awaiting Matteo's price run, parent choice and approval.
   Price quote rebuilt after gateway 504s: each session priced in 30-minute pieces in parallel (5 tests).
+  Price run: per session SPY $14.00, QQQ $7.87, IWM $2.02, XSP $1.25 (SPXW unpriced). APPROVED 2026-10-08 as IWM,
+  one gated variant at $0.00 commission (Matteo); config s10_* and study10_* added; built tests-first (15 tests;
+  full suite 215 pass). Choices flagged: 10 ms sweep merge, equal weight per opportunity, newest-quote marks.
+  Next: --sessions-list, --pull --price-only (exact quote), Matteo's yes (ledger $99.40 -> ~$110), pull, --run.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -171,6 +175,8 @@ See README.md for the full runbook in order.
   --holdout needs GAMMA_EDGE_RUN_HOLDOUT=1 after study5 --fade-holdout)
 - Study 9: `python -m src.study9 --realized-spread`, `python -m src.study9 --level-reversion` [--report-only]
 - Study 10 price quote (no pull): `python -m src.study10 --price [--parents SPY.OPT ...] [--sessions 5]`
+- Study 10 pilot (IWM): `python -m src.study10 --sessions-list`, `--pull --price-only`, then
+  `--pull --approve-usd X --allow-past-total`, then `--run` (or `--report-only`)
 - Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`

@@ -193,6 +193,22 @@ params:
   s8_e0_k_max:        {value: 5}                            # E0: 10-year yield change over the last k = 1..k_max trading days
   s8_e0_start:        {value: "1990-01-02"}                 # E0 history start (DGS10); SP500 on FRED starts later
   s8_e0_split:        {value: "2020-01-01"}                 # E0 era split: before = the papers' era, from = after publication
+  # Study 10 (RUNLOG 2026-10-08, approved): priority-customer option liquidity pilot; IWM; one gated variant at $0.
+  s10_parent:         {value: "IWM.OPT"}                    # OPRA parent; the only underlying in the pilot
+  s10_sessions:       {value: 5}                            # random in-sample sessions (no half days)
+  s10_seed:           {value: 20261008}                     # session draw
+  s10_chunk_min:      {value: 30}                           # minutes per pull request (whole-session chain requests time out)
+  s10_horizons_min:   {value: [1, 5, 15]}                   # marks after the fill
+  s10_spread_edges:   {value: [0.01, 0.02, 0.05, 0.10, 0.25]}   # quoted spread $: 0.01 / 0.02-0.04 / 0.05-0.09 / 0.10-0.24 / 0.25+
+  s10_dte_edges:      {value: [0, 1, 8, 31]}                # days to expiry: 0 / 1-7 / 8-30 / 31+
+  s10_premium_edges:  {value: [0.10, 1.0, 5.0]}             # mid $: <0.10 / 0.10-0.99 / 1-4.99 / 5+
+  s10_size_edges:     {value: [1, 2, 10]}                   # print size: 1 / 2-9 / 10+
+  s10_clearing_window_s: {value: 60}                        # next print within this many seconds trades through the fill price
+  s10_sweep_ms:       {value: 10}                           # prints of one contract, side and price this close = one fill opportunity
+  s10_gate_fee_usd:   {value: 0.0}                          # $ a contract a side in the advance rule: zero commission (Matteo)
+  s10_other_fee_usd:  {value: 0.05}                         # OCC $0.025 + ORF + CAT, conservative pass-through (reported scenario)
+  s10_commission_tiers: {value: [[0.05, 0.25], [0.10, 0.50], [1000000.0, 0.65]]}  # IBKR <= 10k/month: premium below bound -> $ a contract
+  s10_order_min_usd:  {value: 1.00}                         # IBKR minimum an order (a one-lot pays it)
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -217,7 +233,10 @@ gates:
   study6_min_expectancy_pts: 0.25  # after costs, ES points a trade (one tick)
   study6_tail_drop: 5              # after-cost mean without this many best sessions must stay > 0
   study9_advance_fee_usd: 2.79      # study 9 advance rules use the $0-commission round trip (exchange + regulatory fees only)
-  study8_min_events: 25             # study 8 (RUNLOG 2026-10-08), per variant: in-sample month-ends
+  study10_min_fills: 1000           # study 10 (RUNLOG 2026-10-08): fills in the spread bucket, present in every session
+  study10_advance_horizon_min: 5    # 90% session-bootstrap lower bound of the net mean > 0 at this horizon ...
+  study10_confirm_horizon_min: 15   # ... and the net mean > 0 at this one
+  study8_min_events: 25            # study 8 (RUNLOG 2026-10-08), per variant: in-sample month-ends
   study8_min_friction_multiple: 3   # after-cost mean must exceed this x friction (2 ticks of slippage + cost)
   study8_tail_drop: 3               # after-cost mean without this many best months must stay > 0
   robustness_min_positive_share: 0.80

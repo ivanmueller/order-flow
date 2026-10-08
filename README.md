@@ -115,6 +115,11 @@ python -m src.study8                # M1 (ZN) and M2 (ES); --report-only re-read
 
 # 7j. Study 10 step 0: price OPRA tcbbo + cbbo-1m for the option-liquidity pilot (quotes only; needs the API key)
 python -m src.study10 --price
+#     the pilot (IWM, zero commission): sessions, exact quote, pull (after the yes), run
+python -m src.study10 --sessions-list
+python -m src.study10 --pull --price-only
+python -m src.study10 --pull --approve-usd <quote + margin> --allow-past-total
+python -m src.study10 --run
 
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges
