@@ -113,6 +113,9 @@ python -m src.study8 --count        # tradable month-ends per variant, no P&L: r
 python -m src.study8 --e0           # FRED existence check (downloads DGS10 and SP500 once), in sample only
 python -m src.study8                # M1 (ZN) and M2 (ES); --report-only re-reads the saved tables
 
+# 7j. Study 10 step 0: price OPRA tcbbo + cbbo-1m for the option-liquidity pilot (quotes only; needs the API key)
+python -m src.study10 --price
+
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges
 python -m src.robustness splits

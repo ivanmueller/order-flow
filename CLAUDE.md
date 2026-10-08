@@ -87,7 +87,11 @@ Update this block at the end of every session.
   without the best 3). Family 2 of 4 used. Effect real in yields (~10 ticks gross vs 2.25 friction) but needs ~90
   futures month-ends. Awaiting Matteo's call (accept, or pre-register M1 on a longer ZN history, priced first).
   Venue question answered (no study): options priority-customer liquidity provision ranked first for a fast
-  track; pro-rata SR3 second; prediction-market making third. Nothing scoped or spent.
+  track; pro-rata SR3 second; prediction-market making third. Study 8 KILL accepted by Matteo.
+- Study 10 (priority-customer option liquidity, pilot) pre-registered as a DRAFT (RUNLOG 2026-10-08): realized
+  spread to at-NBBO option fills from OPRA tcbbo + cbbo-1m on 5 random in-sample sessions, net of IBKR retail fees
+  (~$0.70 a side, $1.05 for a one-lot); advance only in spreads >= $0.05. Step 0 built: `python -m src.study10
+  --price` (quotes only, 3 tests). Awaiting Matteo's price run, parent choice and approval; any pull needs his yes.
   Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),
   WRITEUP, RESULTS, README and CANDIDATES brought up to date.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
@@ -160,6 +164,7 @@ See README.md for the full runbook in order.
 - Bankroll simulation of the 5f fade (descriptive): `python -m src.bankroll [--holdout]` (NQ: GAMMA_EDGE_CONFIG=config.nq.yaml;
   --holdout needs GAMMA_EDGE_RUN_HOLDOUT=1 after study5 --fade-holdout)
 - Study 9: `python -m src.study9 --realized-spread`, `python -m src.study9 --level-reversion` [--report-only]
+- Study 10 price quote (no pull): `python -m src.study10 --price [--parents SPY.OPT ...] [--sessions 5]`
 - Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`

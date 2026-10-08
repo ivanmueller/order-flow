@@ -1540,3 +1540,52 @@ roughly 4 ZN ticks per bp (DV01 ~$60-70, depends on the cheapest-to-deliver) tha
 2.25 ticks of friction, about the published Sharpe (~0.7 a year from 12 trades). Our 21 ZN month-ends cannot
 resolve it (SE ~7.7 ticks; ~90 month-ends are needed for t = 2 at that size). Rebalancing (M2): no evidence in
 E0 or in futures. Both variants KILL by the rules; 2 of 4 used in the family.
+
+## 2026-10-08 | Study 8 KILL accepted; Study 10 pre-registration DRAFT: priority-customer option liquidity (pilot)
+Matteo: "Accept the KILL but I want to move on to a small test of the options idea." Study 8 family closed at
+2 of 4 (M1 effect noted as real in yields, unproven in futures; not pursued).
+
+Study 10 question: does a non-professional ("priority customer") limit order resting at the NBBO of a US option
+earn the half-spread net of adverse selection and retail fees? On most US options exchanges a priority customer
+(<= 390 orders a day on average in a month) is filled ahead of market makers at the same price and pays no or low
+exchange fees, so on its exchange it sits at the front of the queue, which Study 9 found is where the ES residual
+went. Pilot = a measurement, like Study 9 Part A: it can only KILL or ADVANCE to a pre-registered strategy test.
+
+Fee arithmetic (IBKR Pro tiered, US options, checked 2026-10-08; 390 one-lot orders x 21 days = 8,190 contracts a
+month, so the <= 10,000 tier): commission $0.65 a contract at premium >= $0.10, $0.50 at $0.05-0.10, $0.25 below
+$0.05; minimum $1.00 an order; OCC clearing $0.025; plus ORF, CAT ($0.0003) and SEC (sells). Proposed "other" =
+$0.05 a contract a side (conservative; ORF to be checked before the run). Gate fee a side = premium-tiered
+commission + $0.05 (orders of 2+ contracts); a one-lot order pays the $1.00 minimum + $0.05 = $1.05, reported
+beside it. Index options on Cboe (SPXW, XSP) carry customer exchange fees that must be added before the run if
+chosen. A penny-wide series offers $0.50 of half-spread a contract against ~$0.70 of fee: dead before adverse
+selection. The test is about series quoted $0.05 or wider.
+
+Data (OPRA.PILLAR, schemas exist from 2023-03-28): tcbbo (every trade with the consolidated NBBO at the trade, and
+the venue in publisher_id; OPRA never disseminates the aggressor side) and cbbo-1m (consolidated NBBO each
+minute) for the chosen parent(s), RTH 09:30-16:00 ET, s10_sessions random in-sample sessions (seeded; no half
+days). Step 0 prices this first: python -m src.study10 --price (free). Parents chosen at approval within the
+remaining credit ($125 - ~$99.40 = ~$25.60; any pull now needs Matteo's yes).
+Fills: trades exactly at the NBBO bid (the passive side bought, s = +1) or ask (passive side sold, s = -1), with
+0 < bid < ask. Excluded and counted: trades inside the spread (auctions, price improvement), outside it, locked
+or crossed markets, zero bids.
+Value per fill, $ a contract: RS_D = s x (mid(t + D) - p) x 100, D = 1, 5, 15 min, mid from the last cbbo-1m
+snapshot at or before t + D (and at or after t); dropped when t + D passes 16:00 or the option's expiry.
+Net = RS_D - gate fee. Session-bootstrap CI (the session is the cluster).
+Buckets (all predeclared): quoted spread $0.01 / 0.02-0.04 / 0.05-0.09 / 0.10-0.24 / 0.25+; days to expiry 0 /
+1-7 / 8-30 / 31+; premium < 0.10 / 0.10-0.99 / 1-4.99 / 5+; Study 9's time-of-day buckets; trade size 1 / 2-9 /
+10+; clearing proxy (the next trade in the contract within 60 s prints through the fill price: the fill a
+back-of-queue order would also have got) vs other. Descriptive: by venue (publisher_id).
+ADVANCE if, in some spread bucket of $0.05 or wider with >= 1,000 fills present in every session, the 5-minute
+mean net (gate fee) has a 90% session-bootstrap lower bound > 0 and the 15-minute mean net is > 0. Otherwise KILL.
+An ADVANCE leads only to a strategy test with a quote-level fill model on fresh sessions (cbbo-1s or cmbp-1,
+priced then). With 5 sessions the CI is coarse; it is a filter, not a verdict.
+Known optimism (stated in advance): counting every at-NBBO print as a fill assumes front-of-queue on the venue
+that printed, which a priority customer has only on its own exchange and behind earlier customers. Known
+pessimism: marking at mid ignores a passive exit (earning a second half-spread).
+Expected outcome: KILL in penny-wide series by arithmetic; nickel-and-wider series uncertain, with a prior against
+(wide quotes are wide because those series are hard to hedge or rarely trade).
+Proposed config (needs approval): s10_parents (chosen after pricing), s10_sessions 5, s10_seed 20261008,
+s10_horizons_min [1, 5, 15], s10_spread_edges [0.01, 0.02, 0.05, 0.10, 0.25], s10_dte_edges [0, 1, 8, 31],
+s10_premium_edges [0.10, 1.0, 5.0], s10_commission_tiers {0.05: 0.25, 0.10: 0.50, else: 0.65}, s10_order_min_usd
+1.00, s10_other_fee_usd 0.05, s10_clearing_window_s 60; gates study10_min_fills 1000, study10_min_spread 0.05.
+Build so far: src/study10.py --price (quotes only) with tests/test_study10.py (3 tests, fake client).
