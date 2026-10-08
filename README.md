@@ -104,6 +104,15 @@ python -m src.study7 --bridge
 python -m src.bankroll
 python -m src.bankroll --holdout
 
+# 7h. Study 9 passive-fill measurements on the on-disk ticks and touches (no spend)
+python -m src.study9 --realized-spread
+python -m src.study9 --level-reversion
+
+# 7i. Study 8 month-end compelled flow (no overlay set; loads config.yaml and config.zn.yaml itself; no spend)
+python -m src.study8 --count        # tradable month-ends per variant, no P&L: run first
+python -m src.study8 --e0           # FRED existence check (downloads DGS10 and SP500 once), in sample only
+python -m src.study8                # M1 (ZN) and M2 (ES); --report-only re-reads the saved tables
+
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges
 python -m src.robustness splits

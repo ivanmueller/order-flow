@@ -1455,3 +1455,54 @@ by about half a tick of adverse selection. The front of the queue keeps a few hu
 the queue, where a retail resting order sits, pays about 0.6 tick per fill. Even with perfect fills and $0
 commission, level reversion is worth at most about a third of a tick at a 1-minute hold, and real levels do worse
 than random prices. Track B on ES at a retail queue position is closed.
+
+## 2026-10-08 | Study 8 APPROVED and built tests-first: month-end compelled flow (Track A); no run yet
+Matteo: "let's do track A". Taken as approval of the Study 8 draft above as written (E0, M1, M2; 2 of 4
+variants in the new family). Build: src/study8.py; tests/test_study8.py (15 tests: month-end calendar with
+incomplete months, yield changes by hand, par-bond return against a cash-flow sum, rebalancing frame by hand,
+month-to-date return across a roll, hold P&L long and short with roll-in-window skip, M2 direction, friction,
+all four gate checks, synthetic M1/M2 pipelines, E0 end to end with 2026 rows on disk sealed out, report).
+Full suite passes.
+Changes from the draft (both conservative, flagged for Matteo):
+- E0 stops at 2025-12-31, not 2026-09. Month-end 10-year yield changes in 2026 are, in effect, M1's
+  out-of-sample result (ZN is a 10-year future), and the S&P last-day returns of 2026 are M2's. Reading them in
+  E0 would open the family's out-of-sample period early. Rule 2 applies; E0 goes through the seal.
+- E0's history start and era split are config entries (s8_e0_start 1990-01-02, s8_e0_split 2020-01-01), the
+  values stated in the draft. The 10-year price proxy is a par bond repriced at DGS10 (10 years, semiannual,
+  calendar-day carry): structural, no tunable duration.
+Implementation choices (stated before any number is seen):
+- Month-end = the last session of each complete month in the market's own calendar; entry = the session k before
+  it (M1 k=4: 5th-to-last; M2 k=2: 3rd-to-last). M1 holds 4 sessions, M2 2.
+- M1 stays on the entry contract; when ZN.v.0 switches contract inside the window the month is skipped
+  (roll_in_window). ZN's volume roll sits in late Feb/May/Aug/Nov, close to the T-4 entry, so up to ~10 of ~31
+  in-sample months could be skipped and M1 could fail n >= 25 mechanically. `--count` reports tradable months
+  and skip reasons without any P&L, so the fix (back-month bars for those windows, priced with get_cost) can be
+  decided before results exist.
+- M2 decides on the 16:00 ES close (bar closing 16:00) and the 15:00 ZN settlement close of the entry day, enters
+  at the open of the ES 16:00 bar one tick adverse (Study 5's clock), exits at the open of the 16:00 bar on the
+  last session one tick adverse. Month-to-date returns are chained daily log returns on one contract from the
+  previous month's last close; a return across a contract change is skipped and counted (mtd_returns_skipped).
+- Gate thresholds computed from friction = 2 ticks + $3.98: M1 3 x 2.255 = 6.76 ZN ticks; M2 3 x 0.580 = 1.74
+  ES points (the draft's rounded 6.75 and 1.75).
+- Descriptive only: each variant's by-year means, EM_R units, win rate; the same hold from every session (drift
+  reference: is it month-end or just 2023-25 drift?); M2's long-side return regressed on R (Harvey et al.
+  predict a negative slope).
+Out-of-sample step (ZN 2026 bars not on disk; ES 2026 16:00 bars on disk): built only if a variant passes in
+sample, and run only on "run the holdout".
+Run order for Matteo (no overlay set, $0): python -m src.study8 --count; python -m src.study8 --e0;
+python -m src.study8.
+config diff (approved with the draft): params s8_m1_entry_days_before_end 4, s8_m1_entry_time "15:00",
+s8_m2_entry_days_before_end 2, s8_fred_series [DGS10, SP500], s8_e0_k_max 5, s8_e0_start "1990-01-02",
+s8_e0_split "2020-01-01"; gates study8_min_events 25, study8_min_friction_multiple 3, study8_tail_drop 3.
+
+## 2026-10-08 | Venue question (no study, no spend)
+Matteo asked whether crypto or prediction markets hold more edge, and how a high-frequency small edge could be
+reached in markets at all. Answer given: the ES edge is the residual to queue priority (Study 9), so look where
+priority or payment does not go by speed. Ranked: (1) US equity/index options as a priority customer (priority over
+market makers at the same price on many exchanges, usually no exchange fee, up to 390 orders a day on average;
+ISE filing SR 34-62152); risk = stale quotes picked off; needs intraday option quotes, to be priced; (2) CME
+pro-rata products (SR3 outrights: top order, then pro rata with a 2-lot minimum; ZT; grains; per Databento's CME
+matching summary), capital-heavy; (3) prediction-market making (Polymarket: makers pay no fee and get 15-25% of
+taker fees back; Kalshi taker 0.07 p(1-p), maker 0 in most series), outside scope. Crypto is not more edge by
+default: Hyperliquid retail maker 0.015% / taker 0.045% versus ES ~0.001% of notional per round trip; rebates start
+at 0.5% of exchange maker volume. Nothing scoped; a Study 10 desk scope of option 1 offered.

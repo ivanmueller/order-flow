@@ -185,6 +185,14 @@ params:
   s9_lr_horizons_min: {value: [1, 3, 5, 10, 15, 30, 45, 60]}  # level-reversion holds (minutes after the fill bar)
   s9_fill_window:     {value: 10}                           # bars a resting order at the level stays working
   s9_fee_scenarios_usd: {value: [0.0, 2.79, 3.98]}          # round trip: theoretical zero; $0 commission (CME 1.386 + reg 0.011 per side); broker now
+  # Study 8 (RUNLOG 2026-10-08, approved): month-end compelled flow (Track A). Fixed, no nudges.
+  s8_m1_entry_days_before_end: {value: 4}                   # M1 enters k trading days before the last (5th-to-last day), exits on the last
+  s8_m1_entry_time:   {value: "15:00"}                      # ZN bar opening at settlement; entry and exit at its open (Study 7 clock)
+  s8_m2_entry_days_before_end: {value: 2}                   # M2 decides at the 16:00 ES close k trading days before the last; exits at the last
+  s8_fred_series:     {value: ["DGS10", "SP500"]}           # E0 inputs (FRED, no key)
+  s8_e0_k_max:        {value: 5}                            # E0: 10-year yield change over the last k = 1..k_max trading days
+  s8_e0_start:        {value: "1990-01-02"}                 # E0 history start (DGS10); SP500 on FRED starts later
+  s8_e0_split:        {value: "2020-01-01"}                 # E0 era split: before = the papers' era, from = after publication
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -209,6 +217,9 @@ gates:
   study6_min_expectancy_pts: 0.25  # after costs, ES points a trade (one tick)
   study6_tail_drop: 5              # after-cost mean without this many best sessions must stay > 0
   study9_advance_fee_usd: 2.79      # study 9 advance rules use the $0-commission round trip (exchange + regulatory fees only)
+  study8_min_events: 25             # study 8 (RUNLOG 2026-10-08), per variant: in-sample month-ends
+  study8_min_friction_multiple: 3   # after-cost mean must exceed this x friction (2 ticks of slippage + cost)
+  study8_tail_drop: 3               # after-cost mean without this many best months must stay > 0
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 

@@ -76,7 +76,14 @@ Update this block at the end of every session.
   110 tick sessions; Part B level reversion with a resting order (perfect upper bound and rule-5 conservative) at
   1-60 min holds, fees $0/$2.79/$3.98. Run: KILL on both. Passive fills ~0 tick at 5-60 s; back-of-queue -0.6 tick;
   front-of-queue +0.05 (< fee); level reversion perfect +0.08 pts at 1 min (CI incl. 0), worse than placebo;
-  conservative -0.4 to -1.2 pts. Track B closed for ES at retail queue position. Track A (Study 8) still awaits approval.
+  conservative -0.4 to -1.2 pts. Track B closed for ES at retail queue position.
+- Study 8 (Track A) APPROVED 2026-10-08 ("let's do track A") as drafted; built tests-first (src/study8.py, 15 tests;
+  config s8_* params and study8_* gates added). Two changes to the draft, both conservative: E0 stops at 2025-12
+  (2026 10-year yields are in effect M1's out-of-sample result), and E0's split/start are config entries.
+  Known risk: ZN rolls late Feb/May/Aug/Nov can fall inside M1's 4-day window (skipped), so M1 may miss n >= 25;
+  `--count` reports this before any P&L is seen. Awaiting Matteo's run: --count, --e0, then M1/M2.
+  Venue question answered (no study): options priority-customer liquidity provision ranked first for a fast
+  track; pro-rata SR3 second; prediction-market making third. Nothing scoped or spent.
   Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),
   WRITEUP, RESULTS, README and CANDIDATES brought up to date.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
@@ -149,5 +156,6 @@ See README.md for the full runbook in order.
 - Bankroll simulation of the 5f fade (descriptive): `python -m src.bankroll [--holdout]` (NQ: GAMMA_EDGE_CONFIG=config.nq.yaml;
   --holdout needs GAMMA_EDGE_RUN_HOLDOUT=1 after study5 --fade-holdout)
 - Study 9: `python -m src.study9 --realized-spread`, `python -m src.study9 --level-reversion` [--report-only]
+- Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`
