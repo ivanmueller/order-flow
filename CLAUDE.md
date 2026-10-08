@@ -60,7 +60,10 @@ Update this block at the end of every session.
   ZN -0.066, 6E -0.020 EM_R); timing real only in ZN (p 0.001, FOMC-led), ~0.6 tick vs 2 ticks of cost; fade
   negative after costs everywhere; ES bridge under EM_R unchanged. Ledger ~$98.43. Descriptive pooled-fade
   bug fixed, FOMC split added. KILL accepted 2026-10-08. Hypothetical $30k bankroll of the 5f fade built
-  (src/bankroll.py, config bankroll section; descriptive, in sample); awaiting Matteo's NQ/ES runs.
+  (src/bankroll.py, config bankroll section; descriptive, in sample). Run: 1 NQ $30k -> $81.9k (DD 27.7%,
+  stress $75.7k); 1 ES -> $43.5k (stress -6.5%); micros hurt by the pessimistic $3.98 micro cost; half the NQ
+  profit from 5 sessions. Next candidates: real micro cost rerun, NQ holdout 2026-01..09 (untouched, ~$1 of
+  bars, needs "run the holdout"), paper trading.
   Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),
   WRITEUP, RESULTS, README and CANDIDATES brought up to date.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero

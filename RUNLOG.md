@@ -1267,3 +1267,21 @@ VIX path unchanged), then price, approve, pull, run --fade-replication per marke
 - config diff (approved): new bankroll section (start_usd 30000, full_contracts 1, micro_point_value 5.0 for
   MES with config.nq.yaml setting 2.0 for MNQ, micro_cost_rt_usd 3.98, risk_pcts [0.01, 0.02]).
 - Next on Matteo's machine: python -m src.bankroll under config.nq.yaml (and under config.yaml for ES).
+
+## 2026-10-08 | Hypothetical bankroll run of the 5f fade (Matteo's machine, commit af109ff; in sample, descriptive)
+- $30,000 start, 2023-06-02..2025-12-31, one fade trade a session, SPEC rule-5 fills, $3.98 a round trip on
+  every contract including micros (pessimistic for micros until the broker confirms).
+- NQ (621 sessions): 1 NQ fixed $30,000 -> $81,948 (+173%, CAGR 47.6%), max DD $14,127 (27.7%), worst day
+  -$4,274, worst month -$8,341, 61% positive months, Sharpe 1.37, losing streak 9, notional up to 12x equity;
+  stress (+1 tick each side) $75,738. 1 MNQ fixed $32,970 (+9.9%, DD 5.3%). Risk 1% in MNQ $32,511 (+8.4%,
+  DD 10.1%, at most 3 micros); risk 2% $35,518 (+18.4%, DD 20.3%, at most 6). Stress keeps every NQ scheme
+  positive.
+- ES (618 sessions): 1 ES fixed $30,000 -> $43,490 (+45%, CAGR 15.5%), DD $11,591 (27.9%), Sharpe 0.68; stress
+  $28,040 (-6.5%, DD 45%). Every MES scheme loses (-2.9% to -19.5%), because the ES edge (~$25.8 gross a contract,
+  ~$2.58 an MES) is smaller than $3.98.
+- Reading: per full contract the NQ fade made about $84 a trade net ($87.6 gross); the in-sample 90% CI of the
+  NQ mean (+0.0038..+0.0443 EM_V) maps to roughly $13..$152 a trade, i.e. about $8k..$95k over the period on
+  one NQ. The five best sessions carry about half the profit (mean without them +0.0126 vs +0.0243). Micro
+  results are dominated by the assumed $3.98 micro cost (about 45% of the MNQ gross edge). All of this is the
+  sample the fade was found on (ES) or a ~0.9-correlated twin (NQ): it describes the ride, not the expectation.
+- No gate, no spend, no holdout read.

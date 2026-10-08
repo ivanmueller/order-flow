@@ -247,6 +247,9 @@ Study 5 decision: pending Matteo's call.
 - **Result.** In sample +0.0080 EM_V (CI -0.009..+0.025, timing contrast CI > 0, perm p 0.016 / 0.039, but
   about zero without the best five days). Holdout 2026-01-02..09-30, 184 sessions: +0.0145 EM_V (CI
   -0.006..+0.036), timing contrast +0.023 (CI > 0), perm p 0.037 / block 0.077.
+- **Hypothetical bankroll (in sample, descriptive, 2026-10-08).** $30,000 on 1 NQ fixed -> $81,948 (max DD 27.7%,
+  stress +1 tick $75,738); on 1 ES fixed -> $43,490 (stress -6.5%); micro schemes small or negative at a
+  pessimistic $3.98 a micro. Half the NQ profit comes from five sessions.
 - **Verdict.** Holdout gate PASS (positive and at least half the in-sample mean). The reversal replicates;
   the after-cost edge (about 0.4-0.5 points a trade) is not statistically resolved. Next by SPEC: nudges,
   splits, NQ replication, paper trading. Decision pending Matteo.
