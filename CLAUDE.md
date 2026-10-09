@@ -141,6 +141,9 @@ Update this block at the end of every session.
   flow features, 9 holds 5 s-30 min, 4 fill models (2 gating, rule 5), ~1,700 single/pair patterns on the Study 6 tick
   spans; noise test (200 circular-shift reruns); 60/20/20 date split, test days untouched until frozen. Next: Matteo
   runs --build, --discover, posts; --test only after review. Expected: nothing frozen or FAIL.
+  Discovery run 2026-10-09: 4 frozen, all LONG 30-min "few big prints + early in the day" (validation +6 to +8 pts,
+  lb > 0); all 80 top patterns long 15-30 min (drift signature); noise p ~0.04. Rule 6: --diagnose added (drift,
+  time-of-day increment, day concentration, no-future-selection subset). --test NOT run; awaiting diagnose output.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

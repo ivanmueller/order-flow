@@ -130,3 +130,14 @@ def test_apply_pattern_uses_discovery_cuts():
     cuts = {"f1": (0.5, 2.5), "f2": (-1.0, 1.0)}
     assert list(study13.pattern_mask(X, "f1:hi", cuts)) == [False, False, False, True]
     assert list(study13.pattern_mask(X, "f1:lo&f2:hi", cuts)) == [True, False, False, False]
+
+
+def test_clean_flags_drop_decisions_kept_only_by_a_future_touch():
+    t0 = pd.Timestamp(f"{DAY} 10:10", tz="America/New_York").tz_convert("UTC")
+    O = pd.DataFrame({"date": [DAY] * 4,
+                      "t": [t0 - pd.Timedelta(minutes=5), t0, t0 + pd.Timedelta(minutes=10),
+                            t0 + pd.Timedelta(minutes=20)]})
+    touches = pd.DataFrame({"date": [DAY], "t0": [t0]})
+    f = study13.clean_flags(O, touches, hold_s=1800, post_min=45, latency_s=1)
+    # before the touch: selected on the future; at t0 and t0+10: the 30-min trade ends by t0+45; t0+20 runs past it
+    assert list(f) == [False, True, True, False]

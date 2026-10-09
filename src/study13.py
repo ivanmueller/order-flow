@@ -33,6 +33,7 @@ until then): PASS if the net mean > 0 with a 90% day-bootstrap lower bound > 0 o
 
   python -m src.study13 --build        # observation table (study13_obs)
   python -m src.study13 --discover     # search + noise test + validation -> study13_frozen.json (no test days read)
+  python -m src.study13 --diagnose     # rule-6 checks of the frozen patterns (discovery + validation days only)
   python -m src.study13 --test         # once: the frozen patterns on the test days -> study13_test.json
 """
 from __future__ import annotations
@@ -455,11 +456,89 @@ def run_test(cfg, O: pd.DataFrame) -> dict:
     return out
 
 
+# ---------------------------------------------------------------------------
+# Rule-6 diagnostics before the test (discovery + validation days only)
+# ---------------------------------------------------------------------------
+def clean_flags(O: pd.DataFrame, touches: pd.DataFrame, hold_s: float, post_min: float, latency_s: float) -> np.ndarray:
+    """True where the decision's tick window exists because of a touch already in the past: some touch t0 <= t with
+    the whole trade (t + latency + hold) inside t0 + post_min. Decisions before a span's touch (or in a span
+    extended by a later touch) are kept in the data only because price later reached a level: selection on the
+    future."""
+    if O.empty or touches.empty:
+        return np.zeros(len(O), bool)
+    tch = touches[["date", "t0"]].assign(t0=pd.to_datetime(touches["t0"], utc=True).dt.as_unit("ns")).sort_values("t0")
+    O = O.reset_index(drop=True)
+    left = O[["date", "t"]].assign(t=pd.to_datetime(O["t"], utc=True).dt.as_unit("ns")).reset_index().sort_values("t")
+    out = np.zeros(len(O), bool)
+    end_need = pd.to_timedelta(hold_s + latency_s, unit="s")
+    post = pd.Timedelta(minutes=post_min)
+    # the latest touch at or before t is the one with the most room left
+    m = pd.merge_asof(left, tch, left_on="t", right_on="t0", by="date", direction="backward")
+    ok = m["t0"].notna() & ((m["t"] + end_need) <= (m["t0"] + post))
+    out[m.loc[ok, "index"].to_numpy()] = True
+    return out
+
+
+def _day_stats(x: pd.DataFrame, col: str) -> dict:
+    per = x.groupby("date")[col].mean().sort_values(ascending=False)
+    if per.empty:
+        return {}
+    return {"days": int(len(per)), "days_positive": int((per > 0).sum()), "best_day": float(per.iloc[0]),
+            "mean_of_day_means": float(per.mean()),
+            "mean_of_day_means_without_best_3": float(per.iloc[3:].mean()) if len(per) > 3 else np.nan}
+
+
+def diagnose(cfg, O: pd.DataFrame, touches: pd.DataFrame) -> dict:
+    """Is a frozen pattern order flow, or drift / time of day / sample selection? Never reads the test days."""
+    fz, _ = _paths(cfg)
+    F = json.loads(fz.read_text())
+    test_days = {pd.Timestamp(d).date() for d in F["test_days"]}
+    days_d, days_v, _ = split_days(O["date"].unique(), param(cfg, "s13_split"))
+    assert not (set(days_d) | set(days_v)) & test_days
+    parts = {"discovery": O[O["date"].isin(days_d)], "validation": O[O["date"].isin(days_v)]}
+    lat, post = param(cfg, "s13_latency_s"), cfg["data"]["trades_post_min"]
+    out = {"note": "Study 13 rule-6 diagnostics (discovery + validation only; test days not read)", "patterns": []}
+    # the same outcome with no condition, by time of day: what drift alone gives
+    cols = sorted({c["column"] for c in F["frozen"]})
+    for c in cols:
+        rows = {}
+        for name, X in parts.items():
+            tb = pd.cut(X["tod_min"], [0, 30, 60, 120, 240, 400])
+            rows[name] = {"all_decisions": float(X[c].mean()),
+                          "by_minutes_after_open": {str(k): float(g[c].mean()) for k, g in X.groupby(tb, observed=True)},
+                          "short_side_all": float(X[c.replace("|long|", "|short|")].mean())}
+        out[f"unconditional::{c}"] = rows
+    for f in F["frozen"]:
+        H = float(f["column"].split("|")[2])
+        r = {"model": f["model"], "test": f["test"], "column": f["column"]}
+        conds = f["test"].split("&")
+        for name, X in parts.items():
+            m = pattern_mask(X, f["test"], F["cuts"])
+            col = f["column"]
+            x = X.loc[m, ["date", "t", col]].dropna()
+            # the flow condition's own contribution: the pattern vs the same time-of-day condition alone
+            tod = [c for c in conds if c.startswith("tod_min")]
+            base = X.loc[pattern_mask(X, tod[0], F["cuts"]) if tod else np.ones(len(X), bool), col].mean()
+            clean = clean_flags(X.loc[m], touches, H, post, lat)
+            xc = X.loc[m][clean][["date", col]].dropna()
+            no = non_overlap(X, m, col, H + lat)
+            r[name] = {"n": int(len(x)), "mean": float(x[col].mean()) if len(x) else np.nan,
+                       "time_of_day_condition_alone": float(base),
+                       "flow_condition_adds": float(x[col].mean() - base) if len(x) else np.nan,
+                       "by_day": _day_stats(x, col),
+                       "one_position_at_a_time": {"n": int(len(no)), "mean": float(no[col].mean()) if len(no) else np.nan},
+                       "no_future_selection": {"n": int(len(xc)), "days": int(xc["date"].nunique()),
+                                               "mean": float(xc[col].mean()) if len(xc) else np.nan}}
+        out["patterns"].append(r)
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--build", action="store_true")
     ap.add_argument("--discover", action="store_true")
     ap.add_argument("--test", action="store_true")
+    ap.add_argument("--diagnose", action="store_true", help="rule-6 checks on the frozen patterns (no test days)")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
@@ -470,6 +549,8 @@ def main(argv=None):
               f"features {len(feature_names(O))}; outcome columns {len(outcome_names(O))}")
     elif a.discover:
         print(to_json(discover(cfg, store.load_derived("study13_obs", cfg))))
+    elif a.diagnose:
+        print(to_json(diagnose(cfg, store.load_derived("study13_obs", cfg), store.load_derived("touches", cfg))))
     elif a.test:
         print(to_json(run_test(cfg, store.load_derived("study13_obs", cfg))))
     else:

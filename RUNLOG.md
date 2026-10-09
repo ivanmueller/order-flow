@@ -2028,3 +2028,21 @@ s13_quantile 0.2, s13_split [0.6,0.2,0.2], s13_null_reps 200, s13_seed 20261012,
 0.05, study13_min_obs 500, study13_min_days 15, study13_max_frozen 4, study13_test_min_days 10.
 Tests: 8 new (features by hand, all four fills by hand, roll exit dropped, unfilled resting order, planted pattern
 found and beats noise, pure noise does not, date split, discovery cuts); full suite 271 pass.
+
+## 2026-10-09 | Study 13 DISCOVERY run (Matteo's laptop, commit 648d1e9; $0); test days untouched
+Days: discovery 64 (2023-06-05..2024-12-17, 108,270 decisions), validation 21 (2024-12-19..2025-06-27, 33,894),
+test 21 untouched. 29 features, 1,682 patterns x 72 outcome columns (~121k scored), noise test 200 reruns.
+Best by model (all: rv_ref:hi & tod_min:hi, LONG, 30-min hold): taker_spec +5.11 pts (n 1,478, 26 days), noise p 0.040
+(noise best median 2.53, q95 4.73); passive_through +5.53, p 0.045; taker_spread p 0.040; passive_touch p 0.040.
+The best pattern fails validation (+2.19, CI -1.25..+4.70, 8 days).
+FROZEN (rule: gating model passed noise test, validation lb > 0 on >= 10 days): big_300:lo & tod_min:lo long 30 min
+(passive_through val +7.73, CI +2.99..+12.94, 20 days; taker_spec +7.40, CI +2.72..+12.53) and big_60:lo & tod_min:lo
+long 30 min (passive_through +6.41, CI +2.48..+10.77; taker_spec +6.14).
+RULE 6 (strong-looking result): all 80 top patterns (20 per model) are LONG with 15-30 min holds: the signature of
+drift / time of day, not order flow. Effective sample ~1 overlapping 30-min trade a day (20 validation days). Known
+bias: tick spans exist only around Stage 2 touches, so decisions before a touch (or in a span lengthened by a later
+touch) are in the data because price later reached a level (selection on the future). Noise p 0.04-0.045 is
+marginal with 4 models. --test NOT run. Added --diagnose (discovery + validation only): unconditional long/short by
+time of day, the flow condition's increment over the time-of-day condition alone, per-day concentration, one position
+at a time, and the subset with no future selection (trade inside the 45 minutes after a past touch). Test 1 new;
+full suite 272 pass.
