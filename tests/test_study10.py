@@ -349,3 +349,14 @@ def test_empty_kind_borrows_from_all_sessions():
     assert list(pools[1]["cleared"][0]) == [-3.0]                 # session 2 had none of its own
     d = study10.simulate_daily(pools, 1, 1, 1.0, 1000, np.random.default_rng(2))
     assert np.allclose(d, -3.0)                                    # every day loses, whichever session is drawn
+
+
+def test_unmarked_fills_are_left_out_of_the_pools(cfg):
+    F = pd.DataFrame({"date": [dt.date(2024, 1, 2)] * 3, "spread_b": ["0.02-0.05"] * 3,
+                      "net_5": [1.0, np.nan, 2.0], "size": [1, 1, 1], "cleared": [False, False, True]})
+    pools = study10.bankroll_pools(F, ["0.02-0.05"], "net_5")
+    assert len(pools[0]["all"][0]) == 2 and np.isfinite(pools[0]["all"][0]).all()
+    c = dict(cfg)
+    c["bankroll"] = {**cfg["bankroll"], "s10_paths": 3, "s10_days": 5}
+    t = study10.bankroll(F, c)
+    assert t["mean_day_usd"].notna().all() and t["median_final_usd"].notna().all()

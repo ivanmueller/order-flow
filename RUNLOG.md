@@ -1733,3 +1733,8 @@ no pick-off fills, no capital limit) and adds that days and fills are independen
 config diff (approved by the request): bankroll.s10_buckets [0.02-0.05, 0.05-0.10], s10_fills_per_day
 [100, 200, 300], s10_break_through [null, 0.20, 0.30], s10_contracts [1, 2, 3, 4, 5], s10_paths 500, s10_days 252,
 s10_seed 20261009. Command: python -m src.study10 --bankroll (saves study10_bankroll).
+
+## 2026-10-09 | Study 10 bankroll run 1 DISCARDED (commit 900df4e): every money column NaN
+Fills within 5 minutes of the close have no 5-minute mark (net_5 NaN by design); the pools kept them, so any day
+that drew one summed to NaN, and losing-day shares counted NaN days as not losing. Fix: pools drop unmarked fills;
+the run now stops if a simulated day is not finite; test added (23 Study 10 tests pass). Numbers from run 1 are void.

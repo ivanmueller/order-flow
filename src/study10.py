@@ -520,7 +520,8 @@ def fill_pnl(rs, size, k: int) -> np.ndarray:
 
 def bankroll_pools(F: pd.DataFrame, buckets, col: str) -> list:
     pools = []
-    for _, g in F[F["spread_b"].isin(buckets)].groupby("date"):
+    use = F[F["spread_b"].isin(buckets) & F[col].notna()]       # fills too near the close have no mark at t + D
+    for _, g in use.groupby("date"):
         clr = g["cleared"].astype(bool).to_numpy()
         v, z = g[col].to_numpy(float), g["size"].to_numpy(int)
         pools.append({"cleared": (v[clr], z[clr]), "other": (v[~clr], z[~clr]), "all": (v, z)})
@@ -587,6 +588,8 @@ def bankroll(F: pd.DataFrame, cfg) -> pd.DataFrame:
         for k in b["s10_contracts"]:
             for n in b["s10_fills_per_day"]:
                 daily = np.vstack([simulate_daily(pools, k, n, share, days, rng) for _ in range(paths)])
+                if not np.isfinite(daily).all():
+                    raise ValueError("bankroll: a simulated day is not finite (an unmarked fill in a pool?)")
                 st = path_stats(daily, start)
                 fin = st["final"]
                 rows.append({"fill_quality": label, "contracts": k, "fills_per_day": n,
