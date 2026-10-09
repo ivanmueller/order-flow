@@ -1,0 +1,480 @@
+"""Study 13 (Matteo 2026-10-09): order-flow pattern DISCOVERY on the on-disk ES ticks, with a noise test, then a
+single test on untouched days. Data: the Study 6 sessions (in-sample Stage 3 days with tick spans, no roll or half
+days); the spans are the ~55 minutes around Stage 2 touches, not whole sessions (a known bias, reported).
+
+Decisions every s13_grid_s seconds inside each span (s13_grid_start .. s13_grid_end ET). At a decision t, using only
+prints before t:
+  per window W in s13_windows_s (the last, Wr, is the reference):
+    imb_W   (buy - sell aggressor volume) / volume          ret_W  last price - first price in the window (ticks)
+    big_W   share of volume in prints >= q_big              div_W  imb_W x sign(ret_W) (< 0: flow against price)
+    for W < Wr: rate_ratio_W (prints a second vs Wr), absorb_W (volume per tick of range + 1, vs Wr),
+                avgsize_W (contracts a print, vs Wr)
+  vwap_dist (last - VWAP over Wr, ticks), rv_ref (sum of |price changes| over Wr, ticks),
+  burst (signed volume in the last s13_burst_s seconds), tod_min (minutes since 09:30 ET)
+Orders go in s13_latency_s after t. Outcomes for each holding time H in s13_horizons_s, long and short, after the
+commission (cost_rt_usd), with bid = price - 1 tick after a buy print (price after a sell), ask likewise:
+  taker_spec       SPEC rule 5: entry = first print after the order + 1 tick against, exit = first print at or
+                   after entry + H - 1 tick against                                            (gating)
+  taker_spread     pays the spread only: buy at the ask, sell at the bid                      (report)
+  passive_through  SPEC limit rule: a limit at the bid (long) known when the order goes in, filled only if a print
+                   trades one tick through it within s13_passive_wait_s; exit H after the fill at the bid; unfilled
+                   = no trade                                                                  (gating)
+  passive_touch    the same, filled on any print at the limit price                           (report, optimistic)
+A trade whose exit print is on another contract than the window's first print, or past the span or grid end, is NaN.
+
+Search (discovery days only): a condition is a feature in its bottom or top s13_quantile (cuts from discovery days);
+patterns = single conditions and every pair; each pattern x outcome column is scored by its mean net points, with at
+least study13_min_obs decisions on study13_min_days days. NOISE TEST: the whole search is rerun s13_null_reps times
+with each day's outcomes circularly shifted against its features (keeps both series' structure, breaks the link);
+p = share of noise-search bests >= the real best, per fill model. Validation days: the s13_top_k best patterns per
+model, fixed direction and cuts, day-bootstrap mean. FROZEN: up to study13_max_frozen patterns from the gating models
+whose model passes the noise test (p <= study13_null_p) and whose validation lower bound is > 0. TEST days (untouched
+until then): PASS if the net mean > 0 with a 90% day-bootstrap lower bound > 0 on >= study13_test_min_days days.
+
+  python -m src.study13 --build        # observation table (study13_obs)
+  python -m src.study13 --discover     # search + noise test + validation -> study13_frozen.json (no test days read)
+  python -m src.study13 --test         # once: the frozen patterns on the test days -> study13_test.json
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+
+import numpy as np
+import pandas as pd
+from scipy import sparse
+
+from src import calendar as calm
+from src import stats, store, study6
+from src.config import data_path, load_config, param
+from src.ingest_futures import covered, load_trades
+
+log = logging.getLogger("study13")
+MODELS = ("taker_spec", "taker_spread", "passive_through", "passive_touch")
+GATING = ("taker_spec", "passive_through")
+DIRS = ("long", "short")
+SEC = 1_000_000_000
+
+
+# ---------------------------------------------------------------------------
+# Features
+# ---------------------------------------------------------------------------
+def _sparse_table(a: np.ndarray, fn):
+    t = [a]
+    k = 1
+    while (1 << k) <= len(a):
+        prev = t[-1]
+        h = 1 << (k - 1)
+        t.append(fn(prev[:-h], prev[h:]))
+        k += 1
+    return t
+
+
+def _range_query(tab, i0, i1, fn):
+    """fn over a[i0:i1] for each pair (i1 > i0); NaN where empty."""
+    out = np.full(len(i0), np.nan)
+    ok = i1 > i0
+    if not ok.any():
+        return out
+    ln = (i1 - i0)[ok]
+    k = np.floor(np.log2(ln)).astype(int)
+    a0, a1 = i0[ok], i1[ok] - (1 << k)
+    vals = np.empty(ok.sum())
+    for kk in np.unique(k):
+        m = k == kk
+        vals[m] = fn(tab[kk][a0[m]], tab[kk][a1[m]])
+    out[ok] = vals
+    return out
+
+
+def feature_matrix(ts, px, sz, sg, grid, windows, tick, big, burst_s, open_ns) -> pd.DataFrame:
+    ts, px, sz, sg, grid = (np.asarray(x) for x in (ts, px, sz, sg, grid))
+    z = lambda a: np.concatenate([[0.0], np.cumsum(a)])          # noqa: E731
+    cv, cs, cn = z(sz), z(sz * sg), z(np.ones(len(ts)))
+    cb, cpv = z(np.where(sz >= big, sz, 0.0)), z(px * sz)
+    dabs = np.concatenate([[0.0], np.abs(np.diff(px))])
+    cad = z(dabs)
+    tmax, tmin = _sparse_table(px, np.maximum), _sparse_table(px, np.minimum)
+    i1 = np.searchsorted(ts, grid, "left")
+    last = np.where(i1 > 0, px[np.maximum(i1 - 1, 0)], np.nan)
+    out, ref = {}, {}
+    wr = windows[-1]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        for W in windows:
+            i0 = np.searchsorted(ts, grid - W * SEC, "left")
+            vol, sv, cnt, bv = cv[i1] - cv[i0], cs[i1] - cs[i0], cn[i1] - cn[i0], cb[i1] - cb[i0]
+            has = cnt > 0
+            first = np.where(has, px[np.minimum(i0, len(px) - 1)], np.nan)
+            rng = (_range_query(tmax, i0, i1, np.maximum) - _range_query(tmin, i0, i1, np.minimum)) / tick
+            imb = np.where(has, sv / vol, np.nan)
+            ret = np.where(has, (last - first) / tick, np.nan)
+            out[f"imb_{W}"], out[f"ret_{W}"] = imb, ret
+            out[f"big_{W}"] = np.where(has, bv / vol, np.nan)
+            out[f"div_{W}"] = imb * np.sign(ret)
+            ref[W] = {"rate": cnt / W, "absorb": vol / (rng + 1), "avg": np.where(has, vol / cnt, np.nan),
+                      "i0": i0, "vol": vol, "has": has}
+        R = ref[wr]
+        for W in windows[:-1]:
+            out[f"rate_ratio_{W}"] = ref[W]["rate"] / R["rate"]
+            out[f"absorb_{W}"] = ref[W]["absorb"] / R["absorb"]
+            out[f"avgsize_{W}"] = ref[W]["avg"] / R["avg"]
+        i0r = R["i0"]
+        vwap = (cpv[i1] - cpv[i0r]) / R["vol"]
+        out["vwap_dist"] = np.where(R["has"], (last - vwap) / tick, np.nan)
+        # |changes| between consecutive prints both inside [t - Wr, t)
+        out["rv_ref"] = np.where(R["has"], (cad[i1] - cad[np.minimum(i0r + 1, len(cad) - 1)]) / tick, np.nan)
+        ib = np.searchsorted(ts, grid - int(burst_s * SEC), "left")
+        out["burst"] = cs[i1] - cs[ib]
+        out["tod_min"] = (grid - open_ns) / (60 * SEC)
+    X = pd.DataFrame(out)
+    return X.replace([np.inf, -np.inf], np.nan)
+
+
+# ---------------------------------------------------------------------------
+# Outcomes
+# ---------------------------------------------------------------------------
+def target_matrix(ts, px, sg, inst, grid, horizons, latency_s, tick, wait_s, comm, end_ns, look_ns) -> pd.DataFrame:
+    ts, px, sg, inst, grid, look_ns = (np.asarray(x) for x in (ts, px, sg, inst, grid, look_ns))
+    n, g = len(ts), len(grid)
+    ask = np.where(sg > 0, px, px + tick)
+    bid = np.where(sg < 0, px, px - tick)
+    chg = np.concatenate([[0], np.cumsum(inst[1:] != inst[:-1])]) if n else np.zeros(0, int)
+    t_ord = grid + int(latency_s * SEC)
+    ie = np.searchsorted(ts, t_ord, "left")
+    il = np.searchsorted(ts, look_ns, "left")
+    cols = {f"{m}|{d}|{H}": np.full(g, np.nan) for m in MODELS for d in DIRS for H in horizons}
+
+    def exit_ok(ix, i_look):
+        return (ix < n) & (ts[np.minimum(ix, n - 1)] < end_ns) & (chg[np.minimum(ix, n - 1)] == chg[np.minimum(i_look, n - 1)])
+
+    ok_e = (ie < n) & (ie > 0)
+    ok_e &= ts[np.minimum(ie, n - 1)] < end_ns
+    for H in horizons:
+        ix = np.searchsorted(ts, ts[np.minimum(ie, n - 1)] + H * SEC, "left")
+        ok = ok_e & exit_ok(ix, il)
+        e, x = np.minimum(ie, n - 1), np.minimum(ix, n - 1)
+        cols[f"taker_spec|long|{H}"] = np.where(ok, (px[x] - tick) - (px[e] + tick) - comm, np.nan)
+        cols[f"taker_spec|short|{H}"] = np.where(ok, (px[e] - tick) - (px[x] + tick) - comm, np.nan)
+        cols[f"taker_spread|long|{H}"] = np.where(ok, bid[x] - ask[e] - comm, np.nan)
+        cols[f"taker_spread|short|{H}"] = np.where(ok, bid[e] - ask[x] - comm, np.nan)
+    # resting entries: price known when the order goes in (the last print before it)
+    wait = int(wait_s * SEC)
+    for k in np.flatnonzero(ok_e):
+        a = ie[k]
+        b = np.searchsorted(ts, t_ord[k] + wait, "right")
+        if b <= a:
+            continue
+        seg = px[a:b]
+        B, A = bid[a - 1], ask[a - 1]
+        fills = {("long", "passive_through"): np.flatnonzero(seg <= B - tick + 1e-9),
+                 ("long", "passive_touch"): np.flatnonzero(seg <= B + 1e-9),
+                 ("short", "passive_through"): np.flatnonzero(seg >= A + tick - 1e-9),
+                 ("short", "passive_touch"): np.flatnonzero(seg >= A - 1e-9)}
+        for (d, m), j in fills.items():
+            if not j.size:
+                continue
+            tf = ts[a + j[0]]
+            for H in horizons:
+                ix = int(np.searchsorted(ts, tf + H * SEC, "left"))
+                if not (ix < n and ts[ix] < end_ns and chg[ix] == chg[min(il[k], n - 1)]):
+                    continue
+                cols[f"{m}|{d}|{H}"][k] = (bid[ix] - B if d == "long" else A - ask[ix]) - comm
+    return pd.DataFrame(cols)
+
+
+# ---------------------------------------------------------------------------
+# Observation table
+# ---------------------------------------------------------------------------
+def _et(day, hhmm):
+    return pd.Timestamp(f"{day} {hhmm}", tz="America/New_York").tz_convert("UTC")
+
+
+def session_obs(cfg, day, span_s, span_e, tr: pd.DataFrame) -> pd.DataFrame:
+    if tr is None or tr.empty:
+        return pd.DataFrame()
+    tr = tr.sort_values(["ts_event_utc", "sequence"], kind="stable")
+    ts = tr["ts_event_utc"].dt.as_unit("ns").astype("int64").to_numpy()
+    px, sz = tr["price"].to_numpy(float), tr["size"].to_numpy(float)
+    sg, inst = tr["side"].to_numpy(float), tr["instrument_id"].to_numpy()
+    W = param(cfg, "s13_windows_s")
+    gs, ge = _et(day, param(cfg, "s13_grid_start")), _et(day, param(cfg, "s13_grid_end"))
+    step = param(cfg, "s13_grid_s")
+    lo = max(gs, pd.Timestamp(span_s) + pd.Timedelta(seconds=W[-1])).ceil(f"{step}s")
+    hi = min(ge, pd.Timestamp(span_e))
+    if hi <= lo:
+        return pd.DataFrame()
+    grid = pd.date_range(lo, hi, freq=f"{step}s", inclusive="left").as_unit("ns").asi8
+    X = feature_matrix(ts, px, sz, sg, grid, W, cfg["market"]["tick"], param(cfg, "q_big"),
+                       param(cfg, "s13_burst_s"), _et(day, cfg["market"]["rth_open"]).value)
+    Y = target_matrix(ts, px, sg, inst, grid, param(cfg, "s13_horizons_s"), param(cfg, "s13_latency_s"),
+                      cfg["market"]["tick"], param(cfg, "s13_passive_wait_s"),
+                      param(cfg, "cost_rt_usd") / cfg["market"]["point_value"],
+                      min(pd.Timestamp(span_e).value, ge.value), grid - W[-1] * SEC)
+    O = pd.concat([X, Y], axis=1)
+    O.insert(0, "t", pd.to_datetime(grid, utc=True))
+    O.insert(0, "date", day)
+    return O
+
+
+def build_obs(cfg, save: bool = True) -> pd.DataFrame:
+    parts = []
+    days = study6.pilot_days(cfg)
+    for day in days:
+        assert calm.in_sample(day, cfg)
+        for s, e in covered(cfg, day):
+            O = session_obs(cfg, day, s, e, load_trades(cfg, day, s, e))
+            if len(O):
+                parts.append(O)
+    O = pd.concat(parts, ignore_index=True).drop_duplicates(["date", "t"]).sort_values(["date", "t"])
+    O = O.reset_index(drop=True)
+    if save:
+        store.save_derived(O, "study13_obs", cfg)
+    return O
+
+
+def feature_names(O: pd.DataFrame) -> list:
+    return [c for c in O.columns if c not in ("date", "t") and "|" not in c]
+
+
+def outcome_names(O: pd.DataFrame) -> list:
+    return [c for c in O.columns if "|" in c]
+
+
+# ---------------------------------------------------------------------------
+# Search
+# ---------------------------------------------------------------------------
+def split_days(days, split) -> tuple[list, list, list]:
+    d = sorted(set(days))
+    n1 = int(round(len(d) * split[0]))
+    n2 = int(round(len(d) * (split[0] + split[1])))
+    return d[:n1], d[n1:n2], d[n2:]
+
+
+def cutpoints(X: pd.DataFrame, feats, q) -> dict:
+    return {f: (float(X[f].quantile(q)), float(X[f].quantile(1 - q))) for f in feats}
+
+
+def _cond(X: pd.DataFrame, cond: str, cuts) -> np.ndarray:
+    f, side = cond.split(":")
+    lo, hi = cuts[f]
+    v = X[f].to_numpy(float)
+    return (v <= lo) if side == "lo" else (v >= hi)
+
+
+def pattern_mask(X: pd.DataFrame, test: str, cuts) -> np.ndarray:
+    m = np.ones(len(X), bool)
+    for c in test.split("&"):
+        m &= _cond(X, c, cuts)
+    return m
+
+
+def tests_list(feats) -> list:
+    singles = [f"{f}:{s}" for f in feats for s in ("lo", "hi")]
+    pairs = [f"{a}:{sa}&{b}:{sb}" for i, a in enumerate(feats) for b in feats[i + 1:]
+             for sa in ("lo", "hi") for sb in ("lo", "hi")]
+    return singles + pairs
+
+
+def mask_matrix(X: pd.DataFrame, tests, cuts) -> sparse.csr_matrix:
+    base = {f"{f}:{s}": _cond(X, f"{f}:{s}", cuts) for f in cuts for s in ("lo", "hi")}
+    idx, ptr = [], [0]
+    for t in tests:
+        parts = t.split("&")
+        m = base[parts[0]].copy()
+        for p in parts[1:]:
+            m &= base[p]
+        nz = np.flatnonzero(m)
+        idx.append(nz)
+        ptr.append(ptr[-1] + len(nz))
+    ind = np.concatenate(idx) if idx else np.zeros(0, int)
+    return sparse.csr_matrix((np.ones(len(ind), np.float32), ind, np.array(ptr)), shape=(len(tests), len(X)))
+
+
+def _scores(M, Y0, V):
+    S = np.asarray(M @ Y0)
+    N = np.asarray(M @ V)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return S / N, N
+
+
+def _best(mean, N, elig_days, cols, min_obs):
+    out = {}
+    ok = (N >= min_obs) & elig_days[:, None]
+    for m in MODELS:
+        ci = [j for j, c in enumerate(cols) if c.split("|")[0] == m]
+        if not ci:
+            continue
+        sub = np.where(ok[:, ci], mean[:, ci], -np.inf)
+        k = np.unravel_index(np.argmax(sub), sub.shape)
+        out[m] = (float(sub[k]), int(k[0]), ci[k[1]])
+    return out
+
+
+def _shift_index(day_codes: np.ndarray, rng) -> np.ndarray:
+    perm = np.arange(len(day_codes))
+    starts = np.flatnonzero(np.r_[True, day_codes[1:] != day_codes[:-1]])
+    ends = np.r_[starts[1:], len(day_codes)]
+    for s, e in zip(starts, ends):
+        L = e - s
+        if L > 1:
+            perm[s:e] = s + (np.arange(L) + rng.integers(1, L)) % L
+    return perm
+
+
+def search(O: pd.DataFrame, feats, cols, q, min_obs, min_days, reps, seed, top_k) -> dict:
+    O = O.sort_values(["date"] + (["t"] if "t" in O else []), kind="stable").reset_index(drop=True)
+    cuts = cutpoints(O, feats, q)
+    tests = tests_list(feats)
+    M = mask_matrix(O, tests, cuts)
+    Y = O[cols].to_numpy(float)
+    V = np.isfinite(Y).astype(np.float64)
+    Y0 = np.where(np.isfinite(Y), Y, 0.0)
+    codes = pd.factorize(O["date"])[0]
+    D = sparse.csr_matrix((np.ones(len(O)), (np.arange(len(O)), codes)), shape=(len(O), codes.max() + 1))
+    ndays = np.asarray(((M @ D) > 0).sum(axis=1)).ravel()
+    elig = ndays >= min_days
+    mean, N = _scores(M, Y0, V)
+    best = _best(mean, N, elig, cols, min_obs)
+    rng = np.random.default_rng(seed)
+    null = {m: [] for m in best}
+    for _ in range(reps):
+        p = _shift_index(codes, rng)
+        mp, Np = _scores(M, Y0[p], V[p])
+        for m, v in _best(mp, Np, elig, cols, min_obs).items():
+            null[m].append(v[0])
+    out = {"cuts": cuts, "n_tests": len(tests), "n_columns": len(cols), "best": {}, "null": {}, "top": {}}
+    ok = (N >= min_obs) & elig[:, None]
+    for m, (v, ti, cj) in best.items():
+        out["best"][m] = {"test": tests[ti], "column": cols[cj], "mean": v, "n": int(N[ti, cj]), "days": int(ndays[ti])}
+        nb = np.array(null[m]) if null[m] else np.array([np.nan])
+        out["null"][m] = {"p": float((1 + np.sum(nb >= v)) / (1 + len(null[m]))) if null[m] else np.nan,
+                          "noise_best_median": float(np.nanmedian(nb)), "noise_best_q95": float(np.nanquantile(nb, 0.95)),
+                          "reps": len(null[m])}
+        ci = [j for j, c in enumerate(cols) if c.split("|")[0] == m]
+        sub = np.where(ok[:, ci], mean[:, ci], -np.inf)
+        order = np.argsort(sub, axis=None)[::-1][:top_k]
+        out["top"][m] = [{"test": tests[i], "column": cols[ci[j]], "mean": float(sub[i, j]), "n": int(N[i, ci[j]]),
+                          "days": int(ndays[i])} for i, j in (np.unravel_index(o, sub.shape) for o in order)
+                         if np.isfinite(sub[i, j])]
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Validation, freeze, test
+# ---------------------------------------------------------------------------
+def evaluate(O: pd.DataFrame, test: str, column: str, cuts, cfg) -> dict:
+    m = pattern_mask(O, test, cuts)
+    x = O.loc[m, ["date", column]].dropna().rename(columns={column: "pnl"})
+    if x.empty:
+        return {"n": 0, "days": 0, "mean": np.nan, "lo": np.nan, "hi": np.nan}
+    b = stats.day_bootstrap_mean(x, "pnl", param(cfg, "bootstrap_draws"), param(cfg, "bootstrap_seed"),
+                                 param(cfg, "ci_level"))
+    return {"n": b["n"], "days": b["days"], "mean": b["mean"], "lo": b["lo"], "hi": b["hi"],
+            "usd_per_trade": b["mean"] * cfg["market"]["point_value"]}
+
+
+def _paths(cfg):
+    d = cfg["data"].get("derived_dir", "derived")
+    return data_path(cfg, d, "study13_frozen.json"), data_path(cfg, d, "study13_test.json")
+
+
+def discover(cfg, O: pd.DataFrame, reps: int | None = None) -> dict:
+    fz, tz = _paths(cfg)
+    if tz.exists():
+        raise RuntimeError("the test days were already used (study13_test.json); discovery cannot be rerun")
+    days_d, days_v, days_t = split_days(O["date"].unique(), param(cfg, "s13_split"))
+    Od = O[O["date"].isin(days_d)]
+    Ov = O[O["date"].isin(days_v)]
+    g = cfg["gates"]
+    feats, cols = feature_names(O), outcome_names(O)
+    r = search(Od, feats, cols, param(cfg, "s13_quantile"), g["study13_min_obs"], g["study13_min_days"],
+               param(cfg, "s13_null_reps") if reps is None else reps, param(cfg, "s13_seed"), param(cfg, "s13_top_k"))
+    val = {}
+    for m, lst in r["top"].items():
+        val[m] = [{**c, "validation": evaluate(Ov, c["test"], c["column"], r["cuts"], cfg)} for c in lst]
+    cand = []
+    for m in GATING:
+        if m not in r["null"] or not (r["null"][m]["p"] <= g["study13_null_p"]):
+            continue
+        for c in val.get(m, []):
+            v = c["validation"]
+            if v["days"] >= g["study13_test_min_days"] and v["mean"] > 0 and v["lo"] > 0:
+                cand.append({"model": m, **c})
+    cand.sort(key=lambda c: -c["validation"]["mean"])
+    frozen = cand[: g["study13_max_frozen"]]
+    out = {"note": "Study 13 discovery (in sample, Study 6 tick spans); test days NOT read",
+           "days": {"discovery": [str(days_d[0]), str(days_d[-1]), len(days_d)],
+                    "validation": [str(days_v[0]), str(days_v[-1]), len(days_v)] if days_v else [],
+                    "test_untouched": len(days_t)},
+           "observations": {"discovery": int(len(Od)), "validation": int(len(Ov))},
+           "features": feats, "n_patterns": r["n_tests"], "n_outcome_columns": r["n_columns"],
+           "best_by_model": r["best"], "noise_test": r["null"], "top_with_validation": val,
+           "frozen": frozen, "gating_models": list(GATING)}
+    fz.parent.mkdir(parents=True, exist_ok=True)
+    fz.write_text(json.dumps({"cuts": r["cuts"], "frozen": frozen, "test_days": [str(d) for d in days_t]},
+                             default=float, indent=1))
+    return out
+
+
+def non_overlap(O: pd.DataFrame, mask, column: str, hold_s: float) -> pd.DataFrame:
+    """One position at a time: the next decision only after the previous one's hold has passed."""
+    x = O.loc[mask, ["date", "t", column]].dropna().sort_values(["date", "t"])
+    keep, last = [], {}
+    for i, r in zip(x.index, x.itertuples(index=False)):
+        d, t = r[0], r[1]
+        if d in last and t < last[d]:
+            continue
+        keep.append(i)
+        last[d] = t + pd.Timedelta(seconds=hold_s)
+    return x.loc[keep]
+
+
+def run_test(cfg, O: pd.DataFrame) -> dict:
+    fz, tz = _paths(cfg)
+    if not fz.exists():
+        raise FileNotFoundError("run --discover first")
+    F = json.loads(fz.read_text())
+    days_t = [pd.Timestamp(d).date() for d in F["test_days"]]
+    Ot = O[O["date"].isin(days_t)]
+    g = cfg["gates"]
+    res = []
+    for c in F["frozen"]:
+        ev = evaluate(Ot, c["test"], c["column"], F["cuts"], cfg)
+        H = float(c["column"].split("|")[2])
+        no = non_overlap(Ot, pattern_mask(Ot, c["test"], F["cuts"]), c["column"], H + param(cfg, "s13_latency_s"))
+        verdict = "PASS" if (ev["days"] >= g["study13_test_min_days"] and ev["mean"] > 0 and ev["lo"] > 0) else "FAIL"
+        res.append({**{k: c[k] for k in ("model", "test", "column")}, "discovery_mean": c["mean"],
+                    "validation": c["validation"], "test": ev, "verdict": verdict,
+                    "one_at_a_time": {"trades_per_day": float(len(no) / max(1, no["date"].nunique())) if len(no) else 0.0,
+                                      "mean": float(no[c["column"]].mean()) if len(no) else np.nan}})
+    out = {"note": "Study 13 TEST (frozen patterns, untouched days, run once)", "test_days": len(days_t),
+           "observations": int(len(Ot)), "results": res,
+           "verdict": "PASS" if any(r["verdict"] == "PASS" for r in res) else ("NOTHING FROZEN" if not res else "FAIL")}
+    tz.write_text(json.dumps(out, default=float, indent=1))
+    return out
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--build", action="store_true")
+    ap.add_argument("--discover", action="store_true")
+    ap.add_argument("--test", action="store_true")
+    a = ap.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    cfg = load_config()
+    from src.analysis import to_json
+    if a.build:
+        O = build_obs(cfg)
+        print(f"observations {len(O):,} on {O['date'].nunique()} days ({O['date'].min()} .. {O['date'].max()}); "
+              f"features {len(feature_names(O))}; outcome columns {len(outcome_names(O))}")
+    elif a.discover:
+        print(to_json(discover(cfg, store.load_derived("study13_obs", cfg))))
+    elif a.test:
+        print(to_json(run_test(cfg, store.load_derived("study13_obs", cfg))))
+    else:
+        ap.print_help()
+
+
+if __name__ == "__main__":
+    main()

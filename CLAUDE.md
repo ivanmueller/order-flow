@@ -137,6 +137,10 @@ Update this block at the end of every session.
   SPY/ES ratio; gate SPEC Stage 3 on gamma touches. Pulled $4.40 (ledger $118.86). Run 1 superseded (level mapping
   omitted the ES-SPX basis; fixed). Run 2: KILL on both: naive -0.50R (CI -0.54..-0.46, n 2,801, gross -0.40R),
   confirmed -0.38R (n 228); gamma = placebo; ES on the same touches -0.31R. Awaiting Matteo's call.
+- Study 13 (order-flow pattern DISCOVERY) pre-registered and BUILT 2026-10-09 (src/study13.py, 8 tests, 272 pass): 29
+  flow features, 9 holds 5 s-30 min, 4 fill models (2 gating, rule 5), ~1,700 single/pair patterns on the Study 6 tick
+  spans; noise test (200 circular-shift reruns); 60/20/20 date split, test days untouched until frozen. Next: Matteo
+  runs --build, --discover, posts; --test only after review. Expected: nothing frozen or FAIL.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -221,6 +225,7 @@ See README.md for the full runbook in order.
 - Study 11b (after the IWM pull and study11 --explore): `python -m src.study11b --explore` (or `--report-only`)
 - Study 12 (SPY level fade): `python -m src.study12 --count`, `--pull --price-only`, `--pull --approve-usd X
   --allow-past-total`, `--run` (or `--report-only`)
+- Study 13 (flow discovery): `python -m src.study13 --build`, `--discover`, then once `--test`
 - Study 10 confirmation (fresh sessions): `python -m src.study10 --confirm --sessions-list`, `--confirm --pull
   --price-only`, `--confirm --pull --approve-usd X --allow-past-total`, `--confirm --run`, then `python -m src.study10b --confirm`
 - Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`

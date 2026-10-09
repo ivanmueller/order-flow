@@ -264,6 +264,21 @@ params:
   s12_commission_per_share_usd: {value: 0.0}                # $0 (Questrade / Wealthsimple US stocks)
   s12_sec_fee_rate:   {value: 0.0000278}                    # SEC fee $ per $ sold (the 2024-25 rate; conservative)
   s12_taf_per_share_usd: {value: 0.000195}                  # FINRA TAF a share sold (conservative)
+  # Study 13 (Matteo 2026-10-09): order-flow pattern DISCOVERY on the on-disk ES ticks (Study 6 sessions), then a
+  # single test on untouched days. Proposed values; any horizon a retail system can trade, a range of fill models.
+  s13_grid_s:         {value: 10}                           # a decision every this many seconds inside each tick span
+  s13_grid_start:     {value: "09:35"}                      # first decision (ET)
+  s13_grid_end:       {value: "15:50"}                      # latest exit (ET)
+  s13_latency_s:      {value: 1}                            # order sent this long after the decision (retail system)
+  s13_windows_s:      {value: [5, 15, 60, 300]}             # look-back windows for the features; the last is the reference
+  s13_burst_s:        {value: 1}                            # signed volume in the last this-many seconds
+  s13_horizons_s:     {value: [5, 15, 30, 60, 120, 300, 600, 900, 1800]}   # holding times searched
+  s13_passive_wait_s: {value: 30}                           # a resting entry works this long, else no trade
+  s13_quantile:       {value: 0.2}                          # a condition = a feature in its bottom or top fifth (discovery cuts)
+  s13_split:          {value: [0.6, 0.2, 0.2]}              # discovery / validation / test, by date (oldest first)
+  s13_null_reps:      {value: 200}                          # the whole search rerun on circularly shifted outcomes
+  s13_seed:           {value: 20261012}
+  s13_top_k:          {value: 20}                           # best discovery patterns per fill model carried to validation
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -296,6 +311,11 @@ gates:
   study8_tail_drop: 3               # after-cost mean without this many best months must stay > 0
   study12_min_trades: 200          # study 12 (RUNLOG 2026-10-09), Stage 3 rule in SPY: gamma-tagged trades ...
   study12_min_expectancy_r: 0.10    # ... expectancy >= this after costs, 90% day-bootstrap lower bound > 0
+  study13_null_p: 0.05              # study 13: the best discovery pattern must beat this share of noise-search bests
+  study13_min_obs: 500              # a pattern needs this many decisions ...
+  study13_min_days: 15              # ... on this many days (discovery), to be ranked
+  study13_max_frozen: 4             # at most this many validated patterns go to the test days (family budget)
+  study13_test_min_days: 10         # test: net mean > 0 with a 90% day-bootstrap lower bound > 0 on >= this many days
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 

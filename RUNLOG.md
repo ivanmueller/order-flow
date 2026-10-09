@@ -2005,3 +2005,26 @@ The basis fix moved the result by ~0.005R (run 1 -0.501R), so it was not the cau
 SPY-ES gap (~0.3R gross on overlapping touches) is unexplained (candidates: Nasdaq-only BBO vs the NBBO, 1-second
 sampling, the stop triggering on the bid); it cannot change the verdict: even ES gross on these touches is about
 zero, below the +0.10R gate before any cost. Fees are ~0.10R (SEC at $27.80/M, conservative).
+
+## 2026-10-09 | Study 13 (order-flow pattern discovery) PRE-REGISTERED and BUILT, not yet run ($0, on-disk data)
+Matteo: discover EV-positive order-flow patterns by searching many variations, then confirm on data the search never
+saw; any horizon a retail system can trade; a range of fill models, "not unreasonable". Data: the Study 6 sessions
+(in-sample Stage 3 days with ES ticks, no roll/half days); spans are ~55 minutes around Stage 2 touches, not whole
+sessions (bias stated in advance). Design (src/study13.py docstring): a decision every 10 s; 29 features from prints
+before t (imbalance, return, big-print share, flow/price divergence over 5/15/60/300 s; trade-rate, absorption and
+average-size ratios vs 300 s; VWAP distance; realized activity; 1-s burst; time of day); order 1 s after t; holds
+5 s .. 30 min (9); four fill models x long/short (72 outcome columns): taker_spec and passive_through (SPEC rule 5,
+GATING), taker_spread and passive_touch (reported, optimistic). Patterns = every single condition (bottom/top fifth,
+discovery cuts) and every pair (~1,700). Noise test: the whole search rerun 200 times with each day's outcomes
+circularly shifted against its features; the real best must beat 95% of noise bests (per fill model). Split by date
+60/20/20: discovery / validation / TEST (untouched; the discover step refuses to run once the test file exists).
+Frozen = up to 4 patterns from a gating model that passed the noise test, validation 90% lower bound > 0 on >= 10
+days; TEST once: net mean > 0 with a 90% day-bootstrap lower bound > 0. A PASS would still need fresh full sessions
+(priced first) before any money. Prior stated in advance: expected NOTHING FROZEN or FAIL (Study 6: flow-return
+correlation 0.01-0.02, best gross edge 0.09 pts vs 0.58 of conservative friction).
+config diff (proposed): params s13_grid_s 10, s13_grid_start 09:35, s13_grid_end 15:50, s13_latency_s 1,
+s13_windows_s [5,15,60,300], s13_burst_s 1, s13_horizons_s [5,15,30,60,120,300,600,900,1800], s13_passive_wait_s 30,
+s13_quantile 0.2, s13_split [0.6,0.2,0.2], s13_null_reps 200, s13_seed 20261012, s13_top_k 20; gates study13_null_p
+0.05, study13_min_obs 500, study13_min_days 15, study13_max_frozen 4, study13_test_min_days 10.
+Tests: 8 new (features by hand, all four fills by hand, roll exit dropped, unfilled resting order, planted pattern
+found and beats noise, pure noise does not, date split, discovery cuts); full suite 272 pass.

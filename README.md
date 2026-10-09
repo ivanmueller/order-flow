@@ -144,6 +144,10 @@ python -m src.study12 --count
 python -m src.study12 --pull --price-only
 python -m src.study12 --pull --approve-usd X --allow-past-total
 python -m src.study12 --run
+#     Study 13: order-flow pattern discovery on the on-disk ES ticks (free); --test runs once, after review
+python -m src.study13 --build
+python -m src.study13 --discover
+python -m src.study13 --test
 
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges
