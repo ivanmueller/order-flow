@@ -1994,3 +1994,14 @@ about SPY0 x B_D x D / SPX0^2 too close to price (~2 cents at B 40, D 25, about 
 Fixed: SPY = (level_es - B_D) x SPY0 / (ES0 - B_D), B_D from gex_daily (D-1 closes, point in time); p_ext the same.
 Tests: 1 new (basis mapping by hand) + confirmed with basis; full suite 263 pass. Run 1 is superseded; rerun needs
 no new data. Expected: still KILL (the bias is ~0.1R; run 1 gross was -0.40R).
+
+## 2026-10-09 | Study 12 run 2 (Matteo's laptop, commit fb16432; basis fix; no new data; ledger $118.86)
+Gamma-tagged, after costs (90% day bootstrap): naive -0.497R (CI -0.538..-0.456, n 2,801, 541 days, win 28.8%,
+gross before fees -0.397R, -$8.09 per 100 shares, risk ~18 cents); confirmed -0.381R (CI -0.506..-0.245, n 228,
+gross -0.305R); confirmed - naive +0.15 (CI -0.01..+0.32). By group naive: both -0.48, gamma_only -0.51, structural
+-0.47, placebo -0.47 (gamma no better than placebo, as in Study 2). Time of day: all negative (close worst -0.55).
+ES on the same touches: naive -0.31R, confirmed -0.40R. KILL on both variants by the SPEC Stage 3 rule.
+The basis fix moved the result by ~0.005R (run 1 -0.501R), so it was not the cause of SPY trailing ES. The remaining
+SPY-ES gap (~0.3R gross on overlapping touches) is unexplained (candidates: Nasdaq-only BBO vs the NBBO, 1-second
+sampling, the stop triggering on the bid); it cannot change the verdict: even ES gross on these touches is about
+zero, below the +0.10R gate before any cost. Fees are ~0.10R (SEC at $27.80/M, conservative).

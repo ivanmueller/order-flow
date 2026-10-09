@@ -134,7 +134,9 @@ Update this block at the end of every session.
   Only front-of-queue 0-7 DTE slices positive. Recommended: close the option liquidity track (Matteo's call).
 - Study 12 APPROVED and BUILT 2026-10-09 (src/study12.py, 8 tests, 262 pass): Study 1 naive + confirmed level fade in
   SPY shares (1-s Nasdaq BBO, one-cent fill rules, $0 commission + SEC/TAF), same touches, levels via the 09:30
-  SPY/ES ratio; gate SPEC Stage 3 on gamma touches. Next: --count, --pull --price-only (est ~$4-5), Matteo's yes, run.
+  SPY/ES ratio; gate SPEC Stage 3 on gamma touches. Pulled $4.40 (ledger $118.86). Run 1 superseded (level mapping
+  omitted the ES-SPX basis; fixed). Run 2: KILL on both: naive -0.50R (CI -0.54..-0.46, n 2,801, gross -0.40R),
+  confirmed -0.38R (n 228); gamma = placebo; ES on the same touches -0.31R. Awaiting Matteo's call.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
