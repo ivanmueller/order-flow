@@ -2084,3 +2084,15 @@ DIAGNOSE: all four pass the 5 pre-set checks (eligible for test). Descriptive wa
     decisions concentrated on a few days).
 Test NOT run. --test now also REPORTS (not gating) drift controls on the test days: the same time-of-day condition
 without flow, the flow increment, unconditional long, and day concentration. Full suite 273 pass. Gate call is Matteo's.
+
+## 2026-10-09 | Study 13 TEST (Matteo's laptop, commit 983f914; 21 untouched days 2025-06..2025-12; run once; $0)
+33,066 decisions. All four frozen patterns FAIL (net mean < 0; lower bounds < 0):
+  big_15:lo&tod_min:lo taker_spec long 1800: -2.01 pts (CI -4.30..+0.66); one at a time -2.07 x 2.4/day
+  big_300:lo&tod_min:lo taker_spec long 1800: -1.95 (CI -4.36..+0.72); one at a time -2.39
+  big_300:lo&tod_min:lo passive_through long 1800: -1.74 (CI -4.20..+0.94); one at a time -2.02
+  big_300:lo&tod_min:lo passive_through long 900: -1.01 (CI -2.46..+0.49); one at a time -0.87
+Drift controls (reported): same time of day without flow -1.59 / -1.37 / -0.62; the flow condition adds -0.36..-0.42
+in every case (negative); unconditional long +0.28..+0.95; 7 of 21 days positive; without the best 3 days -2.1..-4.4.
+Reading: the validation result was the strong morning drift of 2024-12..2025-06; on new days the morning long lost and
+the flow condition made it slightly worse. Study 13 verdict: FAIL. Test days now spent (discovery cannot be rerun).
+Order-flow pattern search on the on-disk ES ticks: closed (gate call is Matteo's).

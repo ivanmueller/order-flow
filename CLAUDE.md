@@ -149,7 +149,9 @@ Update this block at the end of every session.
   checks. Rerun + diagnose 2026-10-09: all objectives' bests are long 30 min (no short-horizon edge after costs);
   noise p 0.03-0.08; 4 frozen ("few big prints early in the day, long 15-30 min"), all pass the 5 checks, but in
   discovery one-at-a-time is only +0.0..+0.6 pts and without the best 3 days ~0; validation morning drift +7 pts.
-  --test reports drift controls (not gating). Awaiting Matteo's call on running the one-shot test.
+  TEST run 2026-10-09 (21 untouched days, once): all 4 FAIL (-1.0 to -2.0 pts, one at a time -0.9 to -2.4); the flow
+  condition adds -0.4 vs time of day alone; 7/21 days positive. The validation edge was morning drift. FAIL; test
+  days spent. Awaiting Matteo's call (close the flow search).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
