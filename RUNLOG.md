@@ -1944,3 +1944,22 @@ config diff (proposed): s11b_max_hold_min 30, s11b_hedge_latency_s 1, s11b_stock
 s11b_priority_orders_per_day 390. study10.norm_quotes now carries displayed sizes (results unchanged).
 Note: with a moving exit price an earlier fill need not pay more, so the built-in check is on exit times
 (front <= queue <= through), not on means. Tests: 6 new; full suite 254 pass.
+
+## 2026-10-09 | Study 11b EXPLORATION run (Matteo's laptop, commit 71f21c8; 10 seen sessions; IWM 1-s pull ~$0.07)
+1-second IWM pulled for the 10 sessions (quote $0.0693; ledger ~$114.47). 387,680 round trips; hedge missing 0;
+exit times front <= queue <= through hold.
+Hedged $ a contract, $0 option commission (90% session-bootstrap CI), advancing buckets 2-4c + 5-9c (n 132,293):
+  through -1.95 (-2.04..-1.84), queue -1.36 (-1.45..-1.28), front (optimistic) -0.27 (-0.38..-0.19); 0 of 10 sessions
+  positive under any rule. Unhedged -1.16 / -0.49 / +0.41. Hedge cuts the sd 3-4x (queue 19.7 -> 6.1) but its leg
+  costs -0.6 to -0.9 (IWM half-spread on ~45 shares each way plus 1 s of drift).
+By spread, queue hedged: 1c -0.98, 2-4c -1.05, 5-9c -3.86, 10-24c -8.62, 25c+ -34.6; front: -0.02 (CI -0.15..+0.08),
+  -0.05 (-0.14..+0.01), -2.04, -5.31, -23.8.
+Only positive cells are front-of-queue (optimistic) in short-dated/low-delta slices: 0 DTE +0.62 (6/6 sessions, queue
+  -0.10), 1-7 DTE +0.40 (9/10, queue -0.65), |delta| 0.15-0.35 +0.19 (8/10, queue -0.92).
+Orders: 11-47 option orders per round trip (front 11, queue 27, through 47) -> 1,105 / 2,669 / 4,745 a day at 100
+  fills vs the 390 priority-customer limit: over the limit under every rule, even the optimistic one.
+Rule 6: a negative result, so the checks were for a pessimistic bug: re-peg counts and fills reconcile with the
+  hand-tested stream logic; hedge leg size consistent with IWM's 1-cent spread x |delta| x 100 x 2.
+Conclusion (exploration): hedged market making from a retail seat loses under the realistic queue rule and is
+  about zero at best under the optimistic one, while needing 3-12x the order budget that priority-customer status
+  allows. Nothing to freeze. Recommendation to Matteo: close the option liquidity-provision track.

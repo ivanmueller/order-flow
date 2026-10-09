@@ -129,6 +129,9 @@ Update this block at the end of every session.
   freeze. Awaiting Matteo's call on closing the option liquidity track.
 - Study 11b (hedged market making) BUILT 2026-10-09, not yet run: exit follows the far side (re-pegs), IWM delta hedge
   from 1-second quotes (pull of $0.0693 approved by Matteo), order count vs the 390 limit. src/study11b.py, 254 tests.
+  Run 2026-10-09 (RUNLOG): hedged 2-4c+5-9c through -1.95, queue -1.36, front (optimistic) -0.27, 0/10 sessions
+  positive; hedge cuts sd 3-4x but costs ~$0.7; 11-47 option orders a round trip (1,105+ a day at 100 fills vs 390).
+  Only front-of-queue 0-7 DTE slices positive. Recommended: close the option liquidity track (Matteo's call).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
