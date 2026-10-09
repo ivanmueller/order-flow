@@ -292,26 +292,6 @@ def mask_matrix(X: pd.DataFrame, tests, cuts) -> sparse.csr_matrix:
     return sparse.csr_matrix((np.ones(len(ind), np.float32), ind, np.array(ptr)), shape=(len(tests), len(X)))
 
 
-def _scores(M, Y0, V):
-    S = np.asarray(M @ Y0)
-    N = np.asarray(M @ V)
-    with np.errstate(invalid="ignore", divide="ignore"):
-        return S / N, N
-
-
-def _best(mean, N, elig_days, cols, min_obs):
-    out = {}
-    ok = (N >= min_obs) & elig_days[:, None]
-    for m in MODELS:
-        ci = [j for j, c in enumerate(cols) if c.split("|")[0] == m]
-        if not ci:
-            continue
-        sub = np.where(ok[:, ci], mean[:, ci], -np.inf)
-        k = np.unravel_index(np.argmax(sub), sub.shape)
-        out[m] = (float(sub[k]), int(k[0]), ci[k[1]])
-    return out
-
-
 def _shift_index(day_codes: np.ndarray, rng) -> np.ndarray:
     perm = np.arange(len(day_codes))
     starts = np.flatnonzero(np.r_[True, day_codes[1:] != day_codes[:-1]])
@@ -323,7 +303,50 @@ def _shift_index(day_codes: np.ndarray, rng) -> np.ndarray:
     return perm
 
 
-def search(O: pd.DataFrame, feats, cols, q, min_obs, min_days, reps, seed, top_k) -> dict:
+OBJECTIVES = ("per_trade", "per_day", "t_stat")
+
+
+def _slots(M, O: pd.DataFrame, cols, latency_s: float) -> np.ndarray:
+    """Tests x columns: one-position-at-a-time trade slots, approximated by the number of (H + latency)-second
+    blocks of each day that hold at least one signal (each decision is its own slot without a time column)."""
+    if "t" in O:
+        t = pd.to_datetime(O["t"], utc=True)
+        secs = (t - t.groupby(O["date"]).transform("min")).dt.total_seconds().to_numpy()
+    else:
+        secs = None
+    K = {}
+    for H in sorted({float(c.split("|")[2]) for c in cols}):
+        b = np.arange(len(O)) if secs is None else np.floor(secs / (H + latency_s)).astype(np.int64)
+        code = pd.factorize(pd.Series(list(zip(O["date"], b))))[0]
+        B = sparse.csr_matrix((np.ones(len(O)), (np.arange(len(O)), code)), shape=(len(O), code.max() + 1))
+        K[H] = np.asarray(((M @ B) > 0).sum(axis=1)).ravel().astype(float)
+    return np.column_stack([K[float(c.split("|")[2])] for c in cols])
+
+
+def _objectives(S, S2, N, slots, n_days) -> dict:
+    with np.errstate(invalid="ignore", divide="ignore"):
+        mean = S / N
+        sd = np.sqrt(np.maximum(S2 / N - mean ** 2, 0.0))
+        return {"per_trade": mean,                                     # net points a trade
+                "per_day": mean * slots / n_days,                      # net points a day, one position at a time
+                "t_stat": mean / sd * np.sqrt(np.maximum(slots, 1.0))}  # consistency on non-overlapping slots
+
+
+def _best_of(score, ok, cols) -> dict:
+    out = {}
+    for m in MODELS:
+        ci = [j for j, c in enumerate(cols) if c.split("|")[0] == m]
+        if not ci:
+            continue
+        sub = np.where(ok[:, ci], score[:, ci], -np.inf)
+        k = np.unravel_index(np.argmax(sub), sub.shape)
+        out[m] = (float(sub[k]), int(k[0]), ci[k[1]])
+    return out
+
+
+def search(O: pd.DataFrame, feats, cols, q, min_obs, min_days, reps, seed, top_k, latency_s: float = 0.0) -> dict:
+    """Every pattern x outcome column scored three ways (per trade, per day one position at a time, t-stat); each
+    objective's best per fill model is compared with the best of the same search on circularly shifted outcomes."""
     O = O.sort_values(["date"] + (["t"] if "t" in O else []), kind="stable").reset_index(drop=True)
     cuts = cutpoints(O, feats, q)
     tests = tests_list(feats)
@@ -332,32 +355,47 @@ def search(O: pd.DataFrame, feats, cols, q, min_obs, min_days, reps, seed, top_k
     V = np.isfinite(Y).astype(np.float64)
     Y0 = np.where(np.isfinite(Y), Y, 0.0)
     codes = pd.factorize(O["date"])[0]
-    D = sparse.csr_matrix((np.ones(len(O)), (np.arange(len(O)), codes)), shape=(len(O), codes.max() + 1))
+    n_days = int(codes.max() + 1)
+    D = sparse.csr_matrix((np.ones(len(O)), (np.arange(len(O)), codes)), shape=(len(O), n_days))
     ndays = np.asarray(((M @ D) > 0).sum(axis=1)).ravel()
-    elig = ndays >= min_days
-    mean, N = _scores(M, Y0, V)
-    best = _best(mean, N, elig, cols, min_obs)
+    slots = _slots(M, O, cols, latency_s)
+
+    def scored(Yx, Vx):
+        S, S2, N = np.asarray(M @ Yx), np.asarray(M @ (Yx * Yx)), np.asarray(M @ Vx)
+        return _objectives(S, S2, N, slots, n_days), N
+
+    sc, N = scored(Y0, V)
+    ok = (N >= min_obs) & (ndays >= min_days)[:, None]
+    best = {o: _best_of(sc[o], ok, cols) for o in OBJECTIVES}
     rng = np.random.default_rng(seed)
-    null = {m: [] for m in best}
+    null = {o: {m: [] for m in best[o]} for o in OBJECTIVES}
     for _ in range(reps):
         p = _shift_index(codes, rng)
-        mp, Np = _scores(M, Y0[p], V[p])
-        for m, v in _best(mp, Np, elig, cols, min_obs).items():
-            null[m].append(v[0])
+        scp, Np = scored(Y0[p], V[p])
+        okp = (Np >= min_obs) & (ndays >= min_days)[:, None]
+        for o in OBJECTIVES:
+            for m, v in _best_of(scp[o], okp, cols).items():
+                null[o][m].append(v[0])
     out = {"cuts": cuts, "n_tests": len(tests), "n_columns": len(cols), "best": {}, "null": {}, "top": {}}
-    ok = (N >= min_obs) & elig[:, None]
-    for m, (v, ti, cj) in best.items():
-        out["best"][m] = {"test": tests[ti], "column": cols[cj], "mean": v, "n": int(N[ti, cj]), "days": int(ndays[ti])}
-        nb = np.array(null[m]) if null[m] else np.array([np.nan])
-        out["null"][m] = {"p": float((1 + np.sum(nb >= v)) / (1 + len(null[m]))) if null[m] else np.nan,
-                          "noise_best_median": float(np.nanmedian(nb)), "noise_best_q95": float(np.nanquantile(nb, 0.95)),
-                          "reps": len(null[m])}
-        ci = [j for j, c in enumerate(cols) if c.split("|")[0] == m]
-        sub = np.where(ok[:, ci], mean[:, ci], -np.inf)
-        order = np.argsort(sub, axis=None)[::-1][:top_k]
-        out["top"][m] = [{"test": tests[i], "column": cols[ci[j]], "mean": float(sub[i, j]), "n": int(N[i, ci[j]]),
-                          "days": int(ndays[i])} for i, j in (np.unravel_index(o, sub.shape) for o in order)
-                         if np.isfinite(sub[i, j])]
+
+    def item(i, j):
+        return {"test": tests[i], "column": cols[j], "mean": float(sc["per_trade"][i, j]),
+                "per_day": float(sc["per_day"][i, j]), "t_stat": float(sc["t_stat"][i, j]),
+                "n": int(N[i, j]), "days": int(ndays[i]), "slots_per_day": float(slots[i, j] / n_days)}
+    for o in OBJECTIVES:
+        out["best"][o], out["null"][o], out["top"][o] = {}, {}, {}
+        for m, (v, ti, cj) in best[o].items():
+            out["best"][o][m] = item(ti, cj)
+            nb = np.array(null[o][m]) if null[o][m] else np.array([np.nan])
+            out["null"][o][m] = {"best_score": v,
+                                 "p": float((1 + np.sum(nb >= v)) / (1 + len(null[o][m]))) if null[o][m] else np.nan,
+                                 "noise_best_median": float(np.nanmedian(nb)),
+                                 "noise_best_q95": float(np.nanquantile(nb, 0.95)), "reps": len(null[o][m])}
+            ci = [j for j, c in enumerate(cols) if c.split("|")[0] == m]
+            sub = np.where(ok[:, ci], sc[o][:, ci], -np.inf)
+            order = np.argsort(sub, axis=None)[::-1][:top_k]
+            out["top"][o][m] = [item(i, ci[j]) for i, j in (np.unravel_index(k, sub.shape) for k in order)
+                                if np.isfinite(sub[i, j])]
     return out
 
 
@@ -390,19 +428,41 @@ def discover(cfg, O: pd.DataFrame, reps: int | None = None) -> dict:
     g = cfg["gates"]
     feats, cols = feature_names(O), outcome_names(O)
     r = search(Od, feats, cols, param(cfg, "s13_quantile"), g["study13_min_obs"], g["study13_min_days"],
-               param(cfg, "s13_null_reps") if reps is None else reps, param(cfg, "s13_seed"), param(cfg, "s13_top_k"))
-    val = {}
-    for m, lst in r["top"].items():
-        val[m] = [{**c, "validation": evaluate(Ov, c["test"], c["column"], r["cuts"], cfg)} for c in lst]
-    cand = []
-    for m in GATING:
-        if m not in r["null"] or not (r["null"][m]["p"] <= g["study13_null_p"]):
-            continue
-        for c in val.get(m, []):
-            v = c["validation"]
-            if v["days"] >= g["study13_test_min_days"] and v["mean"] > 0 and v["lo"] > 0:
-                cand.append({"model": m, **c})
-    cand.sort(key=lambda c: -c["validation"]["mean"])
+               param(cfg, "s13_null_reps") if reps is None else reps, param(cfg, "s13_seed"), param(cfg, "s13_top_k"),
+               param(cfg, "s13_latency_s"))
+    lat = param(cfg, "s13_latency_s")
+    val, seen = {}, {}
+    for o, by_m in r["top"].items():
+        val[o] = {}
+        for m, lst in by_m.items():
+            rows = []
+            for c in lst:
+                key = (c["test"], c["column"])
+                if key not in seen:
+                    ev = evaluate(Ov, c["test"], c["column"], r["cuts"], cfg)
+                    H = float(c["column"].split("|")[2])
+                    no = non_overlap(Ov, pattern_mask(Ov, c["test"], r["cuts"]), c["column"], H + lat)
+                    ev["one_at_a_time_mean"] = float(no[c["column"]].mean()) if len(no) else np.nan
+                    ev["one_at_a_time_trades_per_day"] = float(len(no) / max(1, Ov["date"].nunique()))
+                    ev["per_day"] = (ev["one_at_a_time_mean"] * ev["one_at_a_time_trades_per_day"]
+                                     if len(no) else np.nan)
+                    seen[key] = ev
+                rows.append({**c, "validation": seen[key]})
+            val[o][m] = rows
+    cand, keys = [], set()
+    for o in OBJECTIVES:
+        for m in GATING:
+            if not (r["null"][o].get(m, {}).get("p", 1.0) <= g["study13_null_p"]):
+                continue
+            for c in val[o].get(m, []):
+                v = c["validation"]
+                k = (c["test"], c["column"])
+                if k in keys:
+                    continue
+                if v["days"] >= g["study13_test_min_days"] and v["mean"] > 0 and v["lo"] > 0 and v["per_day"] > 0:
+                    cand.append({"model": m, "objective": o, **c})
+                    keys.add(k)
+    cand.sort(key=lambda c: -c["validation"]["per_day"])                # most net points a day, one at a time
     frozen = cand[: g["study13_max_frozen"]]
     out = {"note": "Study 13 discovery (in sample, Study 6 tick spans); test days NOT read",
            "days": {"discovery": [str(days_d[0]), str(days_d[-1]), len(days_d)],
@@ -410,9 +470,13 @@ def discover(cfg, O: pd.DataFrame, reps: int | None = None) -> dict:
                     "test_untouched": len(days_t)},
            "observations": {"discovery": int(len(Od)), "validation": int(len(Ov))},
            "features": feats, "n_patterns": r["n_tests"], "n_outcome_columns": r["n_columns"],
-           "best_by_model": r["best"], "noise_test": r["null"], "top_with_validation": val,
+           "objectives": list(OBJECTIVES), "best_by_objective_and_model": r["best"], "noise_test": r["null"],
+           "top_with_validation": val,
            "frozen": frozen, "gating_models": list(GATING)}
     fz.parent.mkdir(parents=True, exist_ok=True)
+    stale = tz.with_name("study13_diagnose.json")
+    if stale.exists():
+        stale.unlink()                                                   # diagnostics belong to the old frozen set
     fz.write_text(json.dumps({"cuts": r["cuts"], "frozen": frozen, "test_days": [str(d) for d in days_t]},
                              default=float, indent=1))
     return out
@@ -436,6 +500,11 @@ def run_test(cfg, O: pd.DataFrame) -> dict:
     if not fz.exists():
         raise FileNotFoundError("run --discover first")
     F = json.loads(fz.read_text())
+    dz = tz.with_name("study13_diagnose.json")
+    if not dz.exists():
+        raise FileNotFoundError("run --diagnose first: only patterns that pass the rule-6 checks go to the test days")
+    ok = {(p["test"], p["column"]) for p in json.loads(dz.read_text())["patterns"] if p["eligible_for_test"]}
+    F["frozen"] = [c for c in F["frozen"] if (c["test"], c["column"]) in ok]
     days_t = [pd.Timestamp(d).date() for d in F["test_days"]]
     Ot = O[O["date"].isin(days_t)]
     g = cfg["gates"]
@@ -529,7 +598,19 @@ def diagnose(cfg, O: pd.DataFrame, touches: pd.DataFrame) -> dict:
                        "one_position_at_a_time": {"n": int(len(no)), "mean": float(no[col].mean()) if len(no) else np.nan},
                        "no_future_selection": {"n": int(len(xc)), "days": int(xc["date"].nunique()),
                                                "mean": float(xc[col].mean()) if len(xc) else np.nan}}
+        v, d = r["validation"], r["discovery"]
+        checks = {"flow_adds_discovery": bool(d["flow_condition_adds"] > 0),
+                  "flow_adds_validation": bool(v["flow_condition_adds"] > 0),
+                  "no_future_selection_positive": bool(v["no_future_selection"]["days"] >= cfg["gates"]["study13_test_min_days"]
+                                                       and v["no_future_selection"]["mean"] > 0),
+                  "positive_without_best_3_days": bool(v["by_day"].get("mean_of_day_means_without_best_3", np.nan) > 0),
+                  "positive_one_at_a_time": bool(v["one_position_at_a_time"]["mean"] > 0)}
+        r["checks"] = checks
+        r["eligible_for_test"] = all(checks.values())
         out["patterns"].append(r)
+    _, tz = _paths(cfg)
+    dz = tz.with_name("study13_diagnose.json")
+    dz.write_text(json.dumps(out, default=float, indent=1))
     return out
 
 

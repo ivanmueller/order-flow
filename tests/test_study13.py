@@ -107,16 +107,17 @@ def test_search_finds_a_planted_pattern_and_beats_noise(cfg):
     feats = ["f1", "f2", "f3"]
     r = study13.search(O, feats, ["taker_spec|long|60", "taker_spec|short|60"], q=0.2, min_obs=1000, min_days=10,
                        reps=50, seed=3, top_k=3)
-    best = r["best"]["taker_spec"]
+    best = r["best"]["per_trade"]["taker_spec"]
     assert best["test"] == "f1:hi" and best["column"] == "taker_spec|long|60"
-    assert best["mean"] > 0.5 and r["null"]["taker_spec"]["p"] <= 0.05
+    assert best["mean"] > 0.5 and r["null"]["per_trade"]["taker_spec"]["p"] <= 0.05
+    assert r["null"]["t_stat"]["taker_spec"]["p"] <= 0.05
 
 
 def test_noise_does_not_beat_noise(cfg):
     O = _obs(signal=0.0, seed=7)
     r = study13.search(O, ["f1", "f2", "f3"], ["taker_spec|long|60", "taker_spec|short|60"], q=0.2, min_obs=1000,
                        min_days=10, reps=50, seed=3, top_k=3)
-    assert r["null"]["taker_spec"]["p"] > 0.05
+    assert r["null"]["per_trade"]["taker_spec"]["p"] > 0.05
 
 
 def test_split_is_by_date_and_ordered():
@@ -141,3 +142,26 @@ def test_clean_flags_drop_decisions_kept_only_by_a_future_touch():
     f = study13.clean_flags(O, touches, hold_s=1800, post_min=45, latency_s=1)
     # before the touch: selected on the future; at t0 and t0+10: the 30-min trade ends by t0+45; t0+20 runs past it
     assert list(f) == [False, True, True, False]
+
+
+def test_per_day_objective_prefers_frequent_small_edges(cfg):
+    """f1:hi (every decision of its block) earns +0.2 on 5-s holds; f2:hi earns +1.0 on 1800-s holds. Per trade the
+    long hold wins; per day (one position at a time) the frequent small edge wins: ~60 slots x 0.2 vs ~1 x 1.0."""
+    rng = np.random.default_rng(2)
+    rows = []
+    for i in range(30):
+        d = DAY + dt.timedelta(days=i)
+        n = 600
+        t = pd.Timestamp(f"{d} 10:00", tz="America/New_York").tz_convert("UTC") + pd.to_timedelta(np.arange(n) * 10, unit="s")
+        f1 = np.zeros(n); f1[::2] = 1.0                                  # every other decision, spread all day
+        f2 = np.zeros(n); f2[100:220] = 1.0                              # one 20-minute block a day
+        y5 = np.where(f1 > 0, 0.2, -0.5) + rng.normal(0, 0.01, n)
+        y30 = np.where(f2 > 0, 1.0, -0.5) + rng.normal(0, 0.01, n)
+        rows.append(pd.DataFrame({"date": d, "t": t, "f1": f1 + rng.normal(0, 1e-6, n), "f2": f2 + rng.normal(0, 1e-6, n),
+                                  "taker_spec|long|5": y5, "taker_spec|long|1800": y30}))
+    O = pd.concat(rows, ignore_index=True)
+    r = study13.search(O, ["f1", "f2"], ["taker_spec|long|5", "taker_spec|long|1800"], q=0.2, min_obs=100,
+                       min_days=10, reps=5, seed=1, top_k=3, latency_s=1)
+    assert r["best"]["per_trade"]["taker_spec"]["column"] == "taker_spec|long|1800"
+    assert r["best"]["per_day"]["taker_spec"]["column"] == "taker_spec|long|5"
+    assert r["best"]["per_day"]["taker_spec"]["per_day"] > 10 * r["best"]["per_trade"]["taker_spec"]["per_day"]

@@ -2046,3 +2046,20 @@ marginal with 4 models. --test NOT run. Added --diagnose (discovery + validation
 time of day, the flow condition's increment over the time-of-day condition alone, per-day concentration, one position
 at a time, and the subset with no future selection (trade inside the 45 minutes after a past touch). Test 1 new;
 full suite 272 pass.
+
+## 2026-10-09 | Study 13 AMENDED before any test (Matteo: "short frequent trades with small edge, or longer bigger trades")
+Why: the search ranked patterns by net points a trade only, which favours long holds (bigger moves) and cannot see
+small edges taken many times a day. Amendment (pre-registered now; test days still untouched; discovery to be rerun):
+  objectives  per_trade (net pts a trade, as before); per_day (net pts a trade x one-position-at-a-time slots a day,
+              slots = (H + latency)-second blocks of a day holding a signal); t_stat (mean / sd x sqrt(slots)).
+              Each objective has its own noise test (same 200 circular-shift reruns).
+  freeze      candidates from gating models whose objective passed the noise test, validation mean > 0, lower
+              bound > 0 on >= 10 days and validation net points a day (one position at a time) > 0; ranked by that
+              daily figure; up to 4 (family budget unchanged; the first frozen set was never tested).
+  test gate   --test now refuses without --diagnose and tests only patterns passing ALL of (fixed before seeing any
+              diagnostic number): flow condition adds over the same time-of-day condition (or over no condition) on
+              discovery and validation; validation mean > 0 with no future selection (>= 10 days); validation day
+              mean > 0 without the best 3 days; validation mean > 0 one position at a time. Rerunning discovery
+              deletes an old diagnose file.
+Tests: objective test (per day picks a frequent 5-s +0.2 edge over a once-a-day +1.0 hold), planted pattern passes the
+t-stat noise test; synthetic end to end (discover -> diagnose -> test PASS on a planted edge); full suite 273 pass.

@@ -143,7 +143,10 @@ Update this block at the end of every session.
   runs --build, --discover, posts; --test only after review. Expected: nothing frozen or FAIL.
   Discovery run 2026-10-09: 4 frozen, all LONG 30-min "few big prints + early in the day" (validation +6 to +8 pts,
   lb > 0); all 80 top patterns long 15-30 min (drift signature); noise p ~0.04. Rule 6: --diagnose added (drift,
-  time-of-day increment, day concentration, no-future-selection subset). --test NOT run; awaiting diagnose output.
+  time-of-day increment, day concentration, no-future-selection subset). --test NOT run.
+  Amended (Matteo): three objectives (per trade, per day one position at a time, t-stat), each with a noise test;
+  freeze ranks by validation points a day; --test needs --diagnose and tests only patterns passing all 5 pre-set
+  checks. Next: Matteo reruns --discover, then --diagnose, posts both.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
