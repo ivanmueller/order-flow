@@ -146,7 +146,10 @@ Update this block at the end of every session.
   time-of-day increment, day concentration, no-future-selection subset). --test NOT run.
   Amended (Matteo): three objectives (per trade, per day one position at a time, t-stat), each with a noise test;
   freeze ranks by validation points a day; --test needs --diagnose and tests only patterns passing all 5 pre-set
-  checks. Next: Matteo reruns --discover, then --diagnose, posts both.
+  checks. Rerun + diagnose 2026-10-09: all objectives' bests are long 30 min (no short-horizon edge after costs);
+  noise p 0.03-0.08; 4 frozen ("few big prints early in the day, long 15-30 min"), all pass the 5 checks, but in
+  discovery one-at-a-time is only +0.0..+0.6 pts and without the best 3 days ~0; validation morning drift +7 pts.
+  --test reports drift controls (not gating). Awaiting Matteo's call on running the one-shot test.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

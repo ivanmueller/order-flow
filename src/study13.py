@@ -514,10 +514,19 @@ def run_test(cfg, O: pd.DataFrame) -> dict:
         H = float(c["column"].split("|")[2])
         no = non_overlap(Ot, pattern_mask(Ot, c["test"], F["cuts"]), c["column"], H + param(cfg, "s13_latency_s"))
         verdict = "PASS" if (ev["days"] >= g["study13_test_min_days"] and ev["mean"] > 0 and ev["lo"] > 0) else "FAIL"
+        # descriptive drift controls (reported, not part of the pre-registered verdict)
+        conds = c["test"].split("&")
+        tod = [x for x in conds if x.startswith("tod_min")]
+        base = Ot.loc[pattern_mask(Ot, tod[0], F["cuts"]) if tod else np.ones(len(Ot), bool), c["column"]].mean()
+        x = Ot.loc[pattern_mask(Ot, c["test"], F["cuts"]), ["date", c["column"]]].dropna()
         res.append({**{k: c[k] for k in ("model", "test", "column")}, "discovery_mean": c["mean"],
                     "validation": c["validation"], "test": ev, "verdict": verdict,
                     "one_at_a_time": {"trades_per_day": float(len(no) / max(1, no["date"].nunique())) if len(no) else 0.0,
-                                      "mean": float(no[c["column"]].mean()) if len(no) else np.nan}})
+                                      "mean": float(no[c["column"]].mean()) if len(no) else np.nan},
+                    "drift_control": {"same_time_of_day_without_flow": float(base),
+                                      "flow_condition_adds": float(ev["mean"] - base) if np.isfinite(ev["mean"]) else np.nan,
+                                      "unconditional_long_same_hold": float(Ot[c["column"]].mean()),
+                                      "by_day": _day_stats(x, c["column"])}})
     out = {"note": "Study 13 TEST (frozen patterns, untouched days, run once)", "test_days": len(days_t),
            "observations": int(len(Ot)), "results": res,
            "verdict": "PASS" if any(r["verdict"] == "PASS" for r in res) else ("NOTHING FROZEN" if not res else "FAIL")}

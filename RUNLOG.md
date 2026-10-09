@@ -2063,3 +2063,24 @@ small edges taken many times a day. Amendment (pre-registered now; test days sti
               deletes an old diagnose file.
 Tests: objective test (per day picks a frequent 5-s +0.2 edge over a once-a-day +1.0 hold), planted pattern passes the
 t-stat noise test; synthetic end to end (discover -> diagnose -> test PASS on a planted edge); full suite 273 pass.
+
+## 2026-10-09 | Study 13 DISCOVERY rerun (3 objectives) + DIAGNOSE (Matteo's laptop, commit 3e9319e; $0)
+Same split and observations. Noise test (200 reruns) per objective, best score vs noise q95, p:
+  per_trade  taker_spec 5.11 vs 4.73 p 0.040; passive_through 5.54 vs 5.39 p 0.045 (spread 0.040, touch 0.040)
+  per_day    taker_spec 13.43 vs 12.58 p 0.045; passive_through 14.61 vs 14.97 p 0.075 (spread 0.050, touch 0.080)
+  t_stat     taker_spec 4.66 vs 4.35 p 0.030; passive_through 5.02 vs 5.00 p 0.055 (spread 0.050, touch 0.080)
+Every objective's best is LONG with a 30-minute hold (per_day/t_stat best: big_60:lo & rv_ref:hi, ~3 slots a day);
+all 240 top patterns long 10-30 min. No short-horizon pattern ranks under any objective: the frequent-small-edge
+version does not exist in this data after costs.
+FROZEN (per_trade objective, ranked by validation points a day): big_15:lo&tod_min:lo taker_spec long 1800 (val +5.76,
+lb +2.05; one at a time +5.30 x 2.43/day); big_300:lo&tod_min:lo taker_spec long 1800 (+7.40, lb +2.72);
+big_300:lo&tod_min:lo passive_through long 1800 (+7.73, lb +2.99); same passive_through long 900 (+3.15, lb +0.10).
+DIAGNOSE: all four pass the 5 pre-set checks (eligible for test). Descriptive warnings:
+  - unconditional long 30 min in the first 30 minutes of the day: discovery +1.15, validation +7.00 (taker_spec);
+    30-60 min: +0.19 / +4.60. The validation half-year (2024-12..2025-06) had very strong morning drift.
+  - discovery (64 days), the larger sample: day-mean without the best 3 days -0.55 / -0.08 / +0.26 / -0.06;
+    one position at a time +0.20 / +0.38 / +0.57 / +0.01 pts a trade (net); only 23 of 42 days positive.
+  - flow over time of day alone: discovery +0.9..+3.9, validation +0.35..+2.0 (positive, but from overlapping
+    decisions concentrated on a few days).
+Test NOT run. --test now also REPORTS (not gating) drift controls on the test days: the same time-of-day condition
+without flow, the flow increment, unconditional long, and day concentration. Full suite 273 pass. Gate call is Matteo's.
