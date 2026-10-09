@@ -1982,3 +1982,15 @@ config diff: params s12_symbol SPY, s12_dataset XNAS.ITCH, s12_schema bbo-1s, s1
 s12_commission_per_share_usd 0.0, s12_sec_fee_rate 0.0000278, s12_taf_per_share_usd 0.000195; gates
 study12_min_trades 200, study12_min_expectancy_r 0.10. Tests: 8 new (mapping, long target/stop/time, short, no
 fill, confirmed, verdict, pull idempotent, end to end); full suite 262 pass.
+
+## 2026-10-09 | Study 12 run 1 (Matteo's laptop, commit 7b54244; SPY bbo-1s pulled $4.3965, ledger $118.86) -- SUPERSEDED
+Quote $4.3965 for 635 sessions (9,113 touches, 3,463 gamma-tagged); pulled the same, ledger $114.47 -> $118.86.
+Headline (gamma-tagged): naive -0.501R (CI -0.542..-0.461, n 2,813, win 28.9%, gross before fees -0.401R,
+-$8.16 per 100 shares); confirmed -0.388R (n 227); confirmed - naive +0.13 (CI -0.03..+0.30); placebo -0.46R; ES on
+the same touches: naive -0.31R, confirmed -0.40R. KILL on both.
+Rule 6 (a result much worse than ES on the same touches): BUG found in the level mapping. Levels are SPX levels +
+B_D (ES-SPX basis), but run 1 mapped ES x (SPY/ES), which leaves B_D's share in: a level D points from the open lands
+about SPY0 x B_D x D / SPX0^2 too close to price (~2 cents at B 40, D 25, about 0.1R), always against the fade.
+Fixed: SPY = (level_es - B_D) x SPY0 / (ES0 - B_D), B_D from gex_daily (D-1 closes, point in time); p_ext the same.
+Tests: 1 new (basis mapping by hand) + confirmed with basis; full suite 263 pass. Run 1 is superseded; rerun needs
+no new data. Expected: still KILL (the bias is ~0.1R; run 1 gross was -0.40R).

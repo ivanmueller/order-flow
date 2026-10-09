@@ -27,6 +27,16 @@ def test_level_mapping_uses_the_0930_ratio():
     assert study12.to_spy(4990.0, r, 0.01) == pytest.approx(497.00)   # 4990 x 0.0996 = 497.004 -> 497.00
 
 
+def test_level_mapping_removes_the_es_basis():
+    # ES 5040 with basis 40 -> SPX 5000; SPY 498.00 -> r = 498 / 5000 = 0.0996.
+    # An ES level 5030 is SPX 4990 -> SPY 497.004 -> 497.00 (ES x SPY/ES would give 497.01: the basis error)
+    spy = q([("09:30:00", 497.99, 498.01)])
+    r = study12.spy_ratio(spy, es_open_0930=5040.0, day=DAY, rth_open="09:30", basis=40.0)
+    assert r == pytest.approx(0.0996)
+    assert study12.to_spy(5030.0, r, 0.01, basis=40.0) == pytest.approx(497.00)
+    assert study12.to_spy(5030.0, 498.0 / 5040.0, 0.01) == pytest.approx(497.01)
+
+
 def _fees(price, R, cfg):
     return (cfg["params"]["s12_sec_fee_rate"]["value"] * price + cfg["params"]["s12_taf_per_share_usd"]["value"]) / R
 
@@ -72,6 +82,9 @@ def test_confirmed_long(cfg):
     spy = q([("10:05:00", 497.00, 497.01), ("10:05:01", 497.09, 497.10), ("10:05:02", 497.66, 497.67)])
     feat = {"confirmed": True, "t_dec": ts("10:05:00"), "p_ext": 4988.0}
     t = study12.confirmed_trade(spy, feat, d=1, em=4.98, ratio=0.0996, day=DAY, cfg=cfg)
+    tb = study12.confirmed_trade(spy, {**feat, "p_ext": 5028.0}, d=1, em=4.98, ratio=0.0996, day=DAY, cfg=cfg,
+                                 basis=40.0)
+    assert tb["S"] == pytest.approx(496.75)                          # p_ext 5028 - basis 40 = 4988 SPX
     # E: first quote after t_dec, ask 497.10 + 1 cent = 497.11; p_ext 4988 x 0.0996 = 496.80;
     # stop buffer 2 ES ticks = 0.5 pt x 0.0996 = 0.05 -> S 496.75; R 0.36; T = E + round(0.54) = 497.65
     assert (t["E"], t["S"], t["R_k"], t["T"]) == pytest.approx((497.11, 496.75, 0.36, 497.65))
@@ -129,6 +142,7 @@ def test_run_end_to_end(cfg, tmp_path):
     tc = pd.DataFrame([{"touch_id": "a_0001", "date": DAY, "group": "gamma_only", "is_gamma": True, "d": 1,
                         "level_es": 4990.0, "em": 50.0, "t0": ts("10:00:00"), "tod": "mid", "es_open": 5000.0}])
     store.save_derived(tc, "touches", c)
+    store.save_derived(pd.DataFrame({"date": [DAY], "basis": [0.0]}), "gex_daily", c)
     store.save_derived(pd.DataFrame([{"touch_id": "a_0001", "confirmed": True, "t_dec": ts("10:05:00"),
                                       "p_ext": 4988.0}]), "features", c)
     spy = pd.DataFrame({"ts_recv": [ts("09:30:00"), ts("10:00:00"), ts("10:00:02"), ts("10:05:01"), ts("10:05:02")],

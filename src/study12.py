@@ -4,8 +4,10 @@ Study 1 found a gross edge of about +0.10R (0.6 ES tick) on the naive fade again
 the conservative fill rules in 0.25-point ES ticks. SPY's tick is one cent (~0.1 SPX point, ~0.4 ES tick), and
 commission is $0. Same touches, same levels, same rules; only the instrument and its costs change.
 
-  levels   ES level x r_D, r_D = SPY mid at the first 1-second quote at or after 09:30 ET / the 09:30 ES bar's
-           open (es_open in the levels table) (both known before the first touch at 09:31), rounded to the cent. EM_spy = EM x r_D.
+  levels   (ES level - B_D) x r_D, r_D = SPY mid at the first 1-second quote at or after 09:30 ET / (the 09:30 ES
+           bar's open - B_D); B_D = the ES-SPX basis from D-1 closes (gex_daily), the same B_D the levels were built
+           with; all known before the first touch at 09:31; rounded to the cent. EM_spy = EM x r_D.
+           (The first run omitted B_D, which shifted levels a few cents toward price: superseded, RUNLOG.)
   naive    (every in-sample touch) a limit at L from the touch bar's open for reclaim_window minutes, filled only when
            the far quote is one cent through it (ask <= L - 1c for a buy); stop L - d x round(fail_F EM_spy), target
            L + d x round(target_mult x that); stops exit one cent beyond, targets fill only when the near quote is one
@@ -104,17 +106,19 @@ def load_spy(cfg, day) -> pd.DataFrame | None:
     return q[["ts", "bid", "ask"]].sort_values("ts").reset_index(drop=True)
 
 
-def spy_ratio(spy: pd.DataFrame, es_open_0930: float, day, rth_open: str) -> float:
+def spy_ratio(spy: pd.DataFrame, es_open_0930: float, day, rth_open: str, basis: float = 0.0) -> float:
+    """r = SPY mid at the first quote at or after the open / SPX at the open (ES open - basis B_D)."""
     t0 = calm.et_time(day, rth_open)
     after = spy[spy["ts"] >= t0]
-    if after.empty or not np.isfinite(es_open_0930) or es_open_0930 <= 0:
+    spx0 = es_open_0930 - basis
+    if after.empty or not np.isfinite(spx0) or spx0 <= 0:
         return np.nan
     r = after.iloc[0]
-    return float((r["bid"] + r["ask"]) / 2 / es_open_0930)
+    return float((r["bid"] + r["ask"]) / 2 / spx0)
 
 
-def to_spy(x_es: float, ratio: float, tick: float) -> float:
-    return rnd(x_es * ratio, tick)
+def to_spy(x_es: float, ratio: float, tick: float, basis: float = 0.0) -> float:
+    return rnd((x_es - basis) * ratio, tick)
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +188,8 @@ def naive_trade(spy: pd.DataFrame, t0: pd.Timestamp, L: float, d: int, em: float
     return _result(t, i, j, E, S, T, dist, X, why, d, cfg)
 
 
-def confirmed_trade(spy: pd.DataFrame, feat: dict, d: int, em: float, ratio: float, day, cfg) -> dict | None:
+def confirmed_trade(spy: pd.DataFrame, feat: dict, d: int, em: float, ratio: float, day, cfg,
+                    basis: float = 0.0) -> dict | None:
     if not feat.get("confirmed"):
         return None
     tick, es_tick = param(cfg, "s12_tick_usd"), cfg["market"]["tick"]
@@ -196,7 +201,7 @@ def confirmed_trade(spy: pd.DataFrame, feat: dict, d: int, em: float, ratio: flo
     if t[i] >= flat:
         return {"skip": "too_late"}
     E = rnd((ask[i] if d == 1 else bid[i]) + d * param(cfg, "entry_slippage") * tick, tick)
-    S = rnd(to_spy(feat["p_ext"], ratio, tick) - d * rnd(param(cfg, "stop_buffer") * es_tick * ratio, tick), tick)
+    S = rnd(to_spy(feat["p_ext"], ratio, tick, basis) - d * rnd(param(cfg, "stop_buffer") * es_tick * ratio, tick), tick)
     R = rnd(d * (E - S), tick)
     if R > param(cfg, "max_risk") * em + EPS:
         return {"skip": "risk_too_wide", "R_k": R}
@@ -225,6 +230,7 @@ def run(cfg=None, save: bool = True) -> tuple[pd.DataFrame, dict]:
     feats = store.load_derived("features", cfg) if store.derived_path(cfg, "features").exists() else pd.DataFrame()
     fmap = feats.set_index("touch_id").to_dict("index") if len(feats) else {}
     rows, info = [], {"days": 0, "days_missing_spy": 0, "days_no_ratio": 0}
+    gx = store.load_derived("gex_daily", cfg).set_index("date")["basis"]
     tick = param(cfg, "s12_tick_usd")
     for day, g in tc.groupby("date"):
         if not calm.in_sample(day, cfg):
@@ -235,19 +241,20 @@ def run(cfg=None, save: bool = True) -> tuple[pd.DataFrame, dict]:
             info["days_missing_spy"] += 1
             continue
         # es_open = the open of the session's 09:30 ES bar on its front contract (levels table)
-        ratio = spy_ratio(spy, float(g["es_open"].iloc[0]), day, cfg["market"]["rth_open"])
+        B = float(gx.get(day, np.nan))
+        ratio = spy_ratio(spy, float(g["es_open"].iloc[0]), day, cfg["market"]["rth_open"], B)
         if not np.isfinite(ratio):
             info["days_no_ratio"] += 1
             continue
         for tcr in g.itertuples():
-            L, em = to_spy(tcr.level_es, ratio, tick), float(tcr.em) * ratio
+            L, em = to_spy(tcr.level_es, ratio, tick, B), float(tcr.em) * ratio
             common = {"touch_id": tcr.touch_id, "date": day, "group": tcr.group, "is_gamma": bool(tcr.is_gamma),
-                      "d": int(tcr.d), "level_es": tcr.level_es, "level_spy": L, "ratio": ratio, "em_spy": em,
+                      "d": int(tcr.d), "level_es": tcr.level_es, "level_spy": L, "ratio": ratio, "basis": B, "em_spy": em,
                       "tod": tcr.tod, "stage3_day": tcr.touch_id in fmap or None}
             rows.append({**common, "mode": "naive", **naive_trade(spy, pd.Timestamp(tcr.t0), L, int(tcr.d), em, day, cfg)})
             f = fmap.get(tcr.touch_id)
             if f is not None:
-                c = confirmed_trade(spy, f, int(tcr.d), em, ratio, day, cfg)
+                c = confirmed_trade(spy, f, int(tcr.d), em, ratio, day, cfg, B)
                 if c is not None:
                     rows.append({**common, "mode": "confirmed", **c})
     T = pd.DataFrame(rows)
