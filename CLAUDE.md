@@ -132,6 +132,9 @@ Update this block at the end of every session.
   Run 2026-10-09 (RUNLOG): hedged 2-4c+5-9c through -1.95, queue -1.36, front (optimistic) -0.27, 0/10 sessions
   positive; hedge cuts sd 3-4x but costs ~$0.7; 11-47 option orders a round trip (1,105+ a day at 100 fills vs 390).
   Only front-of-queue 0-7 DTE slices positive. Recommended: close the option liquidity track (Matteo's call).
+- Study 12 APPROVED and BUILT 2026-10-09 (src/study12.py, 8 tests, 262 pass): Study 1 naive + confirmed level fade in
+  SPY shares (1-s Nasdaq BBO, one-cent fill rules, $0 commission + SEC/TAF), same touches, levels via the 09:30
+  SPY/ES ratio; gate SPEC Stage 3 on gamma touches. Next: --count, --pull --price-only (est ~$4-5), Matteo's yes, run.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -214,6 +217,8 @@ See README.md for the full runbook in order.
 - Study 11 (exploration, 10 seen sessions): `python -m src.study11 --iwm-pull --price-only` (optional, then
   `--iwm-pull --approve-usd X --allow-past-total`), `python -m src.study11 --explore` (or `--report-only`)
 - Study 11b (after the IWM pull and study11 --explore): `python -m src.study11b --explore` (or `--report-only`)
+- Study 12 (SPY level fade): `python -m src.study12 --count`, `--pull --price-only`, `--pull --approve-usd X
+  --allow-past-total`, `--run` (or `--report-only`)
 - Study 10 confirmation (fresh sessions): `python -m src.study10 --confirm --sessions-list`, `--confirm --pull
   --price-only`, `--confirm --pull --approve-usd X --allow-past-total`, `--confirm --run`, then `python -m src.study10b --confirm`
 - Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`

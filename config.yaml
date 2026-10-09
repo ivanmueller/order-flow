@@ -256,6 +256,14 @@ params:
   s11b_hedge_latency_s: {value: 1}                          # hedge sent this long after the fill / exit (first 1-s IWM quote at or after)
   s11b_stock_fee_per_share_usd: {value: 0.0}                # IWM commission a share a side ($0 at Questrade / Wealthsimple); spread paid from quotes
   s11b_priority_orders_per_day: {value: 390}                # priority-customer limit (average option orders a day)
+  # Study 12 (Matteo 2026-10-09: "yes"): the Study 1 level fade in SPY shares at $0 commission
+  s12_symbol:         {value: "SPY"}
+  s12_dataset:        {value: "XNAS.ITCH"}                  # Nasdaq BBO each second (priced first)
+  s12_schema:         {value: "bbo-1s"}
+  s12_tick_usd:       {value: 0.01}                         # SPY tick; fill and slippage rules use it (costs), not distances
+  s12_commission_per_share_usd: {value: 0.0}                # $0 (Questrade / Wealthsimple US stocks)
+  s12_sec_fee_rate:   {value: 0.0000278}                    # SEC fee $ per $ sold (the 2024-25 rate; conservative)
+  s12_taf_per_share_usd: {value: 0.000195}                  # FINRA TAF a share sold (conservative)
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -286,6 +294,8 @@ gates:
   study8_min_events: 25            # study 8 (RUNLOG 2026-10-08), per variant: in-sample month-ends
   study8_min_friction_multiple: 3   # after-cost mean must exceed this x friction (2 ticks of slippage + cost)
   study8_tail_drop: 3               # after-cost mean without this many best months must stay > 0
+  study12_min_trades: 200          # study 12 (RUNLOG 2026-10-09), Stage 3 rule in SPY: gamma-tagged trades ...
+  study12_min_expectancy_r: 0.10    # ... expectancy >= this after costs, 90% day-bootstrap lower bound > 0
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 

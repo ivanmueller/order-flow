@@ -1963,3 +1963,22 @@ Rule 6: a negative result, so the checks were for a pessimistic bug: re-peg coun
 Conclusion (exploration): hedged market making from a retail seat loses under the realistic queue rule and is
   about zero at best under the optimistic one, while needing 3-12x the order budget that priority-customer status
   allows. Nothing to freeze. Recommendation to Matteo: close the option liquidity-provision track.
+
+## 2026-10-09 | Study 12 (Study 1 level fade in SPY shares) APPROVED and BUILT, not yet priced or run
+Matteo: "yes" to re-running the Study 1 strategy in SPY shares at $0 commission. Why it could differ: of Study 1's
+~2.3 ticks of friction only ~0.3 tick is commission ($3.98 a round trip); the rest is the rule-5 fill rules in
+0.25-point ES ticks. SPY's tick (1 cent) is ~0.1 SPX point (~0.4 ES tick), so the same rules cost ~60% less in index
+terms. Gross edge to beat: Study 1 naive fade ~+0.10R (~0.6 ES tick ~ 1.5 cents a share).
+Design: same in-sample touches and levels (touches table); ES level x r_D with r_D = SPY mid at the first 1-second
+quote at or after 09:30 / the 09:30 ES bar open (point in time: first touch is 09:31). Naive (all in-sample touches)
+and confirmed (Stage 3 days, ES order-flow features) as Study 1; distances (fail_F, stop_buffer, min_risk, max_risk)
+in index terms mapped by r_D; slippage and fill-through rules in SPY cents; quotes = Nasdaq BBO each second
+(XNAS.ITCH bbo-1s), stop checked before target in every second. Costs: $0 commission, SEC fee 0.0000278 x sale,
+FINRA TAF $0.000195 a share sold. Gate = SPEC Stage 3 on gamma-tagged touches: >= 200 trades, expectancy >= +0.10R,
+90% day-bootstrap lower bound > 0 (confirmed also confirmed - naive > 0). New family; 2 variants (naive,
+confirmed). Data: SPY bbo-1s for every in-sample session with touches, priced first (estimate ~$4-5); ledger
+~$114.47, so the pull needs Matteo's yes and --allow-past-total.
+config diff: params s12_symbol SPY, s12_dataset XNAS.ITCH, s12_schema bbo-1s, s12_tick_usd 0.01,
+s12_commission_per_share_usd 0.0, s12_sec_fee_rate 0.0000278, s12_taf_per_share_usd 0.000195; gates
+study12_min_trades 200, study12_min_expectancy_r 0.10. Tests: 8 new (mapping, long target/stop/time, short, no
+fill, confirmed, verdict, pull idempotent, end to end); full suite 262 pass.

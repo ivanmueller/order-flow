@@ -139,6 +139,11 @@ python -m src.study11 --explore
 python -m src.study11 --report-only
 #     Study 11b: hedged market making (needs the 1-second IWM pull above and study11_entries)
 python -m src.study11b --explore
+#     Study 12: the Study 1 level fade in SPY shares ($0 commission); price first, pull only with approval
+python -m src.study12 --count
+python -m src.study12 --pull --price-only
+python -m src.study12 --pull --approve-usd X --allow-past-total
+python -m src.study12 --run
 
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges
