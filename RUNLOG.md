@@ -1755,3 +1755,36 @@ positive; at 30% every row loses and large size with many fills can ruin the acc
 "as in data" (~6-7) is a market maker's at the tape level; for a retail order it says the assumptions (front of
 the queue, passive exit at mid, no pick-off fills) carry the result. Days are independent draws from 5 sessions,
 so regime risk (volatility spikes, gaps) is understated and drawdowns are optimistic.
+
+## 2026-10-09 | Study 10b APPROVED and built: quoting conditions (step 1 exploration; no run yet)
+Matteo: "lets do that exactly as you layed it out" (trailing volatility of the tested instrument and its
+acceleration, a recent-sweep flag, the day's gamma regime), the success rule agreed, and "run it on what we have
+so far right now ... and then after test consistency with 5 fresh days".
+Plan (fixed now):
+1. Explore on the pilot fills ($0, src/study10b.py --explore). Exploration only: it chooses, it does not prove.
+2. Freeze at most 3 filters (Study 10 family variants 2-4 of 4), with their numeric cut points from step 1.
+3. Confirm on 5 fresh in-sample sessions (new seed, pilot days excluded; ~$8, Matteo's yes on the exact quote),
+   which also replicates the unfiltered V1 result.
+Success rule per frozen filter (agreed): on the fresh sessions, in the advancing buckets (0.02-0.05, 0.05-0.10),
+the filtered fills keep more and are run through less than all fills: 5-minute mean RS kept minus all with a 90%
+session-bootstrap lower bound > 0, and break-through share kept < all.
+Features, each from data stamped at or before the fill:
+- IWM per cbbo-1m minute from put-call parity, nearest expiry after the session date, F = K + C_mid - P_mid,
+  median over the 3 strikes with the smallest |C - P| (no IWM equity data needed; Matteo: "accurately calculated on
+  whatever instrument we're testing").
+- rv: sqrt(sum of the last 30 squared 1-minute log returns) in bp (none before 10:00); accel: rv of the last 15
+  minutes / the previous 15 (> 1 = expanding).
+- sweep_recent: the same contract swept (prints within 10 ms on >= 2 venues) in the 30 s before the fill.
+- gamma: sign of SPX net gamma for the day (gex_daily; point in time: OI before 09:30, quotes of the day before).
+  A market-wide proxy (no IWM open interest on disk); with 5 or 10 days it can only be descriptive.
+Candidates stated before any number: C1 skip the top volatility tercile, C2 skip the top acceleration tercile, C3
+skip after a recent sweep, C4 positive-gamma days only, C5 skip if C1, C2 or C3. Reported at 5 and 15 minutes, with
+by-level tables, the penny bucket under C5, and an IWM sanity row per session (minutes, min/max, median 1-minute
+move, sweeps, gamma, share of fills with a volatility value).
+config diff (approved by the request): params s10b_vol_window_min 30, s10b_accel_half_min 15,
+s10b_sweep_lookback_s 30, s10b_sweep_min_venues 2, s10b_parity_strikes 3, s10b_top_quantile 0.6667.
+Build: src/study10b.py; tests/test_study10b.py 7 tests (parity forward with a same-day chain ignored, volatility
+and acceleration by hand with the full-window rule and 0/0, features from completed snapshots only, sweeps and the
+strictly-before rule, gamma labels, the kept-vs-all comparison with its CI, and an end-to-end run on synthetic raw
+pieces shaped like Databento's). Three of my expected values were wrong (sweep count, a window boundary) and were
+corrected against hand counts; the code was right each time.

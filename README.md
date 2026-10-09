@@ -120,6 +120,10 @@ python -m src.study10 --sessions-list
 python -m src.study10 --pull --price-only
 python -m src.study10 --pull --approve-usd <quote + margin> --allow-past-total
 python -m src.study10 --run
+python -m src.study10 --diagnose
+python -m src.study10 --bankroll
+#     Study 10b: quoting conditions, step 1 exploration on the pilot fills (free)
+python -m src.study10b --explore
 
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges

@@ -217,6 +217,13 @@ params:
   s10_other_fee_usd:  {value: 0.05}                         # OCC $0.025 + ORF + CAT, conservative pass-through (reported scenario)
   s10_commission_tiers: {value: [[0.05, 0.25], [0.10, 0.50], [1000000.0, 0.65]]}  # IBKR <= 10k/month: premium below bound -> $ a contract
   s10_order_min_usd:  {value: 1.00}                         # IBKR minimum an order (a one-lot pays it)
+  # Study 10b (Matteo 2026-10-09): conditions for quoting; explored on the pilot, frozen, confirmed on fresh sessions.
+  s10b_vol_window_min: {value: 30}                          # trailing IWM realized volatility: this many 1-minute returns
+  s10b_accel_half_min: {value: 15}                          # acceleration = vol of the last this-many minutes / the previous this-many
+  s10b_sweep_lookback_s: {value: 30}                        # recent sweep: the same contract swept within this many seconds before the fill
+  s10b_sweep_min_venues: {value: 2}                         # a sweep = prints within s10_sweep_ms on at least this many venues
+  s10b_parity_strikes: {value: 3}                           # IWM from put-call parity: median over this many strikes nearest the money
+  s10b_top_quantile:  {value: 0.6667}                       # candidate filters skip the top tercile of volatility / acceleration
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
