@@ -233,6 +233,24 @@ params:
   s10b_skip_open_min: {value: 30}                           # H1: no fills in the first this-many minutes after the open
   s10b_min_kept_fills: {value: 500}                         # a hypothesis needs this many kept fills ...
   s10b_min_kept_sessions: {value: 2}                        # ... in at least this many sessions, else not testable
+  # Study 11, execution design (Matteo 2026-10-09: items 1, 2, 4, 5). Exploration on the 10 seen sessions; proposed values
+  s11_patience_min:   {value: [1, 5, 15]}                   # the passive exit rests this long, then crosses the spread
+  s11_headline_patience_min: {value: 5}
+  s11_tick_usd:       {value: 0.01}                         # IWM options quote in pennies at every price
+  s11_fallback_slip_ticks: {value: 1}                       # the crossing exit pays the quote it last saw plus this many ticks
+  s11_stale_lookback_s: {value: [10, 30, 60, 120]}          # fair-value move measured over this window before the fill
+  s11_stale_main_lookback_s: {value: 60}                    # the window the stale buckets are shown for (minute IWM can see it)
+  s11_stale_edges:    {value: [0.0, 0.5, 1.0]}              # adverse fair-value move / half-spread: <0 / 0-0.5 / 0.5-1 / 1+
+  s11_stale_skip:     {value: [0.5, 1.0]}                   # candidate filters K1, K2: skip fills at or above this ratio
+  s11_delta_edges:    {value: [0.0, 0.15, 0.35, 0.65, 0.85]}    # |delta|: far OTM / OTM / near the money / ITM / deep ITM
+  s11_skip_dte_bucket: {value: "1-8"}                       # candidate filter K3: skip 1-7 days to expiry (weakest in both runs)
+  s11_hedge_cost_per_share_usd: {value: 0.005}              # half a 1-cent IWM spread, a side ($0 stock commission)
+  s11_limits:         {value: [[null, null], [10, null], [25, null], [null, 500], [null, 1000], [10, 500]]}  # [max open contracts, max |net delta| shares]
+  s11_inventory_draws: {value: 100}                         # simulated days per session and setting
+  s11_seed:           {value: 20261011}
+  s11_iwm_dataset:    {value: "XNAS.ITCH"}                  # optional 1-second IWM (priced first; pull only with approval)
+  s11_iwm_schema:     {value: "bbo-1s"}
+  s11_iwm_symbol:     {value: "IWM"}
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}

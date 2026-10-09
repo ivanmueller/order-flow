@@ -1877,3 +1877,33 @@ near-flip positive is positive in 4 sessions (+1.00 pilot, +1.57 here).
 Rule 6: no lookahead (gamma inputs pre-open, SPX from completed ES bars, marks after the fill); fresh dates not in
 the pilot and in sample; numbers larger than the pilot in wider spreads, consistent sign across buckets.
 Family: 3 of 4 gated variants used (V1, H1, H2). Gate decision is Matteo's.
+
+## 2026-10-09 | Study 11 (execution design) BUILT, exploration not yet run (no data read; $0)
+Matteo 2026-10-09: "lets do this for number 1 and 2 ... also interested in number 5 and 4". New family "execution
+design"; this step is EXPLORATION on the 10 seen sessions (pilot + confirmation), report-only. Choices made from it
+are frozen as one strategy spec and confirmed once on fresh sessions (priced first; needs Matteo's yes).
+What the earlier studies measured: marks to the mid at +1/+5/+15 min (Study 10, 10b) and the bankroll on those
+marks, i.e. a free exit at the mid. No exit was ever traded.
+#1 Round trip: exit rests at the opposite quote at entry; after P in {1, 5, 15} min (clipped at the close) it crosses
+at the newest quote seen, 1 tick worse. Exit fill rules: through (headline; a print or near-side quote one tick
+through X), queue (through, or prints at X exceeding the consolidated size displayed at X at entry), front (any
+print or quote at X; optimistic bound). Fees both sides: $0, $0.05, IBKR tiered.
+#2 Stale quotes: adverse_L = -s x delta x (IWM(t) - IWM(t-L)) x 100, stale_L = adverse / half-spread, L in
+{10, 30, 60, 120} s; delta from Black-76 IV of the pre-trade mid with the contract's own parity forward. IWM =
+1-second Nasdaq mid if pulled (XNAS.ITCH bbo-1s, priced first), else minute parity (then L < 60 s is NaN).
+Candidates stated before any number: K1 skip stale >= 0.5, K2 skip >= 1.0 (per L).
+#4 Contract selection tables (days to expiry, premium, |delta|, side, right, exchange, spread x days); candidate K3
+skip 1-7 DTE.
+#5 Inventory: 100/200/300 fills a day drawn from one session in time order, held to the through-rule exit at 5 min;
+limits [max open, max |net delta| shares] in {[none,none],[10,none],[25,none],[none,500],[none,1000],[10,500]};
+hedged P&L with each fill's delta in IWM shares at the first IWM price after the fill (no benefit from a move
+before it), $0.005 a share a side; buys only reported separately (a cash account cannot sell to open).
+config diff (proposed values, awaiting Matteo's review before the run): params s11_patience_min [1,5,15],
+s11_headline_patience_min 5, s11_tick_usd 0.01, s11_fallback_slip_ticks 1, s11_stale_lookback_s [10,30,60,120],
+s11_stale_main_lookback_s 60, s11_stale_edges [0,0.5,1.0], s11_stale_skip [0.5,1.0], s11_delta_edges
+[0,0.15,0.35,0.65,0.85], s11_skip_dte_bucket "1-8", s11_hedge_cost_per_share_usd 0.005, s11_limits (above),
+s11_inventory_draws 100, s11_seed 20261011, s11_iwm_dataset XNAS.ITCH, s11_iwm_schema bbo-1s, s11_iwm_symbol IWM.
+Code: src/study11.py; study10.norm_trades/dedupe_sweeps now carry the displayed sizes (bid_sz, ask_sz; results
+unchanged). Tests: 12 new (exit rules by hand, window and close, entry sweep excluded, round trip and fallback,
+fees both sides, parity forward per expiry, IV/delta, stale sign and point in time, hedge timing, inventory limits,
+IWM pull idempotent, end to end); full suite 248 pass. Benchmarks: ~4 s per 30k entries for exits, ~30 s inventory.

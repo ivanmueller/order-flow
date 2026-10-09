@@ -251,6 +251,8 @@ def norm_trades(raw: pd.DataFrame) -> pd.DataFrame:
     out = pd.DataFrame({"ts": pd.to_datetime(df["ts_recv"], utc=True), "symbol": df["symbol"].astype(str),
                         "price": _px(df["price"]), "size": pd.to_numeric(df["size"]).astype(int),
                         "bid": _px(df["bid_px_00"]), "ask": _px(df["ask_px_00"]), "venue": df["publisher_id"]})
+    for src, dst in (("bid_sz_00", "bid_sz"), ("ask_sz_00", "ask_sz")):     # displayed sizes (Study 11 queue rule)
+        out[dst] = pd.to_numeric(df[src], errors="coerce").astype(float) if src in df.columns else np.nan
     return out.sort_values("ts", kind="stable").reset_index(drop=True)
 
 
@@ -289,10 +291,11 @@ def dedupe_sweeps(f: pd.DataFrame, sweep_ms: int) -> pd.DataFrame:
             & (g["price"] - g["price"].shift()).abs().lt(EPS)
             & (g["ts"] - g["ts"].shift()).le(pd.Timedelta(milliseconds=sweep_ms)))
     g["eid"] = (~same).cumsum()
+    sizes = {c: (c, "first") for c in ("bid_sz", "ask_sz") if c in g.columns}
     e = g.groupby("eid").agg(ts=("ts", "first"), ts_last=("ts", "last"), symbol=("symbol", "first"),
                              s=("s", "first"), price=("price", "first"), size=("size", "sum"),
                              n_prints=("size", "size"), bid=("bid", "first"), ask=("ask", "first"),
-                             venue=("venue", "first"))
+                             venue=("venue", "first"), **sizes)
     return e.sort_values("ts", kind="stable").reset_index(drop=True)
 
 

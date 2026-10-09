@@ -131,6 +131,13 @@ python -m src.study10 --confirm --pull --approve-usd <quote + margin> --allow-pa
 python -m src.study10 --confirm --run
 python -m src.study10b --confirm
 
+#     Study 11: execution design, exploration on the 10 seen sessions (round trip with a passive exit, stale
+#     quotes, contract selection, inventory and hedging). Free; the IWM 1-second pull is optional and priced first.
+python -m src.study11 --iwm-pull --price-only
+python -m src.study11 --iwm-pull --approve-usd X --allow-past-total     # only after Matteo approves the quote
+python -m src.study11 --explore
+python -m src.study11 --report-only
+
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges
 python -m src.robustness splits

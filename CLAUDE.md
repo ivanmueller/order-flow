@@ -119,6 +119,11 @@ Update this block at the end of every session.
   family. Confirmation run 2026-10-09 ($6.81, ledger $114.40; 2023-06-29, 09-18, 12-21, 2024-03-04, 2025-08-28):
   V1 REPLICATED (2-4c +$0.68, CI +0.41..+0.89; 5-9c +$2.25; penny +$0.27 and 10-24c +$2.86 also pass); H1 FAIL;
   H2 PASS by the rule but 4% of fills in 2 sessions. Remaining unknown: a retail order's fill quality (live test).
+- Study 11 (execution design) BUILT 2026-10-09 (Matteo: items 1, 2, 4, 5), not yet run: exploration on the 10 seen
+  sessions, $0: round trip with a passive exit (through/queue/front rules, 1/5/15 min patience, then cross 1 tick
+  worse), stale-quote ratio from delta x IWM move (K1/K2), contract selection (K3 skip 1-7 DTE), inventory limits
+  and IWM delta hedge. s11_* params added as proposals (RUNLOG). Optional 1-second IWM (XNAS.ITCH bbo-1s) priced
+  first. 248 tests pass. Next: Matteo reviews params, runs --explore; choices then frozen and confirmed fresh.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -198,6 +203,8 @@ See README.md for the full runbook in order.
 - Study 10 pilot (IWM): `python -m src.study10 --sessions-list`, `--pull --price-only`, then
   `--pull --approve-usd X --allow-past-total`, then `--run` (or `--report-only`), `--diagnose`, `--bankroll`
 - Study 10b exploration on the pilot fills: `python -m src.study10b --explore`
+- Study 11 (exploration, 10 seen sessions): `python -m src.study11 --iwm-pull --price-only` (optional, then
+  `--iwm-pull --approve-usd X --allow-past-total`), `python -m src.study11 --explore` (or `--report-only`)
 - Study 10 confirmation (fresh sessions): `python -m src.study10 --confirm --sessions-list`, `--confirm --pull
   --price-only`, `--confirm --pull --approve-usd X --allow-past-total`, `--confirm --run`, then `python -m src.study10b --confirm`
 - Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`
