@@ -1806,3 +1806,31 @@ day grade is descriptive only; the live label varies within days and has more in
 config diff (approved by the request): s10b_gamma_deep_ratio 1.0, s10b_gamma_min_days 20, s10b_flip_near_em 0.25.
 Tests: day grades from prior days only (by hand), live labels on both sides of the flip and with no flip, SPX from
 completed ES bars only; 32 Study 10/10b tests pass.
+
+## 2026-10-09 | Study 10b step 1 exploration run (Matteo's laptop, commit e6cead3; pilot fills, in sample; $0)
+IWM from parity: 389 minutes a session; ranges 190.96-192.90 (2023-08-09), 174.61-176.97 (09-27), 174.49-177.03
+(10-10), 196.58-200.05 (12-14), 245.27-247.26 (2025-12-02), in line with IWM's prices on those days; median
+1-minute move 2.3-4.0 bp. Sweeps 2,706-12,972 a session. Gamma: day grades deep negative (08-09, 09-27), weak
+negative (10-10, the only day that crossed its flip: live mix 10.4k near-flip positive, 9.0k deep positive, 6.2k deep
+negative, 4.5k near-flip negative), deep positive (12-14), weak positive (2025-12-02).
+Advancing buckets, 70,556 fills; all: 5-min RS +0.534, 15-min +0.713, break-through 14.0%. Cut points: rv 32.2 bp
+(30 min), accel 1.070.
+Candidates, kept minus all (90% session CI), break-through kept vs all, share kept:
+  C1 skip top vol      5m -0.058 (-0.181..+0.010)  15m -0.143 (-0.222..+0.017)  13.2% vs 14.0%  74%
+  C2 skip top accel    5m -0.037 (-0.086..+0.076)  15m +0.102 (+0.047..+0.212)  14.7% vs 14.0%  75%
+  C3 skip after sweep  5m -0.012 (-0.114..+0.051)  15m -0.023                   13.6% vs 14.0%  75%
+  C4 skip deep-neg live 5m +0.020 (-0.069..+0.300) 15m +0.041                   14.7% vs 14.0%  72%
+  C5 C1|C2|C3          5m +0.032 (-0.106..+0.093)  15m +0.163 (-0.135..+0.352)  13.7% vs 14.0%  42%
+  C6 C1..C4            5m +0.023 (-0.113..+0.209)  15m +0.327 (+0.051..+0.613)  14.7% vs 14.0%  27%
+By level: top volatility tercile earns more (5m +0.70, 15m +1.11) with more break-throughs (16.2% vs 10.4%);
+first half hour (no volatility value yet) is the weakest at 5 min (+0.33) with the most break-throughs (18.8%) but
++0.93 at 15 min; recent-sweep fills are no worse (+0.57 vs +0.52). Gamma: weak days (weak negative +1.07, weak
+positive +0.81) beat deep days (+0.33, +0.39), and near-flip live fills beat deep ones (near-flip negative +2.13,
+near-flip positive +1.00, break-through 7-9%), but each grade is one or two sessions and near-flip is 6% of fills,
+mostly from 2023-10-10: indistinguishable from session identity. Penny bucket under C5: +0.023 (-0.003..+0.052).
+Reading against the agreed rule (kept RS up with 90% lb > 0 AND fewer break-throughs): no candidate meets it at
+5 minutes; C2 and C6 meet the RS half at 15 minutes but have more break-throughs. Break-through share stays at
+13-15% under every filter: these minute-scale conditions do not separate the fills that get run over (a
+seconds-scale effect). Skipping volatility removes the best fills. Many comparisons were looked at (6 candidates,
+2 horizons, 5 groupings), so the 15-minute "wins" are what chance alone would produce. Nothing frozen yet:
+Matteo's call.
