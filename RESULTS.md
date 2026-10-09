@@ -322,3 +322,7 @@ Study 5 decision: pending Matteo's call.
   negative at 30% (to ruin at 5 lots and 300 fills a day).
 - **Verdict.** ADVANCE by the rule (the first in the programme). The tape says market makers keep part of the
   spread in IWM options; whether a retail order gets fills of that quality is not measured and decides the sign.
+- **Confirmation (5 fresh sessions, $6.81).** The unfiltered result replicates: 2-4 cents +$0.68 a contract at 5
+  minutes (CI +0.41..+0.89), 5-9 cents +$2.25 (CI +0.61..+3.98), penny spreads +$0.27 (CI +0.18..+0.36) and 10-24
+  cents +$2.86 also pass. H1 (skip the first 30 minutes): FAIL (fewer break-throughs, RS gain not resolved). H2
+  (quote only near the gamma flip): PASS by the rule on 4% of fills in 2 sessions; promising, not established.

@@ -116,8 +116,9 @@ Update this block at the end of every session.
   volatility fills earn more; first half hour weakest at 5 min (18.8% break-through); weak/near-flip gamma looks
   best but is one or two sessions. Confirmation PRE-REGISTERED 2026-10-09: V1 replication + H1 (skip first 30 min)
   + H2 (near-flip live gamma only) on 5 fresh sessions (seed 20261010, pilot excluded), agreed rule; 3 of 4 in the
-  family. Next: --confirm --sessions-list, --confirm --pull --price-only, Matteo's yes, pull, --confirm --run,
-  study10b --confirm.
+  family. Confirmation run 2026-10-09 ($6.81, ledger $114.40; 2023-06-29, 09-18, 12-21, 2024-03-04, 2025-08-28):
+  V1 REPLICATED (2-4c +$0.68, CI +0.41..+0.89; 5-9c +$2.25; penny +$0.27 and 10-24c +$2.86 also pass); H1 FAIL;
+  H2 PASS by the rule but 4% of fills in 2 sessions. Remaining unknown: a retail order's fill quality (live test).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

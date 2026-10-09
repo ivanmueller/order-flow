@@ -1855,3 +1855,25 @@ s10b_min_kept_fills 500, s10b_min_kept_sessions 2.
 Build: study10.draw_sessions gains seed/n/exclude, confirm_sessions, run(confirm=True) saves study10_fills_confirm,
 CLI --confirm; study10b.features_table, h1_keep, h2_keep, hypothesis_verdict, confirm (--confirm). Tests: fresh draw
 excludes the pilot, H1 and H2 masks, PASS/FAIL/NOT_TESTABLE; 36 Study 10/10b tests pass.
+
+## 2026-10-09 | Study 10 CONFIRMATION run (Matteo's laptop, commit 93a966f; fresh in-sample sessions; $6.81)
+Sessions (seed 20261010, pilot excluded): 2023-06-29, 2023-09-18, 2023-12-21, 2024-03-04, 2025-08-28. Quote $6.81
+(130 pieces), pulled $6.81, ledger $114.40 (Matteo ran the pull after seeing the quote). 326,675 RTH prints,
+172,147 fill opportunities; snapshots 100% on whole minutes; marks with a newer quote 93-99%; IWM from parity
+184.6-187.0, 182.5-183.6, 197.6-199.8, 205.5-207.8, 235.5-236.8, median 1-minute move 1.4-3.3 bp.
+V1 replication (pilot rule unchanged, $0): ADVANCE in 0.01-0.02 +0.268 (CI +0.176..+0.360, 15m +0.250, n 106,246),
+0.02-0.05 +0.678 (+0.411..+0.894, 15m +0.834, n 55,846), 0.05-0.10 +2.253 (+0.609..+3.980, 15m +1.865, n 5,891),
+0.10-0.25 +2.862 (+0.948..+3.943, 15m +4.333, n 3,287); 0.25+ fails (15m below 5m but > 0: +4.11 / +1.41; advance
+false because n 877 < 1,000). Both pilot buckets advance again: REPLICATED by the pre-registered rule. Also at the
+$0.05 pass-through. Break-through 12-14% (cleared fills -$0.44 to -$7.66, others +$0.49 to +$6.09). IBKR tiered:
+penny -0.38, 2-4c -0.02, 5-9c +1.55, 10-24c +2.16.
+H1 skip first 30 min (advancing buckets, 61,737 fills): kept +0.917 vs all +0.829, diff +0.088 (CI -0.138..+0.307),
+break-through 10.7% vs 12.3%, kept 71%, 5 sessions: FAIL (fewer break-throughs, but the RS gain is not resolved).
+H2 near-flip live gamma only: kept +1.419 vs +0.829, diff +0.589 (CI +0.409..+0.641), break-through 12.2% vs 12.3%,
+kept 4.0% (2,407 fills), 2 sessions (2023-12-21, 2025-08-28): PASS by the letter of the rule. Caveats: the CI rests
+on 2 clusters (resamples without them carry no information), the break-through difference is 0.16 points, and the
+gain is all near-flip positive (+1.57, n 2,356; near-flip negative 51 fills, -5.47). Across pilot and confirmation,
+near-flip positive is positive in 4 sessions (+1.00 pilot, +1.57 here).
+Rule 6: no lookahead (gamma inputs pre-open, SPX from completed ES bars, marks after the fill); fresh dates not in
+the pilot and in sample; numbers larger than the pilot in wider spreads, consistent sign across buckets.
+Family: 3 of 4 gated variants used (V1, H1, H2). Gate decision is Matteo's.
