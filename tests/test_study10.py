@@ -288,3 +288,64 @@ def test_by_session_and_capture():
     # half-spread $ per contract: 1, 2, 1, 1 -> mean 1.25; mean rs_5 0.5 -> capture 0.4
     assert b["capture_of_half_spread"] == pytest.approx(0.5 / 1.25)
     assert b["rs_5_no_newer_quote"] == pytest.approx(-1.0) and b["share_no_newer_quote"] == pytest.approx(0.25)
+
+
+# ---- bankroll (descriptive) --------------------------------------------------------------------
+def test_fill_pnl_partial_fills():
+    rs, size = np.array([2.0, -3.0, 1.0]), np.array([1, 10, 3])
+    assert list(study10.fill_pnl(rs, size, 1)) == [2.0, -3.0, 1.0]
+    assert list(study10.fill_pnl(rs, size, 5)) == [2.0, -15.0, 3.0]      # a 5-lot gets min(5, print size)
+
+
+def _pool(clr, oth):
+    c, o = np.array(clr, float), np.array(oth, float)
+    return {"cleared": (c, np.ones(len(c), int)), "other": (o, np.ones(len(o), int)),
+            "all": (np.concatenate([c, o]), np.ones(len(c) + len(o), int))}
+
+
+def test_simulate_daily_extremes_and_mean():
+    rng = np.random.default_rng(1)
+    pools = [_pool([-10.0], [2.0])]
+    assert np.allclose(study10.simulate_daily(pools, 1, 3, 0.0, 4, rng), 6.0)       # never cleared: 3 x +2
+    assert np.allclose(study10.simulate_daily(pools, 1, 3, 1.0, 4, rng), -30.0)     # always cleared
+    d = study10.simulate_daily(pools, 1, 10, 0.5, 20000, rng)
+    assert d.mean() == pytest.approx(10 * (0.5 * -10 + 0.5 * 2), abs=0.3)
+    d2 = study10.simulate_daily(pools, 2, 1, None, 20000, rng)                       # natural mix: 1 of 2 cleared
+    assert d2.mean() == pytest.approx(-4.0, abs=0.3)                                # 1-lot prints: min(2, 1) = 1; (-10 + 2)/2
+
+
+def test_path_stats_by_hand():
+    daily = np.array([[10.0, -30.0, 5.0]])
+    st = study10.path_stats(daily, start=100.0)
+    assert st["final"][0] == pytest.approx(85.0)
+    assert st["max_dd"][0] == pytest.approx(30.0 / 110.0)
+    assert st["ruined"][0] == False                                              # noqa: E712
+    st2 = study10.path_stats(np.array([[-60.0, -50.0, 20.0]]), start=100.0)
+    assert st2["ruined"][0] == True and st2["final"][0] == pytest.approx(0.0)    # noqa: E712  stops at zero
+
+
+def test_bankroll_grid(cfg):
+    rng = np.random.default_rng(0)
+    rows = []
+    for k in range(40):
+        rows.append({"date": dt.date(2024, 1, 2 + k % 2), "spread_b": "0.02-0.05", "net_5": 1.0 if k % 4 else -3.0,
+                     "size": 1 + k % 3, "cleared": k % 4 == 0})
+    F = pd.DataFrame(rows)
+    c = dict(cfg)
+    c["bankroll"] = {**cfg["bankroll"], "s10_paths": 20, "s10_days": 10}
+    t = study10.bankroll(F, c)
+    assert len(t) == 3 * 5 * 3
+    one = t[(t["fills_per_day"] == 100) & (t["contracts"] == 1) & (t["fill_quality"] == "as in data")].iloc[0]
+    # natural mix: mean per fill = (30 x 1 + 10 x -3) / 40 = 0 -> mean day ~ 0
+    assert abs(one["mean_day_usd"]) < 15
+    worst = t[(t["fills_per_day"] == 300) & (t["contracts"] == 5) & (t["fill_quality"] == "30% break-through")].iloc[0]
+    assert worst["mean_day_usd"] < 0
+
+
+def test_empty_kind_borrows_from_all_sessions():
+    F = pd.DataFrame({"date": [dt.date(2024, 1, 2)] * 2 + [dt.date(2024, 1, 3)] * 2, "spread_b": ["0.02-0.05"] * 4,
+                      "net_5": [-3.0, 1.0, 1.0, 1.0], "size": [1] * 4, "cleared": [True, False, False, False]})
+    pools = study10.bankroll_pools(F, ["0.02-0.05"], "net_5")
+    assert list(pools[1]["cleared"][0]) == [-3.0]                 # session 2 had none of its own
+    d = study10.simulate_daily(pools, 1, 1, 1.0, 1000, np.random.default_rng(2))
+    assert np.allclose(d, -3.0)                                    # every day loses, whichever session is drawn

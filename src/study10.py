@@ -510,6 +510,97 @@ def diagnose(cfg=None) -> dict:
             "stability_15min": stability(F, cfg["gates"]["study10_confirm_horizon_min"])}
 
 
+# ---------------------------------------------------------------------------
+# Bankroll (descriptive, Matteo 2026-10-09): resampled pilot fills, fill quality x order size x fills a day
+# ---------------------------------------------------------------------------
+def fill_pnl(rs, size, k: int) -> np.ndarray:
+    """$ for one fill of a k-lot resting order: it gets min(k, print size) contracts at the per-contract value."""
+    return np.minimum(np.asarray(size), k) * np.asarray(rs, float)
+
+
+def bankroll_pools(F: pd.DataFrame, buckets, col: str) -> list:
+    pools = []
+    for _, g in F[F["spread_b"].isin(buckets)].groupby("date"):
+        clr = g["cleared"].astype(bool).to_numpy()
+        v, z = g[col].to_numpy(float), g["size"].to_numpy(int)
+        pools.append({"cleared": (v[clr], z[clr]), "other": (v[~clr], z[~clr]), "all": (v, z)})
+    # a session with no fills of a kind borrows that kind from all sessions (an empty pool would add $0)
+    for kind in ("cleared", "other"):
+        allv = np.concatenate([p[kind][0] for p in pools]) if pools else np.zeros(0)
+        allz = np.concatenate([p[kind][1] for p in pools]) if pools else np.zeros(0, int)
+        for p in pools:
+            if len(p[kind][0]) == 0:
+                p[kind] = (allv, allz)
+    return pools
+
+
+def _draw_sum(pool, counts, k, rng) -> np.ndarray:
+    """Per-day sums of counts[i] fills drawn with replacement from pool."""
+    v, z = pool
+    tot = int(counts.sum())
+    if tot == 0 or len(v) == 0:
+        return np.zeros(len(counts))
+    idx = rng.integers(len(v), size=tot)
+    day = np.repeat(np.arange(len(counts)), counts)
+    return np.bincount(day, weights=fill_pnl(v[idx], z[idx], k), minlength=len(counts))
+
+
+def simulate_daily(pools: list, k: int, n_fills: int, share, n_days: int, rng) -> np.ndarray:
+    """Daily $ P&L: each day draws a pilot session, then n_fills fills from it; share = probability a fill is a
+    break-through (cleared) one, None = the session's own mix."""
+    sess = rng.integers(len(pools), size=n_days)
+    out = np.zeros(n_days)
+    for i, p in enumerate(pools):
+        days = np.flatnonzero(sess == i)
+        if not len(days):
+            continue
+        if share is None:
+            out[days] = _draw_sum(p["all"], np.full(len(days), n_fills), k, rng)
+        else:
+            nc = rng.binomial(n_fills, share, size=len(days))
+            out[days] = _draw_sum(p["cleared"], nc, k, rng) + _draw_sum(p["other"], n_fills - nc, k, rng)
+    return out
+
+
+def path_stats(daily: np.ndarray, start: float) -> dict:
+    """Equity paths from daily P&L (paths x days); a path that reaches zero stops there (ruin)."""
+    eq = start + np.cumsum(daily, axis=1)
+    ruined = (eq <= 0).any(axis=1)
+    first = np.where(ruined, (eq <= 0).argmax(axis=1), eq.shape[1])
+    cols = np.arange(eq.shape[1])[None, :]
+    eq = np.where(cols >= first[:, None], 0.0, eq)
+    full = np.concatenate([np.full((eq.shape[0], 1), start), eq], axis=1)
+    peak = np.maximum.accumulate(full, axis=1)
+    dd = np.where(peak > 0, (peak - full) / peak, 0.0)
+    return {"final": full[:, -1], "max_dd": dd.max(axis=1), "ruined": ruined}
+
+
+def bankroll(F: pd.DataFrame, cfg) -> pd.DataFrame:
+    b = cfg["bankroll"]
+    col = f"net_{cfg['gates']['study10_advance_horizon_min']}"
+    pools = bankroll_pools(F, b["s10_buckets"], col)
+    rng = np.random.default_rng(b["s10_seed"])
+    start, paths, days = float(b["start_usd"]), int(b["s10_paths"]), int(b["s10_days"])
+    rows = []
+    for share in b["s10_break_through"]:
+        label = "as in data" if share is None else f"{share:.0%} break-through"
+        for k in b["s10_contracts"]:
+            for n in b["s10_fills_per_day"]:
+                daily = np.vstack([simulate_daily(pools, k, n, share, days, rng) for _ in range(paths)])
+                st = path_stats(daily, start)
+                fin = st["final"]
+                rows.append({"fill_quality": label, "contracts": k, "fills_per_day": n,
+                             "mean_day_usd": float(daily.mean()), "sd_day_usd": float(daily.std()),
+                             "losing_days": float((daily < 0).mean()),
+                             "median_final_usd": float(np.median(fin)), "p5_final_usd": float(np.percentile(fin, 5)),
+                             "p95_final_usd": float(np.percentile(fin, 95)),
+                             "median_return": float(np.median(fin) / start - 1),
+                             "median_max_dd": float(np.median(st["max_dd"])),
+                             "p95_max_dd": float(np.percentile(st["max_dd"], 95)),
+                             "ruin_share": float(st["ruined"].mean())})
+    return pd.DataFrame(rows)
+
+
 def run(cfg=None, save: bool = True) -> dict:
     cfg = cfg or load_config()
     days = draw_sessions(store.load_calendar(cfg), cfg)
@@ -542,6 +633,7 @@ def main(argv=None):
     ap.add_argument("--run", action="store_true", help="fills, marks and the report")
     ap.add_argument("--report-only", action="store_true")
     ap.add_argument("--diagnose", action="store_true", help="rule-6 checks on the saved fills and raw data")
+    ap.add_argument("--bankroll", action="store_true", help="descriptive bankroll from resampled pilot fills")
     ap.add_argument("--parents", nargs="+", default=DEFAULT_PARENTS)
     ap.add_argument("--schemas", nargs="+", default=DEFAULT_SCHEMAS)
     ap.add_argument("--days", type=int, default=1, help="weekdays priced, evenly spaced over the in-sample period")
@@ -571,6 +663,19 @@ def main(argv=None):
         return
     if a.run:
         print(to_json(run(cfg)))
+        return
+    if a.bankroll:
+        F = store.load_derived("study10_fills", cfg)
+        t = bankroll(F, cfg)
+        store.save_derived(t, "study10_bankroll", cfg)
+        b = cfg["bankroll"]
+        pd.set_option("display.width", 220)
+        print(f"Study 10 bankroll (descriptive, in sample): ${b['start_usd']:,.0f} start, {b['s10_days']} days, "
+              f"{b['s10_paths']} paths, buckets {b['s10_buckets']}, $0 commission, 5-minute marks")
+        show = t.copy()
+        for c in ("losing_days", "median_return", "median_max_dd", "p95_max_dd", "ruin_share"):
+            show[c] = (show[c] * 100).round(1).astype(str) + "%"
+        print(show.to_string(index=False, float_format=lambda x: f"{x:,.0f}"))
         return
     if a.diagnose:
         print(to_json(diagnose(cfg)))

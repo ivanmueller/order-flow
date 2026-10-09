@@ -1704,3 +1704,32 @@ level traded through within 60 s; 12-15% of fills) lose $2-7 a contract; a resti
 IWM is hit exactly then, and would also create pick-off fills absent from this tape. Exiting by crossing the
 spread costs a half-spread ($1-2.50 in these buckets), more than the measured RS: the edge exists only if the exit
 is passive too.
+
+## 2026-10-09 | Study 10 rule-6 diagnostics (Matteo's laptop, commit cc57f91; in sample; $0)
+- Snapshot clock: a cbbo-1m snapshot stamped T matches the market state at T for 54-66% of checks (pre-trade
+  quotes of prints within 1 s), against 8-17% for T - 60 s and 9-16% for T + 60 s, every session. Snapshots
+  describe their stamp time: the marks look no later than t + D. (Matches are below 100% because the state is
+  read from the next print's pre-trade quote, which can change within the second.)
+- Stability at 5 min (sessions positive / capture of the half-spread / marks without a newer quote):
+  0.01-0.02 4 of 5 / 22% / 1.6%; 0.02-0.05 5 of 5 (+0.11 to +1.09 by session) / 42% / 2.1%;
+  0.05-0.10 4 of 5 (2023-09-27 -0.32) / 25% / 2.0%; 0.10-0.25 4 of 5 (2023-12-14, n 3,792, -1.33, carries the
+  bucket) / -2%; 0.25+ 3 of 5 (2023-12-14 has 653 of 825 fills). At 15 min 0.02-0.05 is positive 4 of 5
+  (2025-12-02 -0.24), 0.05-0.10 4 of 5.
+- Reading: no single session carries the advancing buckets; no clock lookahead; the marks almost always use a
+  newer quote. The rule-6 checks found no bug. The open question remains fill quality for a retail order.
+
+## 2026-10-09 | Study 10 bankroll built (descriptive; Matteo: "run the bankroll simulation over the 3 fill scenarios
+as well as 1-5 contract positions with the assumed frequency of these per day")
+Resampled from the pilot's 70,556 fills in the advancing buckets (0.02-0.05 and 0.05-0.10), 5-minute marks, $0
+commission. Each simulated day draws one pilot session, then N fills from it; a k-lot order gets min(k, print
+size) contracts per fill (bigger prints come with bigger orders and kept less). Fill quality: as in the data,
+20% or 30% break-through fills (cleared within 60 s), drawn from that session's cleared and other fills (a session
+lacking a kind borrows it from all sessions; a test caught that an empty pool had added $0). $30k start, 252
+days, 500 paths, seed 20261009; a path at zero stops (ruin). Grid 3 x 5 x 3 = 45 rows: mean and SD of the day,
+losing days, median / 5th / 95th percentile final equity, median return, median and 95th percentile max
+drawdown, ruin share. Tests: partial fills, extremes and mean of the day simulation, path stats by hand, the
+empty-pool borrow, the grid. Assumes what the pilot assumes (front-of-queue fills, a passive exit marked at mid,
+no pick-off fills, no capital limit) and adds that days and fills are independent draws from 5 sessions.
+config diff (approved by the request): bankroll.s10_buckets [0.02-0.05, 0.05-0.10], s10_fills_per_day
+[100, 200, 300], s10_break_through [null, 0.20, 0.30], s10_contracts [1, 2, 3, 4, 5], s10_paths 500, s10_days 252,
+s10_seed 20261009. Command: python -m src.study10 --bankroll (saves study10_bankroll).

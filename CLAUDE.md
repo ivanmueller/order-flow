@@ -102,6 +102,9 @@ Update this block at the end of every session.
   rule in spreads 0.02-0.05 (+$0.50/contract at 5 min, CI +0.34..+0.76, n 62k) and 0.05-0.10 (+$0.78, n 8.5k);
   penny spreads +$0.11 (CI incl. 0). Cleared fills lose $2-7. Rule-6 diagnostics added (--diagnose), awaiting
   Matteo's run; gate call is his. Caveats: queue position, pick-offs, passive exit needed (half-spread > RS).
+  Diagnostics run 2026-10-09: no bug found (snapshots describe their stamp time; 0.02-0.05 positive all 5
+  sessions, 42% of the half-spread kept). Bankroll (descriptive) built: --bankroll, 3 fill qualities x 1-5 lots x
+  100/200/300 fills a day, resampled pilot fills; awaiting Matteo's run.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -179,7 +182,7 @@ See README.md for the full runbook in order.
 - Study 9: `python -m src.study9 --realized-spread`, `python -m src.study9 --level-reversion` [--report-only]
 - Study 10 price quote (no pull): `python -m src.study10 --price [--parents SPY.OPT ...] [--sessions 5]`
 - Study 10 pilot (IWM): `python -m src.study10 --sessions-list`, `--pull --price-only`, then
-  `--pull --approve-usd X --allow-past-total`, then `--run` (or `--report-only`)
+  `--pull --approve-usd X --allow-past-total`, then `--run` (or `--report-only`), `--diagnose`, `--bankroll`
 - Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`

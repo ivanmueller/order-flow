@@ -85,6 +85,14 @@ bankroll:
   micro_cost_rt_usd: 1.18       # all-in micro round trip, Matteo's broker (confirmed 2026-10-08; was 3.98 as a placeholder)
   risk_pcts: [0.01, 0.02]       # scheme "micro_risk": risk this share of equity at the stop, in whole micros
   # stress rows use entry_slippage's registered nudge (2 ticks) on entry and exit; no new number here
+  # Study 10 option-liquidity bankroll (Matteo 2026-10-09; descriptive, in sample): resampled pilot fills
+  s10_buckets: ["0.02-0.05", "0.05-0.10"]   # the spread buckets that advanced
+  s10_fills_per_day: [100, 200, 300]        # fill opportunities captured a day (assumed)
+  s10_break_through: [null, 0.20, 0.30]     # share of fills the price trades through within 60 s; null = as in the data
+  s10_contracts: [1, 2, 3, 4, 5]            # order size; a fill gives min(size, print size) contracts
+  s10_paths: 500
+  s10_days: 252
+  s10_seed: 20261009
 
 # ---------------------------------------------------------------------------
 # Spending guard (CLAUDE.md rule 7)
