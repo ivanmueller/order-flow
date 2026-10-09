@@ -1930,3 +1930,17 @@ missing 1.3%; no size missing; median IV 0.19-0.25 per session.
 Rule 6 (for a bad result): fills and marks are Study 10's (replicated); the ordering checks hold; the decomposition
 reconciles the mark-to-mid and round-trip numbers; the fallback tick is $1 x ~45% and cannot explain a -$2 mean.
 No candidate to freeze. The 1-second IWM pull is not recommended (it can only refine K1/K2, worth at most ~$0.13).
+
+## 2026-10-09 | Study 11b (hedged market making) BUILT, not yet run; 1-second IWM pull APPROVED ($0.0693 quote)
+Matteo: "yes approve and build" (the 1-second IWM pull for the 10 seen sessions, quoted $0.0693, and the build).
+Design (exploration on the 10 seen sessions, report-only): per Study 10 fill with its Study 11 delta, hedge
+q = -s x round(delta x 100) IWM shares 1 s after the fill at the first 1-second IWM quote (buys at the ask, sells at
+the bid), unwound 1 s after the option exit; the option exit rests at the FAR side and re-pegs whenever an observed
+quote's far side moves (back of the queue each time); fill rules through (headline, rule 5) / queue / front; after
+30 min or at the close it crosses one tick worse. Reports hedged and unhedged $ a contract per spread bucket, side,
+days to expiry and |delta|, and option orders per round trip (entry + exit + re-pegs, a lower bound) x 100/200/300
+fills a day against the 390 priority-customer limit.
+config diff (proposed): s11b_max_hold_min 30, s11b_hedge_latency_s 1, s11b_stock_fee_per_share_usd 0.0,
+s11b_priority_orders_per_day 390. study10.norm_quotes now carries displayed sizes (results unchanged).
+Note: with a moving exit price an earlier fill need not pay more, so the built-in check is on exit times
+(front <= queue <= through), not on means. Tests: 6 new; full suite 254 pass.

@@ -137,6 +137,8 @@ python -m src.study11 --iwm-pull --price-only
 python -m src.study11 --iwm-pull --approve-usd X --allow-past-total     # only after Matteo approves the quote
 python -m src.study11 --explore
 python -m src.study11 --report-only
+#     Study 11b: hedged market making (needs the 1-second IWM pull above and study11_entries)
+python -m src.study11b --explore
 
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges

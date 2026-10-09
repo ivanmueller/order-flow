@@ -251,6 +251,11 @@ params:
   s11_iwm_dataset:    {value: "XNAS.ITCH"}                  # optional 1-second IWM (priced first; pull only with approval)
   s11_iwm_schema:     {value: "bbo-1s"}
   s11_iwm_symbol:     {value: "IWM"}
+  # Study 11b, hedged market making (Matteo 2026-10-09: "yes approve and build"); exploration on the 10 seen sessions
+  s11b_max_hold_min:  {value: 30}                           # the re-pegged exit rests up to this long, then crosses
+  s11b_hedge_latency_s: {value: 1}                          # hedge sent this long after the fill / exit (first 1-s IWM quote at or after)
+  s11b_stock_fee_per_share_usd: {value: 0.0}                # IWM commission a share a side ($0 at Questrade / Wealthsimple); spread paid from quotes
+  s11b_priority_orders_per_day: {value: 390}                # priority-customer limit (average option orders a day)
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}

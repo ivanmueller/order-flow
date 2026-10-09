@@ -260,8 +260,11 @@ def norm_quotes(raw: pd.DataFrame) -> pd.DataFrame:
     if raw is None or raw.empty:
         return pd.DataFrame(columns=["ts", "symbol", "bid", "ask"])
     df = raw.reset_index() if "ts_recv" not in raw.columns else raw
-    return pd.DataFrame({"ts": pd.to_datetime(df["ts_recv"], utc=True), "symbol": df["symbol"].astype(str),
-                         "bid": _px(df["bid_px_00"]), "ask": _px(df["ask_px_00"])})
+    out = pd.DataFrame({"ts": pd.to_datetime(df["ts_recv"], utc=True), "symbol": df["symbol"].astype(str),
+                        "bid": _px(df["bid_px_00"]), "ask": _px(df["ask_px_00"])})
+    for src, dst in (("bid_sz_00", "bid_sz"), ("ask_sz_00", "ask_sz")):     # displayed sizes (Study 11b queue rule)
+        out[dst] = pd.to_numeric(df[src], errors="coerce").astype(float) if src in df.columns else np.nan
+    return out
 
 
 def classify(tr: pd.DataFrame):

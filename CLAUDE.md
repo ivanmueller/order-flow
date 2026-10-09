@@ -127,6 +127,8 @@ Update this block at the end of every session.
   and session (2-4c through 5 min -$2.08, CI -2.47..-1.66; front -$1.36); stale filters +$0.1 (CI incl. 0); K3 worse;
   inventory -$230/day at 100 fills; hedge cuts sd 30%, costs more. Mark-to-mid profit was the free exit. Nothing to
   freeze. Awaiting Matteo's call on closing the option liquidity track.
+- Study 11b (hedged market making) BUILT 2026-10-09, not yet run: exit follows the far side (re-pegs), IWM delta hedge
+  from 1-second quotes (pull of $0.0693 approved by Matteo), order count vs the 390 limit. src/study11b.py, 254 tests.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -208,6 +210,7 @@ See README.md for the full runbook in order.
 - Study 10b exploration on the pilot fills: `python -m src.study10b --explore`
 - Study 11 (exploration, 10 seen sessions): `python -m src.study11 --iwm-pull --price-only` (optional, then
   `--iwm-pull --approve-usd X --allow-past-total`), `python -m src.study11 --explore` (or `--report-only`)
+- Study 11b (after the IWM pull and study11 --explore): `python -m src.study11b --explore` (or `--report-only`)
 - Study 10 confirmation (fresh sessions): `python -m src.study10 --confirm --sessions-list`, `--confirm --pull
   --price-only`, `--confirm --pull --approve-usd X --allow-past-total`, `--confirm --run`, then `python -m src.study10b --confirm`
 - Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`
