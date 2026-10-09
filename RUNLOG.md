@@ -2096,3 +2096,15 @@ in every case (negative); unconditional long +0.28..+0.95; 7 of 21 days positive
 Reading: the validation result was the strong morning drift of 2024-12..2025-06; on new days the morning long lost and
 the flow condition made it slightly worse. Study 13 verdict: FAIL. Test days now spent (discovery cannot be rerun).
 Order-flow pattern search on the on-disk ES ticks: closed (gate call is Matteo's).
+
+## 2026-10-09 | Study 13 closed; Study 14 (crypto pump-fade shorts) DRAFTED; step 0 inventory BUILT ($0, no run)
+Matteo moved the search to crypto: short artificially pumped coins (the dilution-short idea), with squeeze warning
+flags, using perpetual futures (no borrow) and 24/7 monitoring. Noted to him: 24/7 removes overnight gaps but not
+liquidity gaps, liquidation cascades, exchange outages or auto-deleveraging; stops must be modelled as bad fills.
+Draft: STUDY14.md (events: 24-h +40% on 5x volume; V1-V3 entries next hour / first red hour / first red day, 7-day
+hold, 50% stop on 1-minute bars, actual funding, taker fee + slippage; V4 = V2 + squeeze-score filter; training
+2020-2023, validation 2024, last 12 months sealed; pass: >= 200 trades, mean >= +2% with a week-clustered 90% lower
+bound > 0, positive without the best 5%). Not approved; no parameters in config.yaml.
+Step 0: src/crypto_inventory.py (+3 tests) lists data.binance.vision (USD-M klines 1h/1m, fundingRate, metrics,
+liquidationSnapshot, bookDepth, aggTrades): symbols, first/last month, size, delisted count. The archive could not be
+read from the cloud workspace (no network permission); Matteo runs it on the laptop. Full suite 276 pass.

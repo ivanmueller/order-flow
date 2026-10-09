@@ -152,6 +152,9 @@ Update this block at the end of every session.
   TEST run 2026-10-09 (21 untouched days, once): all 4 FAIL (-1.0 to -2.0 pts, one at a time -0.9 to -2.4); the flow
   condition adds -0.4 vs time of day alone; 7/21 days positive. The validation edge was morning drift. FAIL; test
   days spent. Awaiting Matteo's call (close the flow search).
+- Study 14 (crypto pump-fade shorts + squeeze-risk score) DRAFTED 2026-10-09 in STUDY14.md (not approved, no config
+  entries). Step 0 built: `python -m src.crypto_inventory` (free) lists the Binance public futures archive; Matteo
+  runs it, then the draft is fixed to the data that exists and sent for approval. Research only (no BC venue yet).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -237,6 +240,7 @@ See README.md for the full runbook in order.
 - Study 12 (SPY level fade): `python -m src.study12 --count`, `--pull --price-only`, `--pull --approve-usd X
   --allow-past-total`, `--run` (or `--report-only`)
 - Study 13 (flow discovery): `python -m src.study13 --build`, `--discover`, then once `--test`
+- Study 14 step 0 (free): `python -m src.crypto_inventory [--sample 20]`
 - Study 10 confirmation (fresh sessions): `python -m src.study10 --confirm --sessions-list`, `--confirm --pull
   --price-only`, `--confirm --pull --approve-usd X --allow-past-total`, `--confirm --run`, then `python -m src.study10b --confirm`
 - Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`
