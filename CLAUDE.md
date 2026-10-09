@@ -123,7 +123,10 @@ Update this block at the end of every session.
   sessions, $0: round trip with a passive exit (through/queue/front rules, 1/5/15 min patience, then cross 1 tick
   worse), stale-quote ratio from delta x IWM move (K1/K2), contract selection (K3 skip 1-7 DTE), inventory limits
   and IWM delta hedge. s11_* params added as proposals (RUNLOG). Optional 1-second IWM (XNAS.ITCH bbo-1s) priced
-  first. 248 tests pass. Next: Matteo reviews params, runs --explore; choices then frozen and confirmed fresh.
+  first. 248 tests pass. Explore run 2026-10-09 (RUNLOG): every round trip negative in every bucket, rule, patience
+  and session (2-4c through 5 min -$2.08, CI -2.47..-1.66; front -$1.36); stale filters +$0.1 (CI incl. 0); K3 worse;
+  inventory -$230/day at 100 fills; hedge cuts sd 30%, costs more. Mark-to-mid profit was the free exit. Nothing to
+  freeze. Awaiting Matteo's call on closing the option liquidity track.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

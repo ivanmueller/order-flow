@@ -1907,3 +1907,26 @@ Code: src/study11.py; study10.norm_trades/dedupe_sweeps now carry the displayed 
 unchanged). Tests: 12 new (exit rules by hand, window and close, entry sweep excluded, round trip and fallback,
 fees both sides, parity forward per expiry, IV/delta, stale sign and point in time, hedge timing, inventory limits,
 IWM pull idempotent, end to end); full suite 248 pass. Benchmarks: ~4 s per 30k entries for exits, ~30 s inventory.
+
+## 2026-10-09 | Study 11 EXPLORATION run (Matteo's laptop, commit aa13802; 10 seen sessions; $0)
+IWM 1-second quote (nothing pulled): 10 sessions $0.0693, ledger $114.40. Explore ran on minute parity IWM.
+387,680 entries; checks: front >= queue >= through in every bucket and patience; no round trip missing; delta
+missing 1.3%; no size missing; median IV 0.19-0.25 per session.
+#1 Round trip, through rule, 5-min patience, $0 (90% session-bootstrap CI), mark-to-mid RS_5 for reference:
+  0.01-0.02 -1.50 (CI -1.82..-1.26) vs mark +0.18; 0.02-0.05 -2.08 (-2.47..-1.66) vs +0.58;
+  0.05-0.10 -5.59 (-6.41..-4.49) vs +1.38; 0.10-0.25 -11.24 vs +0.98; 0.25+ -45.26 vs +9.17.
+  Front of queue (optimistic) 5 min: -0.63 / -1.36 / -5.08 / -10.79 / -45.15. Every rule and patience
+  (1/5/15 min) negative in every bucket; 0 of 10 sessions positive in any table row. Passive exit share 53-56% at
+  5 min in the two advancing buckets. Decomposition (0.02-0.05): passive exits earn the spread (+$2.34) but those
+  fills had marks near +$5.4 (upside capped at X); the 44% that fall back average about -$7.7 (mark about -$5.5,
+  minus half-spread and 1 tick). The mark-to-mid profit came from the free exit.
+#2 Stale quotes (60 s, minute IWM): every ratio bucket negative (-2.0 to -2.7). K1/K2 kept-minus-all +0.03 to +0.13,
+  every CI includes 0.
+#4 Selection: every row negative; least bad 0 DTE (-1.11), premium < $0.10 (-0.68, n 1,045), |delta| < 0.15 (-1.13),
+  Cboe/EDGX/NYSE American (-1.4 to -1.5). K3 (skip 1-7 DTE) WORSE: -0.19 (CI -0.36..-0.05).
+#5 Inventory (2-4c and 5-9c, through 5 min): -$225 to -$231 a day at 100 fills, -$452 to -$458 at 200,
+  -$667 to -$685 at 300; buys only -$209 to -$643; limits never bind (peak 6-14 open, p95 delta 300-640 shares).
+  Per-fill hedge (minute IWM, $0.005 a share a side) cuts the daily sd by about 30% but costs about $0.45 a fill.
+Rule 6 (for a bad result): fills and marks are Study 10's (replicated); the ordering checks hold; the decomposition
+reconciles the mark-to-mid and round-trip numbers; the fallback tick is $1 x ~45% and cannot explain a -$2 mean.
+No candidate to freeze. The 1-second IWM pull is not recommended (it can only refine K1/K2, worth at most ~$0.13).
