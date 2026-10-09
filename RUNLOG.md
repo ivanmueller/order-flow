@@ -2027,4 +2027,4 @@ s13_windows_s [5,15,60,300], s13_burst_s 1, s13_horizons_s [5,15,30,60,120,300,6
 s13_quantile 0.2, s13_split [0.6,0.2,0.2], s13_null_reps 200, s13_seed 20261012, s13_top_k 20; gates study13_null_p
 0.05, study13_min_obs 500, study13_min_days 15, study13_max_frozen 4, study13_test_min_days 10.
 Tests: 8 new (features by hand, all four fills by hand, roll exit dropped, unfilled resting order, planted pattern
-found and beats noise, pure noise does not, date split, discovery cuts); full suite 272 pass.
+found and beats noise, pure noise does not, date split, discovery cuts); full suite 271 pass.
