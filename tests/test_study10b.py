@@ -79,10 +79,43 @@ def test_sweep_flag():
     assert list(flag) == [True, False, False, False, False]              # the sweep itself is not "recent"
 
 
-def test_gamma_regime():
-    gx = pd.DataFrame({"date": [DAY, DAY + dt.timedelta(days=1)], "net_gex": [2e9, -1e9]}).set_index("date")
-    assert study10b.gamma_regime([DAY, DAY + dt.timedelta(days=1), DAY + dt.timedelta(days=2)], gx) == \
-        ["positive", "negative", None]
+def test_gamma_day_grades_use_prior_days_only():
+    days = [DAY + dt.timedelta(days=k) for k in range(6)]
+    net = [1e9, -2e9, 3e9, 0.5e9, -4e9, -1e9]
+    gx = pd.DataFrame({"date": days, "net_gex": net}).set_index("date")
+    g = study10b.gamma_grades(gx, ratio=1.0, min_days=3, lookback=252)
+    assert pd.isna(g.loc[days[2], "grade"])                         # only 2 prior days: no grade
+    # day 3: prior |net| = 1, 2, 3 bn -> median 2 bn; 0.5 / 2 < 1 -> weak positive
+    assert g.loc[days[3], "scale"] == pytest.approx(2e9) and g.loc[days[3], "grade"] == "weak positive"
+    # day 4: prior 1, 2, 3, 0.5 -> median 1.5; -4 / 1.5 -> deep negative
+    assert g.loc[days[4], "grade"] == "deep negative"
+    # day 5: prior 1, 2, 3, 0.5, 4 -> median 2; -1 / 2 -> weak negative
+    assert g.loc[days[5], "grade"] == "weak negative"
+
+
+def test_live_gamma_side_and_distance():
+    # net gamma positive at S0 = 5000, flip 4980, EM 40: positive above the flip, negative below
+    row = {"net_gex": 1e9, "s0": 5000.0, "flip": 4980.0, "em": 40.0}
+    spx = np.array([5030.0, 4985.0, 4975.0, 4900.0, np.nan])
+    lab, dist = study10b.live_gamma(spx, row, near_em=0.25)
+    assert list(lab) == ["deep positive", "near-flip positive", "near-flip negative", "deep negative", None]
+    assert dist[0] == pytest.approx(50 / 40) and dist[3] == pytest.approx(-80 / 40)
+    # net gamma negative at S0 and S0 below the flip: negative below, positive above
+    row2 = {"net_gex": -1e9, "s0": 4950.0, "flip": 4980.0, "em": 40.0}
+    lab2, _ = study10b.live_gamma(np.array([4940.0, 4985.0]), row2, near_em=0.25)
+    assert list(lab2) == ["deep negative", "near-flip positive"]
+    # no flip on the grid: the day's sign everywhere, deep
+    lab3, d3 = study10b.live_gamma(np.array([5000.0]), {"net_gex": -1e9, "s0": 5000.0, "flip": np.nan, "em": 40.0}, 0.25)
+    assert list(lab3) == ["deep negative"] and np.isnan(d3[0])
+
+
+def test_spx_from_completed_es_bars():
+    bars = pd.DataFrame({"ts_open_utc": [ts("10:00"), ts("10:01"), ts("10:02")], "close": [5010.0, 5012.0, 5011.0],
+                         "instrument_id": 7})
+    fills = pd.DataFrame({"ts": [ts("10:01:30"), ts("10:02:00"), ts("09:59:00")]})
+    spx = study10b.spx_at_fills(fills, bars, basis=10.0)
+    # 10:01:30: last bar closed by then is the 10:00 bar (closes 10:01) -> 5010 - 10
+    assert spx[0] == pytest.approx(5000.0) and spx[1] == pytest.approx(5002.0) and np.isnan(spx[2])
 
 
 def _F(n, cleared_every, rs_good, rs_bad, rv_high_bad=True):
@@ -93,7 +126,8 @@ def _F(n, cleared_every, rs_good, rs_bad, rv_high_bad=True):
         bad = high if rv_high_bad else (i % cleared_every == 0)
         rows.append({"date": d, "spread_b": "0.02-0.05", "rs_5": rs_bad if bad else rs_good,
                      "rs_15": rs_bad if bad else rs_good, "cleared": bad, "rv": 10.0 if high else 1.0,
-                     "accel": 1.0, "sweep_recent": False, "gamma": "positive"})
+                     "accel": 1.0, "sweep_recent": False, "gamma_day": "weak positive",
+                     "gamma_live": "near-flip positive"})
     return pd.DataFrame(rows)
 
 
@@ -136,15 +170,16 @@ def test_explore_end_to_end_on_synthetic_raw_pieces(cfg, tmp_path):
     F, ex = study10.session_fills(study10._read_pieces(c, "tcbbo", DAY), study10._read_pieces(c, "cbbo-1m", DAY), DAY, c)
     assert len(F) > 100
     gx = pd.DataFrame({"date": [DAY], "net_gex": [1e9]}).set_index("date")
-    G, sanity = study10b.session_features(c, DAY, F, gx)
+    G, sanity = study10b.session_features(c, DAY, F, gx, grades=None, bars=None)
     assert sanity["iwm_minutes"] == len(minutes)
     assert abs(sanity["iwm_min"] - S.min()) < 1e-6 and abs(sanity["iwm_max"] - S.max()) < 1e-6
     assert sanity["sweeps"] == 39 and G["sweep_recent"].sum() == 0      # every 10th of 390 minutes; next fill 2 min later > 30 s
     # 09:30 is the first price, so the 30th return lands at 10:00: NaN before, a value from the 10:00 snapshot on
     assert G.loc[G["ts"] < ts("10:00"), "rv"].isna().all() and G.loc[G["ts"] >= ts("10:00"), "rv"].notna().all()
-    assert set(G["gamma"]) == {"positive"}
+    assert G["gamma_day"].isna().all() and G["gamma_live"].isna().all()    # no history and no ES bars here
     G["spread_b"] = "0.02-0.05"
     out = study10b.explore(G, c, {str(DAY): sanity})
     assert set(out["candidates"]) == {"C1_skip_top_vol", "C2_skip_top_accel", "C3_skip_after_sweep",
-                                      "C4_positive_gamma_only", "C5_skip_if_C1_C2_or_C3"}
-    assert out["candidates"]["C4_positive_gamma_only"]["share_kept"] == 1.0
+                                      "C4_skip_deep_negative_live_gamma", "C5_skip_if_C1_C2_or_C3",
+                                      "C6_skip_if_C1_to_C4"}
+    assert out["candidates"]["C4_skip_deep_negative_live_gamma"]["share_kept"] == 1.0

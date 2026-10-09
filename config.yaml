@@ -224,6 +224,9 @@ params:
   s10b_sweep_min_venues: {value: 2}                         # a sweep = prints within s10_sweep_ms on at least this many venues
   s10b_parity_strikes: {value: 3}                           # IWM from put-call parity: median over this many strikes nearest the money
   s10b_top_quantile:  {value: 0.6667}                       # candidate filters skip the top tercile of volatility / acceleration
+  s10b_gamma_deep_ratio: {value: 1.0}                       # day grade: |net_gex| / median |net_gex| of prior sessions >= this = deep
+  s10b_gamma_min_days: {value: 20}                          # prior sessions needed for that median (lookback gex_pct_lookback)
+  s10b_flip_near_em:  {value: 0.25}                         # live gamma: SPX within this many expected moves of the flip = near
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}

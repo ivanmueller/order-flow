@@ -1788,3 +1788,21 @@ and acceleration by hand with the full-window rule and 0/0, features from comple
 strictly-before rule, gamma labels, the kept-vs-all comparison with its CI, and an end-to-end run on synthetic raw
 pieces shaped like Databento's). Three of my expected values were wrong (sweep count, a window boundary) and were
 corrected against hand counts; the code was right each time.
+
+## 2026-10-09 | Study 10b amended before any run: graded and live gamma (Matteo)
+Matteo: "I don't want to do just positive or negative. There's a difference between a deep positive or a deep
+negative gamma number. Some days it's a weak negative and flips positive." The sign-only gamma is replaced by two
+features (no study 10b number had been seen):
+- gamma_day: z = net_gex / median |net_gex| of up to gex_pct_lookback (252) previous sessions (at least 20);
+  deep if |z| >= 1.0, else weak; with the sign: deep/weak positive/negative. Prior sessions only.
+- gamma_live, per fill: SPX = close of the last ES bar completed by the fill (front contract) minus the day's
+  ES-SPX basis (gex_daily, known before the open); the side of the day's flip (S0's side carries the sign of net
+  gamma), near-flip if within 0.25 expected moves of the flip, else deep. A weak negative day that trades through
+  its flip reads positive from that minute on. No flip on the grid: the day's sign, deep. flip_dist_em reported.
+Candidates (restated before any number): C1 skip top volatility tercile, C2 skip top acceleration tercile, C3 skip
+after a recent sweep, C4 skip deep-negative live gamma, C5 skip if C1-C3, C6 skip if C1-C4. The report shows every
+fill by day grade and by live label (n, sessions, 5- and 15-minute RS, break-through share). With 5 sessions the
+day grade is descriptive only; the live label varies within days and has more information.
+config diff (approved by the request): s10b_gamma_deep_ratio 1.0, s10b_gamma_min_days 20, s10b_flip_near_em 0.25.
+Tests: day grades from prior days only (by hand), live labels on both sides of the flip and with no flip, SPX from
+completed ES bars only; 32 Study 10/10b tests pass.

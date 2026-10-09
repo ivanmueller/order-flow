@@ -8,10 +8,16 @@ For every pilot fill, using only what was known at the fill (snapshots stamped a
   accel      volatility of the last s10b_accel_half_min minutes / of the half before (> 1 = expanding)
   sweep      the same contract was swept (prints within s10_sweep_ms on >= s10b_sweep_min_venues venues) in the
              s10b_sweep_lookback_s seconds before the fill
-  gamma      sign of SPX net gamma for the day (gex_daily: OI published before 09:30, quotes of the day before);
-             a market-wide regime, as there is no IWM open interest on disk
+  gamma_day  the day's SPX net gamma graded by size (Matteo: deep vs weak matters): z = net_gex / median |net_gex|
+             of prior sessions; deep if |z| >= s10b_gamma_deep_ratio -> deep/weak positive/negative
+  gamma_live at each fill, SPX (last completed ES bar minus the day's ES-SPX basis) against the day's flip: the
+             side of the flip (S0's side carries the sign of net gamma) and near-flip if within s10b_flip_near_em
+             expected moves, so a weak negative day that trades through the flip reads positive from that minute.
+             All gamma inputs are known before the open (gex_daily: OI before 09:30, quotes of the day before);
+             SPX gamma is a market-wide proxy, as there is no IWM open interest on disk
 Candidate filters (stated before any number is seen): C1 skip the top volatility tercile, C2 skip the top
-acceleration tercile, C3 skip after a recent sweep, C4 positive-gamma days only, C5 skip if C1, C2 or C3.
+acceleration tercile, C3 skip after a recent sweep, C4 skip deep-negative live gamma, C5 skip if C1, C2 or C3,
+C6 skip if any of C1-C4.
 Each is compared with all fills: mean RS kept minus mean RS of all (session-bootstrap CI), break-through share
 kept vs all. Exploration only: filters chosen here must be frozen and confirmed on fresh sessions.
 
@@ -111,15 +117,68 @@ def recent_sweep(fills: pd.DataFrame, sweeps: pd.DataFrame, lookback_s: float) -
     return ((m["ts"] - m["sw_ts"]).le(pd.Timedelta(seconds=lookback_s))).fillna(False).to_numpy(bool)
 
 
-def gamma_regime(days, gx: pd.DataFrame) -> list:
-    out = []
-    for d in days:
-        v = gx["net_gex"].get(d, np.nan) if d in gx.index else np.nan
-        out.append(None if not np.isfinite(v) else ("positive" if v >= 0 else "negative"))
-    return out
+def gamma_grades(gx: pd.DataFrame, ratio: float, min_days: int, lookback: int) -> pd.DataFrame:
+    """Day grade from net gamma relative to its typical size: scale = median |net_gex| of up to `lookback`
+    previous sessions (at least min_days), z = net / scale; deep if |z| >= ratio. Prior sessions only."""
+    g = gx.sort_index().copy()
+    a = g["net_gex"].abs().to_numpy(float)
+    scale = np.full(len(g), np.nan)
+    for i in range(len(g)):
+        prev = a[max(0, i - lookback):i]
+        prev = prev[np.isfinite(prev)]
+        if len(prev) >= min_days:
+            scale[i] = np.median(prev)
+    g["scale"] = scale
+    z = g["net_gex"].to_numpy(float) / scale
+    g["z"] = z
+    grade = []
+    for v in z:
+        if not np.isfinite(v):
+            grade.append(None)
+        else:
+            grade.append(("deep " if abs(v) >= ratio else "weak ") + ("positive" if v >= 0 else "negative"))
+    g["grade"] = grade
+    return g
 
 
-def session_features(cfg, day, Fd: pd.DataFrame, gx: pd.DataFrame | None):
+def live_gamma(spx, row: dict, near_em: float):
+    """Live gamma at each SPX level: the side of the day's flip (the side of S0 carries the sign of net_gex)
+    and whether SPX is within near_em expected moves of the flip. No flip on the grid: the day's sign, deep."""
+    spx = np.asarray(spx, float)
+    net, s0, flip, em = (float(row.get(k, np.nan)) for k in ("net_gex", "s0", "flip", "em"))
+    labels = np.full(len(spx), None, dtype=object)
+    dist = np.full(len(spx), np.nan)
+    if not np.isfinite(net):
+        return labels, dist
+    day_sign = 1 if net >= 0 else -1
+    ok = np.isfinite(spx)
+    if not (np.isfinite(flip) and np.isfinite(s0) and np.isfinite(em) and em > 0):
+        labels[ok] = "deep " + ("positive" if day_sign > 0 else "negative")
+        return labels, dist
+    s0_side = 1 if s0 >= flip else -1
+    dist = (spx - flip) / em
+    side = np.where(spx >= flip, 1, -1)
+    sign = np.where(side == s0_side, day_sign, -day_sign)
+    for i in np.flatnonzero(ok):
+        labels[i] = ("near-flip " if abs(dist[i]) < near_em else "deep ") + ("positive" if sign[i] > 0 else "negative")
+    return labels, np.where(ok, dist, np.nan)
+
+
+def spx_at_fills(fills: pd.DataFrame, bars: pd.DataFrame, basis: float) -> np.ndarray:
+    """SPX at each fill = close of the last ES bar completed by then (bar open + 1 minute <= fill) - basis."""
+    if bars is None or bars.empty or not np.isfinite(basis):
+        return np.full(len(fills), np.nan)
+    b = bars[["ts_open_utc", "close"]].copy()
+    b["ts_close"] = b["ts_open_utc"] + pd.Timedelta(minutes=1)
+    b = b.sort_values("ts_close")
+    left = fills[["ts"]].reset_index().sort_values("ts")
+    m = pd.merge_asof(left, b[["ts_close", "close"]], left_on="ts", right_on="ts_close",
+                      direction="backward").set_index("index").sort_index()
+    return (m["close"] - basis).to_numpy(float)
+
+
+def session_features(cfg, day, Fd: pd.DataFrame, gx: pd.DataFrame | None, grades: pd.DataFrame | None = None,
+                     bars: pd.DataFrame | None = None):
     """Features for one session's fills, and an IWM sanity row."""
     m = cfg["market"]
     tr = study10.norm_trades(study10._read_pieces(cfg, "tcbbo", day))
@@ -133,12 +192,19 @@ def session_features(cfg, day, Fd: pd.DataFrame, gx: pd.DataFrame | None):
     out[["rv", "accel"]] = attach_minute_features(Fd, feat).to_numpy()
     sw = sweep_times(tr, param(cfg, "s10_sweep_ms"), param(cfg, "s10b_sweep_min_venues"))
     out["sweep_recent"] = recent_sweep(Fd, sw, param(cfg, "s10b_sweep_lookback_s"))
-    out["gamma"] = gamma_regime([day], gx)[0] if gx is not None else None
+    out["gamma_day"] = grades["grade"].get(day) if grades is not None and day in grades.index else None
+    out["gamma_live"], out["flip_dist_em"] = None, np.nan
+    if gx is not None and day in gx.index:
+        row = gx.loc[day].to_dict()
+        spx = spx_at_fills(Fd, bars, float(row.get("basis", np.nan)))
+        lab, dist = live_gamma(spx, row, param(cfg, "s10b_flip_near_em"))
+        out["gamma_live"], out["flip_dist_em"] = lab, dist
     r = np.log(px).diff().dropna()
     sanity = {"iwm_minutes": int(len(px)), "iwm_min": float(px.min()) if len(px) else np.nan,
               "iwm_max": float(px.max()) if len(px) else np.nan,
               "median_abs_1min_bp": float((r.abs() * 1e4).median()) if len(r) else np.nan,
-              "sweeps": int(len(sw)), "gamma": out["gamma"].iloc[0] if len(out) else None,
+              "sweeps": int(len(sw)), "gamma_day": out["gamma_day"].iloc[0] if len(out) else None,
+              "gamma_live_mix": {str(k): int(v) for k, v in out["gamma_live"].value_counts().items()},
               "share_fills_with_vol": float(out["rv"].notna().mean()) if len(out) else np.nan}
     return out, sanity
 
@@ -180,11 +246,13 @@ def candidates(F: pd.DataFrame, cut: dict) -> dict:
     hi_rv = F["rv"] >= cut["rv"]
     hi_acc = F["accel"] >= cut["accel"]
     sw = F["sweep_recent"].astype(bool)
+    deep_neg = F["gamma_live"].eq("deep negative")
     return {"C1_skip_top_vol": ~hi_rv.fillna(False),
             "C2_skip_top_accel": ~hi_acc.fillna(False),
             "C3_skip_after_sweep": ~sw,
-            "C4_positive_gamma_only": F["gamma"].eq("positive"),
-            "C5_skip_if_C1_C2_or_C3": ~(hi_rv.fillna(False) | hi_acc.fillna(False) | sw)}
+            "C4_skip_deep_negative_live_gamma": ~deep_neg,
+            "C5_skip_if_C1_C2_or_C3": ~(hi_rv.fillna(False) | hi_acc.fillna(False) | sw),
+            "C6_skip_if_C1_to_C4": ~(hi_rv.fillna(False) | hi_acc.fillna(False) | sw | deep_neg)}
 
 
 def by_level(F: pd.DataFrame, col: str, cut: float, horizon_cols=("rs_5", "rs_15")) -> dict:
@@ -194,6 +262,12 @@ def by_level(F: pd.DataFrame, col: str, cut: float, horizon_cols=("rs_5", "rs_15
         out[str(b)] = {"n": int(len(g)), **{h: float(g[h].mean()) for h in horizon_cols},
                        "cleared": float(g["cleared"].mean())}
     return out
+
+
+def _by_label(A: pd.DataFrame, col: str) -> dict:
+    return {str(k): {"n": int(len(g)), "sessions": int(g["date"].nunique()), "rs_5": float(g["rs_5"].mean()),
+                     "rs_15": float(g["rs_15"].mean()), "cleared": float(g["cleared"].mean())}
+            for k, g in A.groupby(A[col].fillna("unknown"))}
 
 
 def explore(F: pd.DataFrame, cfg, sanity: dict | None = None) -> dict:
@@ -208,9 +282,7 @@ def explore(F: pd.DataFrame, cfg, sanity: dict | None = None) -> dict:
            "by_volatility": by_level(A, "rv", cut["rv"]), "by_acceleration": by_level(A, "accel", cut["accel"]),
            "by_sweep": {str(k): {"n": int(len(g)), "rs_5": float(g["rs_5"].mean()), "rs_15": float(g["rs_15"].mean()),
                                  "cleared": float(g["cleared"].mean())} for k, g in A.groupby("sweep_recent")},
-           "by_gamma": {str(k): {"n": int(len(g)), "sessions": int(g["date"].nunique()),
-                                 "rs_5": float(g["rs_5"].mean()), "cleared": float(g["cleared"].mean())}
-                        for k, g in A.groupby(A["gamma"].fillna("unknown"))}}
+           "by_gamma_day": _by_label(A, "gamma_day"), "by_gamma_live": _by_label(A, "gamma_live")}
     P = F[F["spread_b"] == "0.01-0.02"].reset_index(drop=True)
     if len(P):
         out["penny_bucket_C5"] = compare(P, candidates(P, cut)["C5_skip_if_C1_C2_or_C3"].to_numpy(), cfg)
@@ -219,15 +291,28 @@ def explore(F: pd.DataFrame, cfg, sanity: dict | None = None) -> dict:
     return out
 
 
+def _day_bars(cfg, day, cal: pd.DataFrame) -> pd.DataFrame | None:
+    """ES 1-minute bars of `day` on its front contract, from that month's file only (lean)."""
+    p = store.bars_path(cfg, f"{day:%Y-%m}")
+    if not p.exists() or day not in cal.index:
+        return None
+    b = store.read(p)
+    b["date"] = calm.session_date(b["ts_open_utc"])
+    return b[(b["date"] == day) & (b["instrument_id"] == cal.loc[day, "instrument_id"])]
+
+
 def run(cfg=None, save: bool = True) -> dict:
     cfg = cfg or load_config()
     F = store.load_derived("study10_fills", cfg)
-    gx = None
+    gx = grades = None
     if store.derived_path(cfg, "gex_daily").exists():
         gx = store.load_derived("gex_daily", cfg).set_index("date")
+        grades = gamma_grades(gx, param(cfg, "s10b_gamma_deep_ratio"), param(cfg, "s10b_gamma_min_days"),
+                              param(cfg, "gex_pct_lookback"))
+    cal = store.load_calendar(cfg).set_index("date")
     parts, sanity = [], {}
     for d, Fd in F.groupby("date"):
-        x, s = session_features(cfg, d, Fd, gx)
+        x, s = session_features(cfg, d, Fd, gx, grades, _day_bars(cfg, d, cal))
         parts.append(x)
         sanity[str(d)] = s
     G = pd.concat(parts).sort_index()
