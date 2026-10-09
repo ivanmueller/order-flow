@@ -1834,3 +1834,24 @@ Reading against the agreed rule (kept RS up with 90% lb > 0 AND fewer break-thro
 seconds-scale effect). Skipping volatility removes the best fills. Many comparisons were looked at (6 candidates,
 2 horizons, 5 groupings), so the 15-minute "wins" are what chance alone would produce. Nothing frozen yet:
 Matteo's call.
+
+## 2026-10-09 | Study 10 confirmation PRE-REGISTERED and built (Matteo: "Okay lets do that"); no fresh data yet
+Family "option liquidity provision": V1 (unfiltered, $0) replication + H1 + H2 = 3 of 4 gated variants.
+Sessions: 5 fresh in-sample sessions, seed 20261010, the 5 pilot sessions excluded, no half days
+(python -m src.study10 --confirm --sessions-list prints them before any data exists). Pull ~$8 (5 x 26 pieces);
+exact quote with --confirm --pull --price-only; ledger $107.58 -> ~$116, needs Matteo's yes and --allow-past-total.
+V1 replication rule: the pilot's advance rule unchanged (some spread bucket with >= 1,000 fills present in every
+session, 5-minute net mean 90% session-bootstrap lower bound > 0, 15-minute net mean > 0, fee $0), and it must hold
+in at least one of the pilot's advancing buckets (0.02-0.05 or 0.05-0.10) to count as replicated.
+Frozen hypotheses (each judged in those two buckets with the agreed rule: kept minus all 5-minute RS with a 90%
+session-bootstrap lower bound > 0 AND a lower break-through share; NOT_TESTABLE if fewer than 500 kept fills or
+kept fills in fewer than 2 sessions):
+  H1 skip the first 30 minutes after the open (no fills before 10:00 ET).
+  H2 quote only while live gamma is near the flip (within 0.25 expected moves, either side).
+Not carried forward (pilot evidence against or none): skip high volatility (removes the best fills), skip after a
+sweep, skip deep-negative live gamma, the combinations.
+config diff (approved): params s10_confirm_seed 20261010, s10_confirm_sessions 5, s10b_skip_open_min 30,
+s10b_min_kept_fills 500, s10b_min_kept_sessions 2.
+Build: study10.draw_sessions gains seed/n/exclude, confirm_sessions, run(confirm=True) saves study10_fills_confirm,
+CLI --confirm; study10b.features_table, h1_keep, h2_keep, hypothesis_verdict, confirm (--confirm). Tests: fresh draw
+excludes the pilot, H1 and H2 masks, PASS/FAIL/NOT_TESTABLE; 36 Study 10/10b tests pass.

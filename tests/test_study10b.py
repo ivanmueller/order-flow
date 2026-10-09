@@ -183,3 +183,34 @@ def test_explore_end_to_end_on_synthetic_raw_pieces(cfg, tmp_path):
                                       "C4_skip_deep_negative_live_gamma", "C5_skip_if_C1_C2_or_C3",
                                       "C6_skip_if_C1_to_C4"}
     assert out["candidates"]["C4_skip_deep_negative_live_gamma"]["share_kept"] == 1.0
+
+
+# ---- confirmation: frozen hypotheses -----------------------------------------------------------
+def test_h1_skips_the_first_half_hour(cfg):
+    F = pd.DataFrame({"ts": [ts("09:30:05"), ts("09:59:59"), ts("10:00:00"), ts("15:00")]})
+    assert list(study10b.h1_keep(F, cfg)) == [False, False, True, True]
+
+
+def test_h2_keeps_near_flip_only():
+    F = pd.DataFrame({"gamma_live": ["near-flip positive", "near-flip negative", "deep positive", None]})
+    assert list(study10b.h2_keep(F)) == [True, True, False, False]
+
+
+def _hyp_frame(n_sess=5, per=300):
+    rows = []
+    for d in range(n_sess):
+        for i in range(per):
+            good = i % 3 != 0
+            rows.append({"date": dt.date(2024, 1, 2 + d), "spread_b": "0.02-0.05", "rs_5": 1.0 if good else -2.0,
+                         "cleared": not good, "k": good})
+    return pd.DataFrame(rows)
+
+
+def test_hypothesis_verdicts(cfg):
+    F = _hyp_frame()
+    assert study10b.hypothesis_verdict(F, F["k"].to_numpy(), cfg)["verdict"] == "PASS"
+    worse = F["k"].to_numpy() == False                                   # noqa: E712  keeps only the bad fills
+    assert study10b.hypothesis_verdict(F, worse, cfg)["verdict"] == "FAIL"
+    few = np.zeros(len(F), bool)
+    few[:100] = True                                                    # 100 kept fills, one session
+    assert study10b.hypothesis_verdict(F, few, cfg)["verdict"] == "NOT_TESTABLE"

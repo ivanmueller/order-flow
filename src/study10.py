@@ -19,6 +19,7 @@ Every input to a fill's classification and buckets is the quote at the print; ma
   python -m src.study10 --pull --approve-usd 12 --allow-past-total
   python -m src.study10 --run                              # fills, marks, report (saves study10_fills)
   python -m src.study10 --report-only
+  python -m src.study10 --confirm --sessions-list | --pull --price-only | --pull --approve-usd X ... | --run
 
 Step 0, pricing only (free; nothing is downloaded). Calls Databento metadata.get_cost for one RTH session
 (09:30-16:00 ET) of each OPRA parent and schema on a few evenly spaced in-sample weekdays, and prints the cost
@@ -153,18 +154,27 @@ EPS = 1e-6
 FEE_SCENARIOS = ("zero_commission", "pass_through", "ibkr_tiered", "ibkr_one_lot")
 
 
-def draw_sessions(cal: pd.DataFrame, cfg) -> list:
-    """s10_sessions random in-sample sessions from sample.start, no half days (seeded, sorted)."""
+def draw_sessions(cal: pd.DataFrame, cfg, seed: int | None = None, n: int | None = None, exclude=()) -> list:
+    """n random in-sample sessions from sample.start, no half days, none of `exclude` (seeded, sorted).
+    Defaults: the pilot draw (s10_seed, s10_sessions)."""
     start, hs = pd.Timestamp(cfg["sample"]["start"]).date(), calm.holdout_start(cfg)
     c = cal[(cal["date"] >= start) & (cal["date"] < hs)]
     if "half_day" in c:
         c = c[~c["half_day"].astype(bool)]
-    days = sorted(c["date"])
+    ex = set(exclude)
+    days = sorted(d for d in c["date"] if d not in ex)
     if not days:
         return []
-    rng = np.random.default_rng(param(cfg, "s10_seed"))
-    pick = rng.choice(len(days), size=min(param(cfg, "s10_sessions"), len(days)), replace=False)
+    rng = np.random.default_rng(param(cfg, "s10_seed") if seed is None else seed)
+    k = param(cfg, "s10_sessions") if n is None else n
+    pick = rng.choice(len(days), size=min(k, len(days)), replace=False)
     return sorted(days[i] for i in pick)
+
+
+def confirm_sessions(cal: pd.DataFrame, cfg) -> list:
+    """Fresh sessions for the confirmation: a new seed, the pilot sessions excluded."""
+    return draw_sessions(cal, cfg, seed=param(cfg, "s10_confirm_seed"), n=param(cfg, "s10_confirm_sessions"),
+                         exclude=draw_sessions(cal, cfg))
 
 
 def _root(cfg) -> str:
@@ -604,9 +614,11 @@ def bankroll(F: pd.DataFrame, cfg) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def run(cfg=None, save: bool = True) -> dict:
+def run(cfg=None, save: bool = True, confirm: bool = False) -> dict:
+    """The pilot sessions, or with confirm=True the fresh confirmation sessions (saved as study10_fills_confirm)."""
     cfg = cfg or load_config()
-    days = draw_sessions(store.load_calendar(cfg), cfg)
+    cal = store.load_calendar(cfg)
+    days = confirm_sessions(cal, cfg) if confirm else draw_sessions(cal, cfg)
     frames, ex_tot, checks = [], {}, {}
     for d in days:
         if not calm.in_sample(d, cfg):
@@ -619,8 +631,10 @@ def run(cfg=None, save: bool = True) -> dict:
         frames.append(F)
     F = pd.concat(frames, ignore_index=True)
     if save:
-        store.save_derived(F.drop(columns=["ts_last"]), "study10_fills", cfg)
+        store.save_derived(F.drop(columns=["ts_last"]), "study10_fills_confirm" if confirm else "study10_fills", cfg)
     rep = report(F, cfg, len(days), ex_tot)
+    if confirm:
+        rep["note"] = "Study 10 CONFIRMATION on fresh sessions (V1 replication, same rule); " + rep["note"]
     rep["sanity"] = checks
     return rep
 
@@ -637,6 +651,8 @@ def main(argv=None):
     ap.add_argument("--report-only", action="store_true")
     ap.add_argument("--diagnose", action="store_true", help="rule-6 checks on the saved fills and raw data")
     ap.add_argument("--bankroll", action="store_true", help="descriptive bankroll from resampled pilot fills")
+    ap.add_argument("--confirm", action="store_true",
+                    help="with --sessions-list, --pull or --run: the fresh confirmation sessions instead of the pilot")
     ap.add_argument("--parents", nargs="+", default=DEFAULT_PARENTS)
     ap.add_argument("--schemas", nargs="+", default=DEFAULT_SCHEMAS)
     ap.add_argument("--days", type=int, default=1, help="weekdays priced, evenly spaced over the in-sample period")
@@ -649,8 +665,9 @@ def main(argv=None):
     cfg = load_config()
     from src.analysis import to_json
     if a.sessions_list or a.pull:
-        days = draw_sessions(store.load_calendar(cfg), cfg)
-        print("pilot sessions:", ", ".join(str(d) for d in days))
+        cal = store.load_calendar(cfg)
+        days = confirm_sessions(cal, cfg) if a.confirm else draw_sessions(cal, cfg)
+        print("confirmation sessions:" if a.confirm else "pilot sessions:", ", ".join(str(d) for d in days))
         if a.pull:
             budget = spend.Budget(cfg, a.approve_usd, a.allow_past_total)
             local = threading.local()
@@ -665,7 +682,7 @@ def main(argv=None):
                   f"written {r['written']} ({r['empty']} empty); ledger ${spend.total_spent(cfg):.2f}")
         return
     if a.run:
-        print(to_json(run(cfg)))
+        print(to_json(run(cfg, confirm=a.confirm)))
         return
     if a.bankroll:
         F = store.load_derived("study10_fills", cfg)

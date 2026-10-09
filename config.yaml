@@ -227,6 +227,12 @@ params:
   s10b_gamma_deep_ratio: {value: 1.0}                       # day grade: |net_gex| / median |net_gex| of prior sessions >= this = deep
   s10b_gamma_min_days: {value: 20}                          # prior sessions needed for that median (lookback gex_pct_lookback)
   s10b_flip_near_em:  {value: 0.25}                         # live gamma: SPX within this many expected moves of the flip = near
+  # Confirmation on fresh sessions (Matteo 2026-10-09: "lets do that"): V1 replication + frozen hypotheses H1, H2
+  s10_confirm_seed:   {value: 20261010}                     # fresh-session draw; the pilot sessions are excluded
+  s10_confirm_sessions: {value: 5}
+  s10b_skip_open_min: {value: 30}                           # H1: no fills in the first this-many minutes after the open
+  s10b_min_kept_fills: {value: 500}                         # a hypothesis needs this many kept fills ...
+  s10b_min_kept_sessions: {value: 2}                        # ... in at least this many sessions, else not testable
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}

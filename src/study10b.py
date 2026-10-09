@@ -22,6 +22,7 @@ Each is compared with all fills: mean RS kept minus mean RS of all (session-boot
 kept vs all. Exploration only: filters chosen here must be frozen and confirmed on fresh sessions.
 
   python -m src.study10b --explore
+  python -m src.study10b --confirm      # after: python -m src.study10 --confirm --run
 """
 from __future__ import annotations
 
@@ -301,9 +302,9 @@ def _day_bars(cfg, day, cal: pd.DataFrame) -> pd.DataFrame | None:
     return b[(b["date"] == day) & (b["instrument_id"] == cal.loc[day, "instrument_id"])]
 
 
-def run(cfg=None, save: bool = True) -> dict:
+def features_table(cfg, fills_name: str, save_name: str | None):
     cfg = cfg or load_config()
-    F = store.load_derived("study10_fills", cfg)
+    F = store.load_derived(fills_name, cfg)
     gx = grades = None
     if store.derived_path(cfg, "gex_daily").exists():
         gx = store.load_derived("gex_daily", cfg).set_index("date")
@@ -316,21 +317,75 @@ def run(cfg=None, save: bool = True) -> dict:
         parts.append(x)
         sanity[str(d)] = s
     G = pd.concat(parts).sort_index()
-    if save:
-        store.save_derived(G.drop(columns=[c for c in ("ts_last",) if c in G]), "study10_features", cfg)
+    if save_name:
+        store.save_derived(G.drop(columns=[c for c in ("ts_last",) if c in G]), save_name, cfg)
+    return G, sanity
+
+
+def run(cfg=None, save: bool = True) -> dict:
+    cfg = cfg or load_config()
+    G, sanity = features_table(cfg, "study10_fills", "study10_features" if save else None)
     return explore(G, cfg, sanity)
+
+
+# ---------------------------------------------------------------------------
+# Confirmation (fresh sessions): frozen hypotheses H1, H2 (RUNLOG 2026-10-09)
+# ---------------------------------------------------------------------------
+NEAR_FLIP = ("near-flip positive", "near-flip negative")
+
+
+def h1_keep(F: pd.DataFrame, cfg) -> np.ndarray:
+    """H1: no fills in the first s10b_skip_open_min minutes after the open."""
+    cut = calm.hhmm_to_min(cfg["market"]["rth_open"]) + param(cfg, "s10b_skip_open_min")
+    return (calm.minutes_of_day_et(pd.Series(F["ts"]).reset_index(drop=True)) >= cut).to_numpy(bool)
+
+
+def h2_keep(F: pd.DataFrame) -> np.ndarray:
+    """H2: quote only while live gamma is near the flip (either side)."""
+    return F["gamma_live"].isin(NEAR_FLIP).to_numpy(bool)
+
+
+def hypothesis_verdict(A: pd.DataFrame, keep, cfg) -> dict:
+    """The agreed rule: kept minus all 5-minute RS with a 90% session-bootstrap lower bound > 0 AND a lower
+    break-through share; NOT_TESTABLE with too few kept fills or sessions."""
+    keep = np.asarray(keep, bool)
+    r = compare(A, keep, cfg)
+    sessions = int(A.loc[keep, "date"].nunique())
+    r["sessions_kept"] = sessions
+    if r["n_kept"] < param(cfg, "s10b_min_kept_fills") or sessions < param(cfg, "s10b_min_kept_sessions"):
+        r["verdict"] = "NOT_TESTABLE"
+    elif r["diff_ci_lo"] > 0 and r["cleared_kept"] < r["cleared_all"]:
+        r["verdict"] = "PASS"
+    else:
+        r["verdict"] = "FAIL"
+    return r
+
+
+def confirm(cfg=None, save: bool = True) -> dict:
+    cfg = cfg or load_config()
+    G, sanity = features_table(cfg, "study10_fills_confirm", "study10_features_confirm" if save else None)
+    A = G[G["spread_b"].isin(cfg["bankroll"]["s10_buckets"])].reset_index(drop=True)
+    return {"note": "Study 10b CONFIRMATION on fresh sessions: frozen hypotheses, agreed rule (RUNLOG 2026-10-09)",
+            "sessions": sorted(str(d) for d in G["date"].unique()), "fills_in_advancing_buckets": int(len(A)),
+            "H1_skip_first_30_min": hypothesis_verdict(A, h1_keep(A, cfg), cfg),
+            "H2_near_flip_live_gamma_only": hypothesis_verdict(A, h2_keep(A), cfg),
+            "by_gamma_live": _by_label(A, "gamma_live"), "by_gamma_day": _by_label(A, "gamma_day"),
+            "iwm_sanity": sanity}
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--explore", action="store_true", help="features for the pilot fills and the comparison")
+    ap.add_argument("--confirm", action="store_true", help="frozen hypotheses on the fresh confirmation fills")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
-    if not a.explore:
-        ap.print_help()
-        return
     from src.analysis import to_json
-    print(to_json(run()))
+    if a.explore:
+        print(to_json(run()))
+    elif a.confirm:
+        print(to_json(confirm()))
+    else:
+        ap.print_help()
 
 
 if __name__ == "__main__":

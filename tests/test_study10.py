@@ -360,3 +360,13 @@ def test_unmarked_fills_are_left_out_of_the_pools(cfg):
     c["bankroll"] = {**cfg["bankroll"], "s10_paths": 3, "s10_days": 5}
     t = study10.bankroll(F, c)
     assert t["mean_day_usd"].notna().all() and t["median_final_usd"].notna().all()
+
+
+# ---- confirmation sessions ---------------------------------------------------------------------
+def test_confirm_sessions_exclude_the_pilot(cfg):
+    days = list(pd.bdate_range("2023-06-01", "2025-12-31").date)
+    cal = pd.DataFrame({"date": days, "half_day": [False] * len(days)})
+    pilot = study10.draw_sessions(cal, cfg)
+    a, b = study10.confirm_sessions(cal, cfg), study10.confirm_sessions(cal, cfg)
+    assert a == b and len(a) == 5 and not set(a) & set(pilot)
+    assert all(dt.date(2023, 6, 1) <= d < dt.date(2026, 1, 1) for d in a)

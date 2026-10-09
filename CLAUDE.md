@@ -114,7 +114,10 @@ Update this block at the end of every session.
   agreed rule (kept minus all 5-min RS, 90% lb > 0, and lower break-through share). Explore run 2026-10-09: IWM parity
   prices check out; no candidate meets the rule at 5 min; break-through share 13-15% under every filter; high
   volatility fills earn more; first half hour weakest at 5 min (18.8% break-through); weak/near-flip gamma looks
-  best but is one or two sessions. Nothing frozen; Matteo to choose (likely: replicate unfiltered on fresh days).
+  best but is one or two sessions. Confirmation PRE-REGISTERED 2026-10-09: V1 replication + H1 (skip first 30 min)
+  + H2 (near-flip live gamma only) on 5 fresh sessions (seed 20261010, pilot excluded), agreed rule; 3 of 4 in the
+  family. Next: --confirm --sessions-list, --confirm --pull --price-only, Matteo's yes, pull, --confirm --run,
+  study10b --confirm.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -194,6 +197,8 @@ See README.md for the full runbook in order.
 - Study 10 pilot (IWM): `python -m src.study10 --sessions-list`, `--pull --price-only`, then
   `--pull --approve-usd X --allow-past-total`, then `--run` (or `--report-only`), `--diagnose`, `--bankroll`
 - Study 10b exploration on the pilot fills: `python -m src.study10b --explore`
+- Study 10 confirmation (fresh sessions): `python -m src.study10 --confirm --sessions-list`, `--confirm --pull
+  --price-only`, `--confirm --pull --approve-usd X --allow-past-total`, `--confirm --run`, then `python -m src.study10b --confirm`
 - Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`
