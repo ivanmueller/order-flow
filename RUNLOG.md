@@ -1738,3 +1738,20 @@ s10_seed 20261009. Command: python -m src.study10 --bankroll (saves study10_bank
 Fills within 5 minutes of the close have no 5-minute mark (net_5 NaN by design); the pools kept them, so any day
 that drew one summed to NaN, and losing-day shares counted NaN days as not losing. Fix: pools drop unmarked fills;
 the run now stops if a simulated day is not finite; test added (23 Study 10 tests pass). Numbers from run 1 are void.
+
+## 2026-10-09 | Study 10 bankroll run 2 (Matteo's laptop, commit 764866c; descriptive, in sample; $0)
+$30k, 252 days, 500 paths, resampled fills from the advancing buckets, $0 commission, 5-minute marks.
+Median final equity / median max drawdown / ruin, 1-lot and 5-lot, 100 and 300 fills a day:
+  as in data      1-lot: 100 $44.6k (+49%) DD 1.9%; 300 $74.5k (+148%) DD 2.0%   (mean day $58 / $176, SD $138 / $256)
+                  5-lot: 100 $68.9k (+130%) DD 6.4%; 300 $150.4k (+401%) DD 6.1%  (mean day $155 / $474)
+  20% break-thru  1-lot: 100 $38.0k (+27%) DD 2.9%;  300 $54.5k (+82%) DD 3.5%
+                  5-lot: 100 $51.6k (+72%) DD 10.1%; 300 $95.0k (+217%) DD 11.1%
+  30% break-thru  1-lot: 100 $28.4k (-5%) DD 10.4%;  300 $24.8k (-17%) DD 23.9%
+                  5-lot: 100 $24.5k (-18%) DD 34.1%; 300 $10.4k (-65%) DD 80.7%, ruin 30.8%
+Losing days 23-34% (as in data), 33-41% (20%), ~50% (30%). Size scales P&L less than linearly (1 -> 5 lots:
+x2.7 at 100 fills a day, prints are small) and drawdown more than linearly.
+Reading: the outcome turns on fill quality alone, as before: as in the data or at 20% break-through every row is
+positive; at 30% every row loses and large size with many fills can ruin the account. Implied annual Sharpe at
+"as in data" (~6-7) is a market maker's at the tape level; for a retail order it says the assumptions (front of
+the queue, passive exit at mid, no pick-off fills) carry the result. Days are independent draws from 5 sessions,
+so regime risk (volatility spikes, gaps) is understated and drawdowns are optimistic.

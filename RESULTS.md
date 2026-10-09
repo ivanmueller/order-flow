@@ -309,3 +309,16 @@ Study 5 decision: pending Matteo's call.
   months (CI -6.6..+24.5), all from three 2024 months (-1.9 without them).
 - **Verdict.** KILL on both by the rules. The Treasury month-end effect is real and post-publication (~10 ZN ticks
   gross vs 2.25 of friction), but 21 futures month-ends cannot resolve it; it needs ~90.
+
+## Study 10, can a priority-customer resting order earn the option spread? (IWM pilot; $8.19)
+- **Build.** Every IWM option print exactly at the consolidated bid or ask on 5 random in-sample sessions (OPRA
+  tcbbo), one opportunity per sweep, marked at the midpoint 1, 5 and 15 minutes later (cbbo-1m), $ per contract,
+  $0 commission (Matteo's broker). Advance rule: a spread bucket with >= 1,000 fills in every session, 5-minute 90%
+  lower bound > 0 and 15-minute mean > 0.
+- **Result.** 215,533 fills. Quoted spread 2-4 cents: +$0.50 per contract at 5 minutes (CI +0.34..+0.76), positive
+  on all 5 days, 42% of the half-spread kept; 5-9 cents: +$0.78 (CI +0.44..+1.36). Penny-wide +$0.11 (CI includes
+  0). Fills the price trades through within a minute (12-15%) lose $2-7. Rule-6 checks found no bug. Bankroll
+  (descriptive): $30k to $44.6-150.4k a year at the data's fill quality, still positive at 20% break-through fills,
+  negative at 30% (to ruin at 5 lots and 300 fills a day).
+- **Verdict.** ADVANCE by the rule (the first in the programme). The tape says market makers keep part of the
+  spread in IWM options; whether a retail order gets fills of that quality is not measured and decides the sign.

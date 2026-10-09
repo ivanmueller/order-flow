@@ -104,7 +104,9 @@ Update this block at the end of every session.
   Matteo's run; gate call is his. Caveats: queue position, pick-offs, passive exit needed (half-spread > RS).
   Diagnostics run 2026-10-09: no bug found (snapshots describe their stamp time; 0.02-0.05 positive all 5
   sessions, 42% of the half-spread kept). Bankroll (descriptive) built: --bankroll, 3 fill qualities x 1-5 lots x
-  100/200/300 fills a day, resampled pilot fills; awaiting Matteo's run.
+  100/200/300 fills a day, resampled pilot fills. Run 1 discarded (NaN: unmarked fills near the close); run 2: as in
+  data $30k -> $44.6k (1 lot, 100/day) to $150.4k (5 lots, 300/day); 20% break-through still positive; 30% negative
+  (ruin 31% at 5 lots, 300/day). Next is Matteo's call: replicate on fresh sessions, or measure real fill quality.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
