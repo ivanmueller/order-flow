@@ -87,10 +87,17 @@ Universe: Uniswap v2/v3 Ethereum pools from step 0b whose volatile token(s) have
 (WETH = ETH, WBTC = BTC), so the pool is hedgeable and the outside price is known. Broken rows out by rule, stated
 before running: concentration outside [s17_conc_min, s17_conc_max], |daily pool-vs-Binance price gap| >
 s17_max_gap, depeg/wrapped-pair symbols (renBTC, EURS, USDD...) listed in config.
-Cost of liquidity (LVR) from the OUTSIDE price: hourly Binance klines, LVR_day = sum of hourly squared log returns
-of the pair (X/ETH, X/USD) x V_virtual / 8 -- arbitrageurs trade against Binance, so this is the right reference,
-free of pool wicks; capped each day at the exact loss of a range position (a range leaves the money at most once:
-loss <= the position's value in range). Close-only and Parkinson versions reported beside it.
+Accounting (corrected 2026-10-10 after Matteo asked whether arbitrage is the right comparison): no sigma^2/8
+approximation in the P&L. We simulate OUR position. A constant-product (or in-range v3) position's value depends only
+on the current price, not the path, so intraday spikes that revert cost nothing and earn fees. Per day: our
+position value from the price (v2: full range; v3: our own range, k x concentration, value capped when the price
+leaves it), our fees = pool fees x our liquidity / (pool liquidity at the price + ours), and no fees on any day
+whose high or low breaches our range (conservative). Unhedged P&L = position value change + fees (direction
+included). Hedged P&L = that minus the perp hedge: short delta set at each daily rebalance, P&L -delta x price
+change, actual Binance funding, taker fee on each adjustment. With daily hedging the residual is the exact daily
+impermanent loss vs the hedge, sum of V x (sqrt(r) - 1)^2 / 2 for full range (~ V x x^2 / 8 for a daily move x):
+LVR is its expected value, which is why the forecast question stays fees vs forecast variance. Prices: pool daily
+close, checked against Binance (days with |gap| > s17_max_gap dropped as broken).
 Forecast (fixed before running): HAR on daily realized variance from hourly Binance returns (1-day, 7-day, 28-day
 terms) fitted on discovery data only, plus trailing 7-day fee yield as the fee forecast. Enter a pool for the next
 week when fee-implied vol >= (1 + margin) x forecast vol; out otherwise.
