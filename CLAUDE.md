@@ -196,6 +196,10 @@ Update this block at the end of every session.
   sigma^2/8; trade only when fee-implied vol beats forecast realized vol). Step 0 BUILT (src/defi_inventory.py, free
   DefiLlama API; pool-week fees, LVR lower bound, jumps, a first signal check; holdout rows dropped). Next: Matteo runs
   `python -m src.defi_inventory`, posts the JSON; then the strategy is fixed and sent for approval.
+  Quick run 2026-10-10 (50 pools): fees beat daily LVR in 77% of pool-weeks (v3 95%), but three flattering biases
+  (v3 concentration: average-LP fees vs full-range LVR, the largest; survivorship: only live pools; daily sampling).
+  Step 0b proposed: The Graph subgraph (free key) poolDayData with liquidity/sqrtPrice/high-low, pools by all-time
+  volume (dead ones included), exact pool-level LVR. Awaiting Matteo.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

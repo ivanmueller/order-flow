@@ -2323,3 +2323,22 @@ prices; per pool-week fees, LVR (daily quadratic variation / 8, a lower bound), 
 volatility, and a first signal check (does the trailing 4-week premium predict next week's?). Rows on or after
 2025-10-01 dropped before saving; requests cached for resume. Not run (the cloud workspace cannot reach the API);
 Matteo runs `python -m src.defi_inventory` on the laptop. Strategy draft, grid and protections to be fixed after it.
+
+## 2026-10-10 (laptop, 14:23 PT) | Study 17 step 0 quick run, --max-pools 50 (commit 634579b; $0)
+50 largest qualifying pools by TODAY's TVL; 26 with usable history (2022-02..2025-09), 1,715 pool-weeks, 0 errors.
+Fees beat the daily-sampled LVR in 76.5% of pool-weeks; median fee yield 10.8%/yr vs LVR 3.4%/yr; mean net +17%/yr
+(median +6.7%); fee-implied vol 104% vs realized 58%. Uniswap v3: 94.8% of weeks positive. Smaller pools look better
+(<$1M: 96%, net +42%/yr; >$100M: 67%, +4.6%/yr). Trailing 4-week premium vs next week: rank correlation 0.83.
+Rule 6 review: three biases, all flattering, one large.
+(1) Concentrated liquidity (largest): DefiLlama's fee APY is pool fees / TVL, i.e. the AVERAGE LP dollar, most of
+which sits in narrow ranges; the sigma^2/8 formula is the loss for a FULL-RANGE dollar. A concentrated dollar earns
+more fees and also pays proportionally more LVR (pool LVR = sigma^2 x L x sqrt(P) / 4, set by liquidity at the
+current price). Comparing average fees with full-range LVR overstates v3 net by the concentration factor (often
+several-fold), consistent with v3's 95% "win" rate. Needs per-day pool liquidity and price (L, sqrtPrice).
+(2) Survivorship: /pools lists pools alive today; pools that died (rugs, drained small-coin pools) are missing --
+worst exactly where small pools look best.
+(3) Daily sampling understates variance (intraday moves missed); daily high/low would help.
+The 0.83 rank correlation is mostly cross-sectional persistence (high-fee pools stay high-fee), not timing.
+Proposed step 0b (not built): Uniswap v3 (and v2) subgraph via The Graph (free API key, 100k queries/month):
+poolDayData (liquidity, sqrtPrice, feesUSD, tvlUSD, high/low) for pools ranked by ALL-TIME volume (dead pools
+included); pool-level fees vs exact LVR from liquidity at the price, Parkinson variance from high/low. Matteo's call.
