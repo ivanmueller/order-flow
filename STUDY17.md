@@ -69,3 +69,43 @@ premium exists somewhere, the strategy below is fixed to the pools and data that
 Fees beat LVR in pockets (mid-size pools, calm periods, new pools with hype volume); most small-coin pools are
 underpriced for their jump risk and informed flow. Whether a forecast can pick the good pool-weeks out of sample is
 genuinely open.
+
+## Step 0b result and what it did NOT test (2026-10-10)
+
+Step 0b (RUNLOG 2026-10-10) measured the average pool-week, full-range-equivalent, fees only, unhedged, from the
+pool's own prices. With close-to-close variance fees ~= LVR (52% of weeks positive, median ~0); a crude ex-ante
+filter (calm and positive trailing 4 weeks, pre-2025) gave v2 +1.3%/yr median, +2.6%/yr winsorized. Matteo's
+objection (accepted): that is an inventory, not the strategy. Missing: (1) a real forecast and selection; (2)
+returns judged per unit of risk -- a concentrated range scales fees, LVR and the edge by the same factor, so a
+small full-range edge with a high Sharpe is a large edge on capital; % of TVL vs T-bills was the wrong yardstick;
+(3) the perpetual hedge with actual funding; (4) the LP's bounded loss (the var x V/8 formula let weeks "lose"
+more than 100%); (5) incentive rewards (small on Uniswap mainnet, large elsewhere); (6) broken subgraph rows.
+
+## Step 1 (PROPOSED, not approved): the strategy test
+
+Universe: Uniswap v2/v3 Ethereum pools from step 0b whose volatile token(s) have a Binance USDT-M perpetual on disk
+(WETH = ETH, WBTC = BTC), so the pool is hedgeable and the outside price is known. Broken rows out by rule, stated
+before running: concentration outside [s17_conc_min, s17_conc_max], |daily pool-vs-Binance price gap| >
+s17_max_gap, depeg/wrapped-pair symbols (renBTC, EURS, USDD...) listed in config.
+Cost of liquidity (LVR) from the OUTSIDE price: hourly Binance klines, LVR_day = sum of hourly squared log returns
+of the pair (X/ETH, X/USD) x V_virtual / 8 -- arbitrageurs trade against Binance, so this is the right reference,
+free of pool wicks; capped each day at the exact loss of a range position (a range leaves the money at most once:
+loss <= the position's value in range). Close-only and Parkinson versions reported beside it.
+Forecast (fixed before running): HAR on daily realized variance from hourly Binance returns (1-day, 7-day, 28-day
+terms) fitted on discovery data only, plus trailing 7-day fee yield as the fee forecast. Enter a pool for the next
+week when fee-implied vol >= (1 + margin) x forecast vol; out otherwise.
+P&L per pool-week, on capital: fees - LVR (capped) - gas (s17_gas_usd per entry or exit, at capital sizes
+s17_capital_usd) - hedge cost. Hedge variants: none (adds the 50/50 portfolio's direction), or short perpetual
+rebalanced daily to the pool's token delta: Binance funding actually paid/received, taker fee per rebalance.
+Range: full range, and concentrated k x (s17_concentration [1, 2, 5]) reported as a scaling with its range-exit cap.
+Rewards: none on Uniswap mainnet except short programs; reported as a known omission, not added.
+Grid (small): margin [0, 0.25, 0.5]; forecast HAR vs trailing 28-day; hold [1, 4] weeks; TVL floor [1M, 10M];
+hedge [none, perp] = 24 cells.
+Judged on: mean weekly return on capital with a week-clustered 90% CI, Sharpe and t-stat (leverage-free); placebo
+(same number of random pool-weeks, and forecasts shuffled across pools), 200 reps; positive without the best 5% of
+weeks; both halves; gas break-even capital. Discovery 2020-05..2024-12, validation 2025-01..09 (never looked at ex
+ante yet), sealed year 2025-10..2026-09 only on "run the holdout" (needs a second subgraph pull and Binance bars).
+Gate per variant (Matteo's to approve): validation mean > 0 with 90% lower bound > 0 after gas and hedge, placebo
+p <= 0.05, positive without the best 5% of weeks; <= 4 frozen.
+Expected: the hedged, selected pocket earns a small positive Sharpe in discovery; validation decides. Cost $0
+(subgraph cache + Binance data already on disk).
