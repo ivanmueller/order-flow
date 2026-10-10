@@ -24,6 +24,10 @@ cp .env.example .env                   # then put your Databento key in .env (gi
 pytest -q                              # 41 tests: hand-verified formulas + an end-to-end synthetic run
 ```
 
+Windows shortcuts (repo root): `open_venv.bat` opens PowerShell as administrator in the repo with `.venv`
+active; `open_venv_api.bat` does the same, then checks the Databento key in `.env` (never printed), makes one
+free Databento call, and checks or starts the ThetaData Terminal (set `THETA_JAR` to its jar to auto-start).
+
 ## Pilot first (3 months, Mar-May 2025)
 
 `config.pilot.yaml` overlays `config.yaml` for a cheap first pass on real data. Turn it on by adding
@@ -71,6 +75,106 @@ python -m src.analysis stage3 --carry gamma_only,both,structural_only
 # 7b. Study 4 (RUNLOG 2026-10-07): regime-conditioned 0DTE straddle at the D-1 close; needs only
 #     gex_daily, the EOD quote files and the FRED closes already on disk (no spend)
 python -m src.study4
+
+# 7c. Study 5 close momentum, then the 5f fade (holdout steps only when you say "run the holdout")
+python -m src.study5
+python -m src.study5 --fade-reference
+python -m src.study5 --holdout-check
+GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study5 --fade-holdout <step-1 mean_em>
+python -m src.study5 --fade-robustness
+#     NQ replication: GAMMA_EDGE_CONFIG=config.nq.yaml, ingest_daily, bars (price, approve), then
+python -m src.study5 --fade-replication
+
+# 7d. Price menu (quotes only, nothing pulled)
+python -m src.price_menu --start 2023-06-01 --end 2025-12-31
+
+# 7e. Study 6 pure order flow pilot on the on-disk ticks (no spend)
+python -m src.study6 --count
+python -m src.study6
+
+# 7f. Study 7 cross-market momentum: per market with GAMMA_EDGE_CONFIG=config.<cl|gc|zn|6e>.yaml,
+#     ingest_daily, bars 2023-04-01..2025-12-31 (price, approve), then
+python -m src.study7 --market
+#     then with no overlay set:
+python -m src.study7 --cross config.cl.yaml config.gc.yaml config.zn.yaml config.6e.yaml
+python -m src.study7 --bridge
+
+# 7g. Hypothetical $30,000 bankroll of the 5f fade (descriptive; config.yaml bankroll section)
+#     NQ: GAMMA_EDGE_CONFIG=config.nq.yaml; --holdout needs GAMMA_EDGE_RUN_HOLDOUT=1 after study5 --fade-holdout
+python -m src.bankroll
+python -m src.bankroll --holdout
+
+# 7h. Study 9 passive-fill measurements on the on-disk ticks and touches (no spend)
+python -m src.study9 --realized-spread
+python -m src.study9 --level-reversion
+
+# 7i. Study 8 month-end compelled flow (no overlay set; loads config.yaml and config.zn.yaml itself; no spend)
+python -m src.study8 --count        # tradable month-ends per variant, no P&L: run first
+python -m src.study8 --e0           # FRED existence check (downloads DGS10 and SP500 once), in sample only
+python -m src.study8                # M1 (ZN) and M2 (ES); --report-only re-reads the saved tables
+
+# 7j. Study 10 step 0: price OPRA tcbbo + cbbo-1m for the option-liquidity pilot (quotes only; needs the API key)
+python -m src.study10 --price
+#     the pilot (IWM, zero commission): sessions, exact quote, pull (after the yes), run
+python -m src.study10 --sessions-list
+python -m src.study10 --pull --price-only
+python -m src.study10 --pull --approve-usd <quote + margin> --allow-past-total
+python -m src.study10 --run
+python -m src.study10 --diagnose
+python -m src.study10 --bankroll
+#     Study 10b: quoting conditions, step 1 exploration on the pilot fills (free)
+python -m src.study10b --explore
+#     Study 10 confirmation on 5 fresh sessions (V1 replication + frozen H1, H2)
+python -m src.study10 --confirm --sessions-list
+python -m src.study10 --confirm --pull --price-only
+python -m src.study10 --confirm --pull --approve-usd <quote + margin> --allow-past-total
+python -m src.study10 --confirm --run
+python -m src.study10b --confirm
+
+#     Study 11: execution design, exploration on the 10 seen sessions (round trip with a passive exit, stale
+#     quotes, contract selection, inventory and hedging). Free; the IWM 1-second pull is optional and priced first.
+python -m src.study11 --iwm-pull --price-only
+python -m src.study11 --iwm-pull --approve-usd X --allow-past-total     # only after Matteo approves the quote
+python -m src.study11 --explore
+python -m src.study11 --report-only
+#     Study 11b: hedged market making (needs the 1-second IWM pull above and study11_entries)
+python -m src.study11b --explore
+#     Study 12: the Study 1 level fade in SPY shares ($0 commission); price first, pull only with approval
+python -m src.study12 --count
+python -m src.study12 --pull --price-only
+python -m src.study12 --pull --approve-usd X --allow-past-total
+python -m src.study12 --run
+#     Study 13: order-flow pattern discovery on the on-disk ES ticks (free); --test runs once, after review
+python -m src.study13 --build
+python -m src.study13 --discover
+python -m src.study13 --test
+#     Study 14: crypto pump-fade short search (Binance public archive, free; research only). In order:
+python -m src.study14 --all                   # one command for the next four steps (resumes; parallel)
+python -m src.crypto_inventory                 # step 0 (done): what the archive holds; writes the resume cache
+python -m src.crypto_data --hourly             # 1-hour klines + funding, all USDT coins (~0.7 GB; resumable)
+python -m src.study14 --events                 # pump events per (W, P, V); lists the 5-min / metrics files needed
+python -m src.crypto_data --event-data         # 5-min klines + daily metrics for event months only
+python -m src.study14 --discover               # 38,880 combinations + 100 placebo searches, validation, freeze
+python -m src.crypto_data --minute             # 1-minute klines for the frozen combinations' trades
+python -m src.study14 --diagnose               # placebo, tails, worst periods, 1-minute re-walk
+python -m src.study14 --risk                   # descriptive bankroll of the frozen combinations
+#     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
+#     study14 --events --holdout, crypto_data --event-data --holdout, then study14 --holdout
+#     Study 15: long early in crypto surges (hourly data already on disk; STUDY15.md). In order:
+python -m src.study15 --all                    # BTC hourly (tiny) -> events -> discover (373,248 combos + 100 placebo)
+python -m src.crypto_data --event-data --study 15   # 5-minute bars for the frozen combinations' trades
+python -m src.study15 --diagnose               # placebo, tails, cost variants, 2x slippage, 5-minute re-walk
+python -m src.study15 --risk
+#     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
+#     crypto_data --btc --holdout, study15 --events --holdout, crypto_data --event-data --study 15 --holdout,
+#     then study15 --holdout
+#     Study 16: market-neutral crypto theses (C1 funding carry, C2 momentum, C3 reversal, C4 new-listing short;
+#     STUDY16.md), on-disk data, $0. Stage A on all four, then Stage B variations of any variant that passes:
+python -m src.study16 --all
+#     Study 17 step 0: do DEX liquidity fees ever beat the loss to arbitrage? (free DefiLlama API; STUDY17.md)
+python -m src.defi_inventory
+#     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
+#     crypto_data --btc --holdout, then study16 --holdout
 
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges
@@ -134,3 +238,17 @@ notebooks/ 00_gex_validation  01_regime  02_levels  03_flow  04_holdout
 tests/      formula tests with hand-checked answers + synthetic end-to-end pipeline
 data/       raw/ and derived/ Parquet (git-ignored)
 ```
+
+## Moving to another computer (USB)
+
+On the current PC (after `git pull`), plug in the drive and double-click `backup_to_usb.bat` (default E:; for
+another letter run `backup_to_usb.bat F:`). It copies the whole project to `E:\order-flow`: code, docs, configs,
+git history, every data folder (data, data_nq, data_cl, data_gc, data_zn, data_6e) and the spend ledger
+(`data\spend_ledger.csv`). It skips `.venv` and caches, asks before copying `.env` (your Databento key), checks
+every file by size, and writes `TRANSFER_NOTE.txt`. Running it again copies only what changed.
+
+On the laptop: install Python 3.11+ (tick "Add python.exe to PATH") and Git, then double-click
+`E:\order-flow\restore_from_usb.bat`. It copies the project to `C:\order-flow` (or the folder you name), checks
+every file, builds `.venv` from requirements.txt and runs a quick test. Then use `open_venv.bat` /
+`open_venv_api.bat` as before. Without a copied `.env`, create one from `.env.example` with your key. The
+ThetaData Terminal is needed only for new end-of-day option quotes, not for anything on disk.

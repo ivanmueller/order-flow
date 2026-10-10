@@ -24,8 +24,183 @@ Update this block at the end of every session.
   study4_min_expectancy_em 0.03 added to config.yaml). Built tests-first in `src/study4.py` (90 tests pass); run by
   Matteo 2026-10-07 (RUNLOG): S4a +0.059 EM (CI -0.02..+0.14, contrast CI > 0, perm p 0.035), S4b +0.033
   (CI fails), S4c iron fly -0.010. KILL on all three by the rules; 15 of 20 variants. Regime effect real
-  but ~1.2 SE at 266 sessions; defined-risk version has no edge. Awaiting Matteo's call. Study 5
-  (hedging-flow into the close) remains a draft. Holdout still sealed.
+  but ~1.2 SE at 266 sessions; defined-risk version has no edge. Holdout still sealed.
+- Next-study selection 2026-10-07 per NEXT.md (CANDIDATES.md; RUNLOG same date): data inventory, 15
+  candidates scored; no candidate on disk can resolve its published effect after costs. Study 5
+  pre-registered as a DRAFT awaiting Matteo's approval: last-30-minute ES momentum into the close,
+  unconditional (S5a no stop, S5b 0.5 EM stop; would bring the count to 17 of 20), unit = VIX-implied EM,
+  gamma only as a descriptive slope, verdict reported as existence (timing) and economics (after costs).
+  Sample chosen at approval: A (2023-06..2025-12, on disk, default) or B (2019-01..2025-12, needs ES bars
+  2019-01..2023-03, est $5.4, and first a code change freezing the stage-3 day set, which a calendar
+  rebuild would otherwise redraw). Power at the published size in A: existence ~0.52, after costs ~0.18.
+  Expected outcome stated in advance: KILL. Alternatives: the one-week premium (body and wings) with a $40
+  ThetaData Value month (2020+), or write up. New params proposed, not yet in config.yaml: s5_sample,
+  s5_decision_time, s5_exit_time, s5_stop_em, s5_em_vix_factor, s5_perm_block, s5_outlier_n,
+  s5_sanity_em; gates study5_min_sessions, study5_min_expectancy_em, study5_perm_p, study5_tail_drop.
+  Two independent reviews corrected the draft before freezing (RUNLOG). APPROVED with sample A; config
+  entries added; built tests-first in src/study5.py (116 tests pass). Run 2026-10-07 (RUNLOG): KILL on both;
+  S5a -0.037 EM_V (CI -0.054..-0.020), S5b -0.031; timing contrast negative with CI below zero: the close
+  REVERSES the day (slope t -2.3, strongest when net_gex >= 0). Momentum excluded. 17 of 20 variants.
+  Mirror (fade) nets ~+0.009 EM_V, CI includes 0. KILL accepted by Matteo. Study 5f (fade with the S5b stop,
+  holdout only, 18 of 20) APPROVED and run: in-sample reference +0.0080 EM_V; holdout (2026-01..09, 184 sessions)
+  +0.0145 EM_V (CI -0.006..+0.036), timing contrast CI > 0, gate PASS. Reversal replicated; after-cost
+  edge small and unresolved (~0.4-0.5 pts/trade pooled). Holdout spent for this fade. Robustness run: nudge rule PASS (7 of 8
+  positive; timing positive in all 8) but one extra tick of slippage or a 15:55 exit takes the edge to ~0.
+  NQ replication run (ledger ~$84.60): +0.0243 EM_V (CI +0.004..+0.044), timing CI > 0, perm p 0.012, gate PASS;
+  4 of 5 best days shared with ES, so not independent. Multiple testing now per study family (<= 4 gated variants
+  plus own out-of-sample). Price menu run: ES RTH trades ~$0.41/session (~$280 in sample, out of reach);
+  bars for CL/GC/ZN/6E ~$13 in sample. Study 6 (pure order flow) APPROVED and built tests-first (src/study6.py): $0
+  pilot on the on-disk Stage 3 ES ticks; F1 continuation 5/5, F2 absorption fade 15/15, F3 pressure reversal 15/15,
+  F4 absorption fade 5/5; pilot can only KILL or ADVANCE; confirmation on fresh random sessions. Expected KILL.
+  Pilot run: KILL on all four (net -0.49 to -1.19 pts/trade; gross edge <= +0.09 pts vs 0.58 friction;
+  imbalance-return corr 0.009/0.020, t < 1). No confirmation, no spend. KILL accepted (Matteo: "yes" to moving on).
+  Study 7 APPROVED as MOMENTUM (S5a, no stop) on CL, GC, ZN, 6E anchored to each settlement, unit EM_R
+  (20-session realized vol), Study 5 gates per market, ~$13.7 of bars (ledger -> ~$98.3). Built tests-first
+  (src/study7.py, overlays config.cl/gc/zn/6e.yaml). Run: KILL on all four (after costs CL -0.013, GC -0.011,
+  ZN -0.066, 6E -0.020 EM_R); timing real only in ZN (p 0.001, FOMC-led), ~0.6 tick vs 2 ticks of cost; fade
+  negative after costs everywhere; ES bridge under EM_R unchanged. Ledger ~$98.43. Descriptive pooled-fade
+  bug fixed, FOMC split added. KILL accepted 2026-10-08. Hypothetical $30k bankroll of the 5f fade built
+  (src/bankroll.py, config bankroll section; descriptive, in sample). Run: 1 NQ $30k -> $81.9k (DD 27.7%,
+  stress $75.7k); 1 ES -> $43.5k (stress -6.5%); micros hurt by the pessimistic $3.98 micro cost; half the NQ
+  profit from 5 sessions. 2026-10-08: micro cost set to the broker's $1.18 (approved); NQ holdout run of the
+  fade pre-registered (Matteo authorized; gate mean > 0 and >= 0.01216 EM_V) with bankroll --holdout. First attempt
+  hit a MemoryError (nothing read); calendar made leaner. Rerun: NQ holdout +0.0072 EM_V (CI -0.022..+0.037,
+  timing p 0.38) < 0.0122: gate FAIL. Holdout bankroll: 1 NQ $30k -> $35.0k (DD 31%); micros ~flat. Ledger ~$99.40.
+  NQ holdout now spent. Awaiting Matteo's call (paper trading, or stop the fade).
+- Thesis v2 (2026-10-08, THESIS.md): trade against compelled flow from the dealer's side. Recommends a new family
+  "month-end compelled flow" (M1 Treasury month-end demand in ZN, M2 pension rebalancing in ES/ZN) after a free
+  FRED existence check, plus a free FX-fix check (M3). Study 8 (M1 ZN month-end, M2 ES rebalancing, E0 free
+  FRED existence check) pre-registered as a DRAFT; Track B (passive liquidity in compelled windows) noted as a
+  design, needs L1 quotes priced. Awaiting Matteo's approval of Study 8 parameters.
+- Study 9 APPROVED and built (src/study9.py, report-only, $0): Part A realized spread to passive ES fills on the
+  110 tick sessions; Part B level reversion with a resting order (perfect upper bound and rule-5 conservative) at
+  1-60 min holds, fees $0/$2.79/$3.98. Run: KILL on both. Passive fills ~0 tick at 5-60 s; back-of-queue -0.6 tick;
+  front-of-queue +0.05 (< fee); level reversion perfect +0.08 pts at 1 min (CI incl. 0), worse than placebo;
+  conservative -0.4 to -1.2 pts. Track B closed for ES at retail queue position.
+- Study 8 (Track A) APPROVED 2026-10-08 ("let's do track A") as drafted; built tests-first (src/study8.py, 15 tests;
+  config s8_* params and study8_* gates added). Two changes to the draft, both conservative: E0 stops at 2025-12
+  (2026 10-year yields are in effect M1's out-of-sample result), and E0's split/start are config entries.
+  Known risk: ZN rolls late Feb/May/Aug/Nov can fall inside M1's 4-day window (skipped), so M1 may miss n >= 25;
+  `--count` reports this before any P&L is seen. Run (all three at once): KILL on both. E0: 10-year yields fall
+  ~2.5 bp over the last 4 sessions in 2020-25 (t -2.2) as in 1990-2019 (t -4.1), vs +0.6 drift; no S&P rebalancing
+  effect (t -0.24). M1 -0.30 ZN ticks (n 21 < 25, CI -12.7..+12.5); M2 +8.7 ES pts (n 30, CI -6.6..+24.5, -1.9
+  without the best 3). Family 2 of 4 used. Effect real in yields (~10 ticks gross vs 2.25 friction) but needs ~90
+  futures month-ends. Awaiting Matteo's call (accept, or pre-register M1 on a longer ZN history, priced first).
+  Venue question answered (no study): options priority-customer liquidity provision ranked first for a fast
+  track; pro-rata SR3 second; prediction-market making third. Study 8 KILL accepted by Matteo.
+- Study 10 (priority-customer option liquidity, pilot) pre-registered as a DRAFT (RUNLOG 2026-10-08): realized
+  spread to at-NBBO option fills from OPRA tcbbo + cbbo-1m on 5 random in-sample sessions, net of IBKR retail fees
+  (~$0.70 a side, $1.05 for a one-lot); advance only in spreads >= $0.05. Step 0 built: `python -m src.study10
+  --price` (quotes only, 3 tests). Amended: $0-commission scenario (Wealthsimple: $0/contract; ~$0.05 pass-through
+  assumed) proposed as the gate fee, penny spreads back in scope; IBKR fees reported beside it. Wealthsimple has no
+  official API (automation is the binding constraint). Awaiting Matteo's price run, parent choice and approval.
+  Price quote rebuilt after gateway 504s: each session priced in 30-minute pieces in parallel (5 tests).
+  Price run: per session SPY $14.00, QQQ $7.87, IWM $2.02, XSP $1.25 (SPXW unpriced). APPROVED 2026-10-08 as IWM,
+  one gated variant at $0.00 commission (Matteo); config s10_* and study10_* added; built tests-first (15 tests;
+  full suite 215 pass). Choices flagged: 10 ms sweep merge, equal weight per opportunity, newest-quote marks.
+  Pulled ($8.19, ledger $107.58; sessions 2023-08-09, 09-27, 10-10, 12-14, 2025-12-02) and run: ADVANCE by the
+  rule in spreads 0.02-0.05 (+$0.50/contract at 5 min, CI +0.34..+0.76, n 62k) and 0.05-0.10 (+$0.78, n 8.5k);
+  penny spreads +$0.11 (CI incl. 0). Cleared fills lose $2-7. Rule-6 diagnostics added (--diagnose), awaiting
+  Matteo's run; gate call is his. Caveats: queue position, pick-offs, passive exit needed (half-spread > RS).
+  Diagnostics run 2026-10-09: no bug found (snapshots describe their stamp time; 0.02-0.05 positive all 5
+  sessions, 42% of the half-spread kept). Bankroll (descriptive) built: --bankroll, 3 fill qualities x 1-5 lots x
+  100/200/300 fills a day, resampled pilot fills. Run 1 discarded (NaN: unmarked fills near the close); run 2: as in
+  data $30k -> $44.6k (1 lot, 100/day) to $150.4k (5 lots, 300/day); 20% break-through still positive; 30% negative
+  (ruin 31% at 5 lots, 300/day). Next is Matteo's call: replicate on fresh sessions, or measure real fill quality.
+- Study 10b APPROVED 2026-10-09 (quoting conditions): IWM from put-call parity, trailing 30-min volatility and its
+  15/15 acceleration, recent same-contract sweep, SPX gamma graded (day: deep/weak by |net_gex| vs its prior
+  median; live: side of the flip and near/deep from SPX via ES minus basis). Built tests-first (src/study10b.py, 10 tests).
+  Plan: explore on the pilot (--explore, $0) -> freeze <= 3 filters -> confirm on 5 fresh sessions (~$8) with the
+  agreed rule (kept minus all 5-min RS, 90% lb > 0, and lower break-through share). Explore run 2026-10-09: IWM parity
+  prices check out; no candidate meets the rule at 5 min; break-through share 13-15% under every filter; high
+  volatility fills earn more; first half hour weakest at 5 min (18.8% break-through); weak/near-flip gamma looks
+  best but is one or two sessions. Confirmation PRE-REGISTERED 2026-10-09: V1 replication + H1 (skip first 30 min)
+  + H2 (near-flip live gamma only) on 5 fresh sessions (seed 20261010, pilot excluded), agreed rule; 3 of 4 in the
+  family. Confirmation run 2026-10-09 ($6.81, ledger $114.40; 2023-06-29, 09-18, 12-21, 2024-03-04, 2025-08-28):
+  V1 REPLICATED (2-4c +$0.68, CI +0.41..+0.89; 5-9c +$2.25; penny +$0.27 and 10-24c +$2.86 also pass); H1 FAIL;
+  H2 PASS by the rule but 4% of fills in 2 sessions. Remaining unknown: a retail order's fill quality (live test).
+- Study 11 (execution design) BUILT 2026-10-09 (Matteo: items 1, 2, 4, 5), not yet run: exploration on the 10 seen
+  sessions, $0: round trip with a passive exit (through/queue/front rules, 1/5/15 min patience, then cross 1 tick
+  worse), stale-quote ratio from delta x IWM move (K1/K2), contract selection (K3 skip 1-7 DTE), inventory limits
+  and IWM delta hedge. s11_* params added as proposals (RUNLOG). Optional 1-second IWM (XNAS.ITCH bbo-1s) priced
+  first. 248 tests pass. Explore run 2026-10-09 (RUNLOG): every round trip negative in every bucket, rule, patience
+  and session (2-4c through 5 min -$2.08, CI -2.47..-1.66; front -$1.36); stale filters +$0.1 (CI incl. 0); K3 worse;
+  inventory -$230/day at 100 fills; hedge cuts sd 30%, costs more. Mark-to-mid profit was the free exit. Nothing to
+  freeze. Awaiting Matteo's call on closing the option liquidity track.
+- Study 11b (hedged market making) BUILT 2026-10-09, not yet run: exit follows the far side (re-pegs), IWM delta hedge
+  from 1-second quotes (pull of $0.0693 approved by Matteo), order count vs the 390 limit. src/study11b.py, 254 tests.
+  Run 2026-10-09 (RUNLOG): hedged 2-4c+5-9c through -1.95, queue -1.36, front (optimistic) -0.27, 0/10 sessions
+  positive; hedge cuts sd 3-4x but costs ~$0.7; 11-47 option orders a round trip (1,105+ a day at 100 fills vs 390).
+  Only front-of-queue 0-7 DTE slices positive. Recommended: close the option liquidity track (Matteo's call).
+- Study 12 APPROVED and BUILT 2026-10-09 (src/study12.py, 8 tests, 262 pass): Study 1 naive + confirmed level fade in
+  SPY shares (1-s Nasdaq BBO, one-cent fill rules, $0 commission + SEC/TAF), same touches, levels via the 09:30
+  SPY/ES ratio; gate SPEC Stage 3 on gamma touches. Pulled $4.40 (ledger $118.86). Run 1 superseded (level mapping
+  omitted the ES-SPX basis; fixed). Run 2: KILL on both: naive -0.50R (CI -0.54..-0.46, n 2,801, gross -0.40R),
+  confirmed -0.38R (n 228); gamma = placebo; ES on the same touches -0.31R. Awaiting Matteo's call.
+- Study 13 (order-flow pattern DISCOVERY) pre-registered and BUILT 2026-10-09 (src/study13.py, 8 tests, 271 pass): 29
+  flow features, 9 holds 5 s-30 min, 4 fill models (2 gating, rule 5), ~1,700 single/pair patterns on the Study 6 tick
+  spans; noise test (200 circular-shift reruns); 60/20/20 date split, test days untouched until frozen. Next: Matteo
+  runs --build, --discover, posts; --test only after review. Expected: nothing frozen or FAIL.
+  Discovery run 2026-10-09: 4 frozen, all LONG 30-min "few big prints + early in the day" (validation +6 to +8 pts,
+  lb > 0); all 80 top patterns long 15-30 min (drift signature); noise p ~0.04. Rule 6: --diagnose added (drift,
+  time-of-day increment, day concentration, no-future-selection subset). --test NOT run.
+  Amended (Matteo): three objectives (per trade, per day one position at a time, t-stat), each with a noise test;
+  freeze ranks by validation points a day; --test needs --diagnose and tests only patterns passing all 5 pre-set
+  checks. Rerun + diagnose 2026-10-09: all objectives' bests are long 30 min (no short-horizon edge after costs);
+  noise p 0.03-0.08; 4 frozen ("few big prints early in the day, long 15-30 min"), all pass the 5 checks, but in
+  discovery one-at-a-time is only +0.0..+0.6 pts and without the best 3 days ~0; validation morning drift +7 pts.
+  TEST run 2026-10-09 (21 untouched days, once): all 4 FAIL (-1.0 to -2.0 pts, one at a time -0.9 to -2.4); the flow
+  condition adds -0.4 vs time of day alone; 7/21 days positive. The validation edge was morning drift. FAIL; test
+  days spent. Awaiting Matteo's call (close the flow search).
+- Study 14 (crypto pump-fade shorts + squeeze-risk score): inventory run (1,056 USD-M coins, 272 delisted, 1h/1m
+  klines 2020-01..2026-09, funding, metrics from 2020-09, no liquidations). APPROVED 2026-10-10 as a grid SEARCH
+  (Matteo: "leave all of the important aspects fluid"): 38,880 combinations (W, P, V, entry, hold, stop, target,
+  squeeze filter, funding filter), 3 objectives each with a 100-rep placebo noise test, validation 2024-01..2025-09,
+  >= 75% neighbour stability, freeze <= 4, gating diagnose, holdout 2025-10..2026-09 sealed. s14_* / study14_* in
+  config.yaml. BUILT tests-first (src/crypto_data.py, src/study14.py; 308 pass); synthetic end-to-end dry run passed
+  (RUNLOG). Speed-ups: --jobs (parallel), 24 download connections, one-command `study14 --all`. Run 2026-10-09
+  (--all, 38 min): 17,887 events on 478 coins; unconditional next-hour short negative at every hold (-0.3% to -4.9%
+  a trade); noise test passes per trade/per month (p 0.01), fails t-stat (p 0.14); no top candidate has a validation
+  lower bound > 0 (best +1.0%, leaders ~0 to -2.7%): NOTHING FROZEN, KILL by the rules. Holdout untouched. Awaiting
+  Matteo's call. Research only (no venue open to a BC resident).
+- Study 15 APPROVED 2026-10-09 (Matteo: "Yes to everything ... different entry points, thresholds, filters, costs
+  and fills ... on our data we already have"): long early in crypto volume/volatility surges (STUDY15.md). 373,248
+  combinations (192 signal sets W x P x volume/volatility level x early filter; 3 entries; 108 exits H x hard stop x
+  trailing stop x target; funding x BTC filters) walked on the on-disk hourly bars (low comes first in a bar), 100-rep
+  placebo, validation, stability, freeze <= 4, gating diagnose (own placebo, without best 5%, 2x slippage, 5-minute
+  re-walk), holdout >= 30 trades. Cost/fill variants reported, not selected on. 2020-25 partly seen via Study 14; the
+  sealed year decides. s15_* / study15_* in config.yaml. BUILT tests-first (src/study15.py; 319 pass); synthetic
+  end-to-end dry run passed. Run 2026-10-09 (--all, 14 min): 734k events on 529 coins; noise test FAILS on all three
+  objectives with placebo bests ABOVE real bests (p 1.0); 59/60 candidates earn less than the same combination on
+  random hours (market beta, not timing); best validation +4.1-4.6% a trade but median < 0 and > 100% of profit from
+  the best 5%. NOTHING FROZEN, KILL by the rules. Holdout untouched. Awaiting Matteo's call.
+- Study 16 APPROVED 2026-10-09 (Matteo: "test all 3 of these at once and then explore variations of the most
+  profitable ones"): market-neutral crypto theses on a daily panel (STUDY16.md): C1 funding carry (short high funding,
+  long low), C2 28-day momentum, C3 7-day reversal, C4 short new listings (first 90 days) hedged long BTC; weekly,
+  quintiles, $1M volume floor, 0.15% per unit traded, funding in returns, short losses capped at notional. Stage A
+  gate per variant: mean > 0 with lower bound > 0, placebo p <= 0.05 (shuffled ranks / random old coins, 200 reps),
+  both halves positive, positive without the best 5% of weeks. Stage B (automatic, only for passing variants): grid
+  on 2020-23, 100-rep noise test, validation 2024-25, stability, 2x slippage, <= 4 frozen; sealed year once.
+  BUILT tests-first (src/study16.py); synthetic dry run passed. Run 2026-10-10 (--all, 14 min): Stage A PASS for C1
+  carry (+0.61%/week, lb +0.38%, Sharpe 1.8, DD 20%, placebo p 0.005) and C4 new-listing short (+0.67%/week, lb
+  +0.21%, DD 56% in 2020-23, placebo p 0.005); C2, C3 FAIL. Stage B: C1 search noise test FAILS (p 0.20, nothing
+  frozen); C4 froze one distinct version (window 30 d, delay 7 d; val +1.18%/week, lb +0.34%) counted 4 times (build
+  flaw, fixed). `--diagnose` added (years, coin concentration, delisting exits, worst weeks, capacity); awaiting
+  Matteo's diagnose run, then his call on the holdout (C1 base, C4 base, C4 window-30). Holdout untouched.
+  Diagnose run 2026-10-10: no bug found; edges broad (top 5 coins 9-29% of gross; still positive without them),
+  delistings immaterial, capacity ample at $100k; C1 flat in 2022-23; C4 base lost in 2021 (worst weeks -12..-16%).
+  HOLDOUT run once 2026-10-10 (2025-10..2026-09, 52 weeks): all three FAIL. C1 +0.01%/week (funding +0.90%/week
+  eaten by price losses on the shorted crowded coins); C4 base +0.24% (CI -0.52..+1.04, < half in-sample); C4
+  window-30 +0.27% (CI -0.65..+1.20). Holdout spent for these. Awaiting Matteo's call.
+- Study 17 DRAFT 2026-10-10 (STUDY17.md): DEX liquidity provision as selective volatility selling (fees vs LVR =
+  sigma^2/8; trade only when fee-implied vol beats forecast realized vol). Step 0 BUILT (src/defi_inventory.py, free
+  DefiLlama API; pool-week fees, LVR lower bound, jumps, a first signal check; holdout rows dropped). Next: Matteo runs
+  `python -m src.defi_inventory`, posts the JSON; then the strategy is fixed and sent for approval.
+- 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
+  check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
+  before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
+  Docs refreshed 2026-10-07: NEXT.md rewritten (findings through study 7, practitioner priors, data and budget),
+  WRITEUP, RESULTS, README and CANDIDATES brought up to date.
 - Known data facts: ThetaData free tier serves EOD from 2023-06-01; half-day EOD reports are all zero
   bids (six sessions have no GEX row); 2024-12-02 dailies zero-bid (levels skip 2024-12-03); EOD quotes
   are the 17:00 ET curb close. Approved: quote_time 17:00, cost_rt_usd 3.98, gex_pct_min_periods 126.
@@ -84,5 +259,36 @@ See README.md for the full runbook in order.
 - Gate reports: `python -m src.analysis stage1|stage2|stage3|variants|study2 [--carry ...]`
 - Study 3 band trades: `python -m src.study3 [--report-only]`
 - Study 4 straddles: `python -m src.study4 [--report-only]`
+- Study 5 close momentum: `python -m src.study5 [--report-only]`
+- Study 5f fade: `python -m src.study5 --fade-reference`, `--holdout-check`, then (holdout only)
+  `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study5 --fade-holdout <step-1 mean_em>`
+- Study 5f robustness: `python -m src.study5 --fade-robustness`; NQ: set GAMMA_EDGE_CONFIG=config.nq.yaml,
+  then `python -m src.ingest_daily`, `python -m src.ingest_futures bars --start 2023-04-01 --end 2025-12-31
+  --price-only` (then --approve-usd), `python -m src.study5 --fade-replication`
+- Price menu (no pulls): `python -m src.price_menu --start YYYY-MM-DD --end YYYY-MM-DD [--symbols ES.v.0 ...]`
+- Study 6 order flow pilot: `python -m src.study6 --count`, then `python -m src.study6 [--report-only]`
+- Study 7 (per overlay): `python -m src.study7 --market`; then (no overlay) `--cross config.cl.yaml ...`, `--bridge`
+- Bankroll simulation of the 5f fade (descriptive): `python -m src.bankroll [--holdout]` (NQ: GAMMA_EDGE_CONFIG=config.nq.yaml;
+  --holdout needs GAMMA_EDGE_RUN_HOLDOUT=1 after study5 --fade-holdout)
+- Study 9: `python -m src.study9 --realized-spread`, `python -m src.study9 --level-reversion` [--report-only]
+- Study 10 price quote (no pull): `python -m src.study10 --price [--parents SPY.OPT ...] [--sessions 5]`
+- Study 10 pilot (IWM): `python -m src.study10 --sessions-list`, `--pull --price-only`, then
+  `--pull --approve-usd X --allow-past-total`, then `--run` (or `--report-only`), `--diagnose`, `--bankroll`
+- Study 10b exploration on the pilot fills: `python -m src.study10b --explore`
+- Study 11 (exploration, 10 seen sessions): `python -m src.study11 --iwm-pull --price-only` (optional, then
+  `--iwm-pull --approve-usd X --allow-past-total`), `python -m src.study11 --explore` (or `--report-only`)
+- Study 11b (after the IWM pull and study11 --explore): `python -m src.study11b --explore` (or `--report-only`)
+- Study 12 (SPY level fade): `python -m src.study12 --count`, `--pull --price-only`, `--pull --approve-usd X
+  --allow-past-total`, `--run` (or `--report-only`)
+- Study 13 (flow discovery): `python -m src.study13 --build`, `--discover`, then once `--test`
+- Study 14 step 0 (free): `python -m src.crypto_inventory [--sample 20]`; search: `python -m src.study14 --all`, then
+  `--diagnose`, `--risk`
+- Study 15 (long surges): `python -m src.study15 --all`, then `crypto_data --event-data --study 15`, `study15 --diagnose`, `--risk`
+- Study 17 step 0 (free): `python -m src.defi_inventory [--max-pools 50] [--min-tvl 250000]`
+- Study 16 (market-neutral crypto theses): `python -m src.study16 --all`, then `--diagnose`; holdout only on
+  "run the holdout" (crypto_data --hourly --holdout, --btc --holdout, then study16 --holdout)
+- Study 10 confirmation (fresh sessions): `python -m src.study10 --confirm --sessions-list`, `--confirm --pull
+  --price-only`, `--confirm --pull --approve-usd X --allow-past-total`, `--confirm --run`, then `python -m src.study10b --confirm`
+- Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`
 - Robustness: `python -m src.robustness nudges|splits`
 - Holdout (only when told "run the holdout"): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.robustness holdout-prep|holdout`
