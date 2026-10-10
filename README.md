@@ -148,6 +148,17 @@ python -m src.study12 --run
 python -m src.study13 --build
 python -m src.study13 --discover
 python -m src.study13 --test
+#     Study 14: crypto pump-fade short search (Binance public archive, free; research only). In order:
+python -m src.crypto_inventory                 # step 0 (done): what the archive holds; writes the resume cache
+python -m src.crypto_data --hourly             # 1-hour klines + funding, all USDT coins (~0.7 GB; resumable)
+python -m src.study14 --events                 # pump events per (W, P, V); lists the 5-min / metrics files needed
+python -m src.crypto_data --event-data         # 5-min klines + daily metrics for event months only
+python -m src.study14 --discover               # 38,880 combinations + 100 placebo searches, validation, freeze
+python -m src.crypto_data --minute             # 1-minute klines for the frozen combinations' trades
+python -m src.study14 --diagnose               # placebo, tails, worst periods, 1-minute re-walk
+python -m src.study14 --risk                   # descriptive bankroll of the frozen combinations
+#     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
+#     study14 --events --holdout, crypto_data --event-data --holdout, then study14 --holdout
 
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges

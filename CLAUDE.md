@@ -152,9 +152,14 @@ Update this block at the end of every session.
   TEST run 2026-10-09 (21 untouched days, once): all 4 FAIL (-1.0 to -2.0 pts, one at a time -0.9 to -2.4); the flow
   condition adds -0.4 vs time of day alone; 7/21 days positive. The validation edge was morning drift. FAIL; test
   days spent. Awaiting Matteo's call (close the flow search).
-- Study 14 (crypto pump-fade shorts + squeeze-risk score) DRAFTED 2026-10-09 in STUDY14.md (not approved, no config
-  entries). Step 0 built: `python -m src.crypto_inventory` (free) lists the Binance public futures archive; Matteo
-  runs it, then the draft is fixed to the data that exists and sent for approval. Research only (no BC venue yet).
+- Study 14 (crypto pump-fade shorts + squeeze-risk score): inventory run (1,056 USD-M coins, 272 delisted, 1h/1m
+  klines 2020-01..2026-09, funding, metrics from 2020-09, no liquidations). APPROVED 2026-10-10 as a grid SEARCH
+  (Matteo: "leave all of the important aspects fluid"): 38,880 combinations (W, P, V, entry, hold, stop, target,
+  squeeze filter, funding filter), 3 objectives each with a 100-rep placebo noise test, validation 2024-01..2025-09,
+  >= 75% neighbour stability, freeze <= 4, gating diagnose, holdout 2025-10..2026-09 sealed. s14_* / study14_* in
+  config.yaml. BUILT tests-first (src/crypto_data.py, src/study14.py; 308 pass); synthetic end-to-end dry run passed
+  (RUNLOG). Not yet run on real data: Matteo runs crypto_data --hourly, study14 --events, crypto_data --event-data,
+  study14 --discover. Research only (no venue open to a BC resident).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

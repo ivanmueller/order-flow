@@ -2126,3 +2126,36 @@ klines 1h 1,056 / 272 / 2020-01..2026-09 / 0.7 GB; klines 1m 1,056 / 272 / same 
 Delisted coins are kept (no survivorship bias). STUDY14.md updated to the data: liquidations dropped from the squeeze
 score, book depth descriptive only, split training 2020-01..2023-12 / validation 2024-01..2025-09 / holdout
 2025-10..2026-09; 1-minute and metrics files downloaded only for months/days around events. Draft awaits approval.
+
+## 2026-10-10 | Study 14 APPROVED as a search; PRE-REGISTERED and BUILT (no real-data run; $0)
+Matteo: "leave all of the important aspects fluid so we can fit the best combination that keeps trades high and risk
+low ... testing variations of different strategies to find the optimal setups". Design frozen in STUDY14.md (commit
+3496b54): W [6,24,72] h x P [0.3,0.5,1.0] x V [3,5,10] x entry [next_hour, red_hour, red_day, drop_10, drop_20] x
+H [1,3,7,14] d x S [0.15,0.3,0.5,1.0] x T [none,0.2,0.4] x Q [none, skip top third, skip top half of the squeeze
+score] x F [any, funding >= 0] = 38,880 combinations. Discovery 2020-01..2023-12, validation 2024-01..2025-09, holdout
+2025-10..2026-09 sealed. Objectives per trade / per month / t-stat (>= 100 trades on >= 20 weeks), each with a placebo
+noise test (the whole search on random hours of the same coins and months, >= 72 h from any real event; 100 reps;
+p <= 0.05); top 20 per objective to validation (week-bootstrap 90% lower bound > 0 on >= 30 trades); stability >= 75%
+of eligible grid neighbours positive; at most 4 frozen, ranked by validation return a month; diagnose (gating:
+the combination's own placebo p <= 0.05, positive without the best 5% of trades in both periods, 1-minute re-walk
+covering >= 95% of trades with a positive mean); holdout once: mean > 0, lower bound > 0, >= half the in-sample mean.
+Config: s14_* params and study14_* gates added as in STUDY14.md, plus four needed by the build (proposed values, flag
+if you disagree): s14_placebo_gap_h 72 (the 72 h in the design), s14_quote USDT (USDT perpetuals only: no dated,
+USDC or BUSD duplicates of the same coin), s14_max_filled_share 0.25 (a walk whose 5-min bars are > 25% gap-filled
+is dropped), s14_risk_shares [0.005, 0.01, 0.02] and s14_max_open 10 (risk report only).
+Definitions fixed by the build: an event needs real bars at both ends of its window (no "pump" across a delist-relist
+gap); the volume baseline is the median W-hour quote volume over the 720 windows ending before this one starts (also
+the 30-day history rule); events are dropped when a trade from them could cross into the next period (signal + 22
+days); funding counts strictly inside the trade; F uses the last settled rate at entry (none = fails nonneg); the
+squeeze model is logistic (IRLS, features winsorized 1/99% and standardized on training), events without metrics get
+no score and are never skipped by Q; a frozen candidate with exactly the same trades as one already frozen is skipped.
+Code: src/crypto_data.py (downloads with resume, 404 record, 8 workers; parsers for header/no header and ms/us;
+holdout months neither downloaded nor loaded without GAMMA_EDGE_RUN_HOLDOUT=1), src/study14.py. Tests: 9 + 22 new;
+full suite 308 pass. End-to-end dry run on a synthetic archive (5 coins, one delisted, planted pumps that fade on
+even coins only; scratchpad, gates loosened in the test overlay only): events 886; one walk re-computed by hand
+from the raw 5-min file matched to 1e-6 (exit time and 3 funding payments); the planted fade found (best +0.169 a
+trade vs placebo 95th percentile +0.085); validation, stability, freeze, diagnose, 1-minute re-walk, risk and the
+holdout path all ran; the holdout refused without the flag; research exits all before 2025-10-01.
+Next (Matteo's laptop): crypto_data --hourly, study14 --events (counts only, no P&L), crypto_data --event-data,
+study14 --discover; post the JSON. Expected: the fade exists in some cells; whether any survives placebo, validation
+and stability after fees, slippage and funding is open.

@@ -279,6 +279,39 @@ params:
   s13_null_reps:      {value: 200}                          # the whole search rerun on circularly shifted outcomes
   s13_seed:           {value: 20261012}
   s13_top_k:          {value: 20}                           # best discovery patterns per fill model carried to validation
+  # Study 14 (Matteo 2026-10-09/10: approved as a search, "leave all of the important aspects fluid"): short pumped
+  # Binance USD-M perpetuals; every setting below is a grid (STUDY14.md). Research only (no venue open to a BC resident).
+  s14_windows_h:      {value: [6, 24, 72]}                  # pump window W (hours)
+  s14_pump:           {value: [0.3, 0.5, 1.0]}              # pump size P: close-to-close return over W
+  s14_volume_mult:    {value: [3, 5, 10]}                   # V: quote volume over W / median W-hour quote volume over the prior 30 days
+  s14_entries:        {value: [next_hour, red_hour, red_day, drop_10, drop_20]}
+  s14_holds_d:        {value: [1, 3, 7, 14]}                # hold H (days), exit at the 5-min bar open
+  s14_stops:          {value: [0.15, 0.3, 0.5, 1.0]}        # stop S above the entry fill
+  s14_targets:        {value: [null, 0.2, 0.4]}             # target T below the entry fill (null = none)
+  s14_squeeze_skip:   {value: [null, 0.5, 0.6667]}          # Q: keep events whose squeeze score is below this training quantile
+  s14_funding_filter: {value: [any, nonneg]}                # F: nonneg = last settled funding at entry >= 0
+  s14_volume_lookback_d: {value: 30}                        # volume baseline (and minimum history) in days
+  s14_cooldown_d:     {value: 7}                            # one event per coin per this many days, per (W, P, V)
+  s14_red_hour_window_h: {value: 72}
+  s14_red_day_window_d: {value: 7}
+  s14_drop_window_h:  {value: 72}
+  s14_fee:            {value: 0.0005}                       # taker fee a side, share of notional
+  s14_slippage:       {value: 0.001}                        # entries, stops and time exits 0.10% worse (targets are limits)
+  s14_squeeze_label_rise: {value: 0.3}                      # squeeze label: high >= entry x 1.3 ...
+  s14_squeeze_label_days: {value: 7}                        # ... within this many days
+  s14_train_end:      {value: "2023-12-31"}                 # discovery 2020-01..2023-12
+  s14_validation_end: {value: "2025-09-30"}                 # validation 2024-01..2025-09
+  s14_holdout_start:  {value: "2025-10-01"}                 # sealed: 2025-10..2026-09, once, on "run the holdout"
+  s14_null_reps:      {value: 100}                          # placebo searches
+  s14_placebo_gap_h:  {value: 72}                           # placebo hours at least this far from any real event of the coin
+  s14_top_k:          {value: 20}
+  s14_seed:           {value: 20261014}
+  s14_exclude:        {value: [BTCUSDT, ETHUSDT]}
+  s14_quote:          {value: "USDT"}                       # USDT-margined perpetuals only (no dated, USDC or BUSD duplicates)
+  s14_min_history_d:  {value: 30}
+  s14_max_filled_share: {value: 0.25}                       # a walk with more than this share of gap-filled 5-min bars is dropped
+  s14_risk_shares:    {value: [0.005, 0.01, 0.02]}          # risk report (descriptive): equity lost if a stop fills at its level
+  s14_max_open:       {value: 10}                           # risk report: at most this many trades open at once
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -316,6 +349,12 @@ gates:
   study13_min_days: 15              # ... on this many days (discovery), to be ranked
   study13_max_frozen: 4             # at most this many validated patterns go to the test days (family budget)
   study13_test_min_days: 10         # test: net mean > 0 with a 90% day-bootstrap lower bound > 0 on >= this many days
+  study14_min_trades: 100           # study 14: a ranked combination needs this many discovery trades ...
+  study14_min_weeks: 20             # ... on this many distinct weeks
+  study14_null_p: 0.05              # the real best must beat this share of placebo bests, per objective
+  study14_val_min_trades: 30        # frozen: validation 90% week-bootstrap lower bound > 0 on >= this many trades
+  study14_neighbour_share: 0.75     # stability: share of eligible grid neighbours positive on discovery
+  study14_max_frozen: 4             # family budget
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 
