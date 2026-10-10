@@ -2352,3 +2352,28 @@ day's range is usable, else close-to-close; fees = feesUSD (v3) or 0.3% x volume
 fee-implied vol measured against virtual value; stablecoin pairs, thin pools (median TVL < $100k) and broken rows
 (TVL < $1k, fees > TVL) dropped and counted. Holdout days are excluded in the query itself. Dry run with a fake
 subgraph: stable pair skipped, pagination past 1,000 days, last week 2025-09-22. `--probe` checks the key first.
+
+## 2026-10-10 (laptop, 15:02-15:21 PT) | Study 17 step 0b runs: --max-pools 50, then default (commit ca0f37e; $0)
+Quick (50 v3 + 50 v2 by all-time volume): 71 pools, 12,693 pool-weeks; fees beat LVR 41.6%; median v3 concentration 3.46.
+Default (1,000 v3 + 500 v2): 1,197 pools with usable history (42 stable pairs, 257 thin/bad skipped, 0 errors),
+2020-05..2025-09, 146,718 pool-weeks, Ethereum mainnet. Fees beat the exact LVR in 35.8% of pool-weeks (step 0
+said 77%); median fee yield 7.0%/yr of TVL vs LVR 9.3%/yr; median net -1.1%/yr. Mean net -849x/yr: impossible as a
+real loss, so a few broken or extreme weeks (v3 0.05% mean -8,833/yr) dominate every mean; read medians only.
+By project (share positive / median net per yr): v2 46.2% / -0.3%; v3 0.01% 17% / -7%; 0.05% 28% / -2.6%;
+0.30% 18% / -4.9%; 1.00% 41% / -0.3%. By TVL: 34-41% everywhere, median -0.9 to -1.3%/yr; >$100M 40.7% / -1.3%.
+Every year 2021-25 34-37% positive (2020 57%). Median v3 concentration 0.97 (long-tail pools with much liquidity
+out of range); 3.46 in the 50 largest.
+By SAME-WEEK realized vol (ex post, not tradeable): <30% vol 65.5% positive, 30-60% 54.6%, 60-100% 39%,
+100-200% 24.6%, >200% 12.4%. Trailing 4-week premium vs next week: rank corr 0.52; next-week means negative either
+way (outlier-dominated, medians not yet computed).
+Read: step 0's premium was the concentration/survivorship bias flagged before; the unconditional LP position loses
+slightly to arbitrage at every size, fee tier and year. Calm weeks win, but only when known in advance.
+Rule 6 (applies to bad results too): two biases now run AGAINST the LP. (1) Parkinson on the POOL's own daily
+high-low counts intraday wicks (sandwiches, thin-pool spikes) that cost the LP nothing; v2 has no high-low and
+is the best group. (2) var x V/8 is a small-move approximation; on jump days a concentrated position leaves its
+range and stops losing, so the formula overstates (the impossible means). Neither can turn 36% into a premium for
+v2 (close-to-close only, still 46%), but both bear on the calm-week pocket.
+Built (no run yet): `--close-only` (rebuild from the local cache, close-to-close variance; refuses to query) and
+`--diagnose` (saved pool-weeks only: worst/best weeks, v3 concentration quantiles, medians and 1/99% winsorized
+means, the close-only comparison, and an EX-ANTE look before 2025 (trailing 4-week vol and premium from earlier
+weeks only; 2025-01..09 untouched for a later validation). 9 tests in test_defi_subgraph.py; 344 pass.

@@ -11,6 +11,8 @@ Rows on or after s14_holdout_start are never requested (date filter in the query
   python -m src.defi_subgraph --probe                 # checks the key and both subgraphs (3 small queries)
   python -m src.defi_subgraph --max-pools 50          # quick run
   python -m src.defi_subgraph                         # default: top 1,000 v3 pools and top 500 v2 pairs by volume
+  python -m src.defi_subgraph --close-only            # same pools from the local cache, close-to-close variance
+  python -m src.defi_subgraph --diagnose              # tails, robust stats, ex-ante look (weeks before 2025 only)
 Needs THEGRAPH_API_KEY in .env. Subgraph ids are options (--v3-id / --v2-id) in case Uniswap moves them.
 """
 from __future__ import annotations
@@ -49,15 +51,16 @@ def v3_virtual_usd(liquidity, sqrt_price_x96, dec1, t1_usd):
     return 2.0 * y * np.asarray(t1_usd, float)
 
 
-def daily_variance(df: pd.DataFrame) -> np.ndarray:
+def daily_variance(df: pd.DataFrame, use_range: bool = True) -> np.ndarray:
     """max(Parkinson, close-to-close^2) when the day's high-low range is usable, close-to-close^2 otherwise;
-    NaN on a day without a prior close."""
+    NaN on a day without a prior close. use_range=False: close-to-close only (diagnostic: intraday wicks such as
+    sandwiches move the pool's high-low without costing the LP anything)."""
     c = df["close"].to_numpy(float)
     c2c = np.full(len(c), np.nan)
     with np.errstate(divide="ignore", invalid="ignore"):
         ok = (c[1:] > 0) & (c[:-1] > 0)
         c2c[1:] = np.where(ok, np.log(c[1:] / c[:-1]) ** 2, np.nan)
-        if "high" in df and "low" in df:
+        if use_range and "high" in df and "low" in df:
             h, l = df["high"].to_numpy(float), df["low"].to_numpy(float)
             valid = (l > 0) & (h >= l) & (h / l < 5) & (c >= l * 0.99) & (c <= h * 1.01)
             park = np.where(valid, np.log(h / l) ** 2 / (4 * math.log(2)), np.nan)
@@ -75,12 +78,12 @@ def _jump(df) -> np.ndarray:
     return j
 
 
-def v3_daily(days: pd.DataFrame, dec1: int, t1_usd: pd.Series, fee_tier: int) -> pd.DataFrame:
+def v3_daily(days: pd.DataFrame, dec1: int, t1_usd: pd.Series, fee_tier: int, use_range: bool = True) -> pd.DataFrame:
     d = days.sort_values("date").reset_index(drop=True)
     day = pd.to_datetime(d["date"].astype("int64"), unit="s")
     t1 = t1_usd.reindex(day).to_numpy(float)
     virt = v3_virtual_usd(d["liquidity"].astype(float), d["sqrtPrice"].astype(float), dec1, t1)
-    var = daily_variance(d)
+    var = daily_variance(d, use_range)
     fees = pd.to_numeric(d["feesUSD"], errors="coerce").to_numpy(float)
     fees = np.where(np.isfinite(fees), fees, pd.to_numeric(d["volumeUSD"], errors="coerce") * fee_tier / 1e6)
     tvl = pd.to_numeric(d["tvlUSD"], errors="coerce").to_numpy(float)
@@ -123,13 +126,16 @@ def weekly(d: pd.DataFrame, holdout: pd.Timestamp, min_days: int = 5) -> pd.Data
 
 # ---- fetching ------------------------------------------------------------------------------------------------
 class Graph:
-    def __init__(self, key: str, sid: str, cache: Path, pause: float):
+    def __init__(self, key: str, sid: str, cache: Path, pause: float, offline: bool = False):
         self.url, self.cache, self.pause, self.sid = GATEWAY.format(key=key, sid=sid), cache, pause, sid
+        self.offline = offline
 
     def q(self, name: str, query: str, variables: dict) -> dict:
         p = self.cache / f"{name}.json"
         if p.exists():
             return json.loads(p.read_text())
+        if self.offline:
+            raise RuntimeError(f"not in the local cache: {name}")
         import requests
         last = None
         for k in range(5):
@@ -192,13 +198,16 @@ def probe(v3_id: str, v2_id: str, root: Path) -> dict:
     return out
 
 
-def run(cfg, n_v3: int, n_v2: int, v3_id: str, v2_id: str, pause: float, min_median_tvl: float) -> dict:
+def run(cfg, n_v3: int, n_v2: int, v3_id: str, v2_id: str, pause: float, min_median_tvl: float,
+        close_only: bool = False) -> dict:
+    """close_only=True: rebuild from the local cache only (no queries) with close-to-close variance; outputs get a
+    _c2c suffix."""
     from src.defi_inventory import summarize, trailing_premium
     key, root = _key(), data_path(cfg, "raw", "defi_subgraph")
     holdout = pd.Timestamp(param(cfg, "s14_holdout_start"))
     end = int(pd.Timestamp(holdout, tz="UTC").timestamp())
     rows, skipped = [], {"stable": 0, "thin_or_bad": 0, "no_token_price": 0, "errors": 0}
-    v3 = Graph(key, v3_id, root / "v3", pause)
+    v3 = Graph(key, v3_id, root / "v3", pause, offline=close_only)
     pools = []
     for s in range(0, n_v3, 1000):
         pools += v3.q(f"pools_{s}", V3_POOLS, {"skip": s})["pools"]
@@ -225,7 +234,7 @@ def run(cfg, n_v3: int, n_v2: int, v3_id: str, v2_id: str, pause: float, min_med
             if tok_cache[t1].empty:
                 skipped["no_token_price"] += 1
                 continue
-            d = v3_daily(days, int(p["token1"]["decimals"]), tok_cache[t1], int(p["feeTier"]))
+            d = v3_daily(days, int(p["token1"]["decimals"]), tok_cache[t1], int(p["feeTier"]), use_range=not close_only)
             d = d[(d["tvl_usd"] > 1000) & (d["fees_usd"] <= d["tvl_usd"])]          # spam / broken rows
             if d["tvl_usd"].median() < min_median_tvl:
                 skipped["thin_or_bad"] += 1
@@ -242,7 +251,7 @@ def run(cfg, n_v3: int, n_v2: int, v3_id: str, v2_id: str, pause: float, min_med
         if i % 50 == 0:
             log.info("v3: %d of %d pools", i, len(pools))
     if n_v2:
-        v2 = Graph(key, v2_id, root / "v2", pause)
+        v2 = Graph(key, v2_id, root / "v2", pause, offline=close_only)
         pairs = []
         for s in range(0, n_v2, 1000):
             pairs += v2.q(f"pairs_{s}", V2_PAIRS, {"skip": s})["pairs"]
@@ -276,7 +285,7 @@ def run(cfg, n_v3: int, n_v2: int, v3_id: str, v2_id: str, pause: float, min_med
     out_dir = data_path(cfg, "derived", "defi")
     out_dir.mkdir(parents=True, exist_ok=True)
     if len(W):
-        W.to_parquet(out_dir / "study17_subgraph_pool_weeks.parquet")
+        W.to_parquet(out_dir / f"study17_subgraph_pool_weeks{'_c2c' if close_only else ''}.parquet")
     res = {"study": 17, "step": "0b exact LVR (Uniswap subgraphs, dead pools included)", "skipped": skipped,
            "pools_with_usable_history": int(W["pool"].nunique()) if len(W) else 0,
            "first_week": str(W["week"].min().date()) if len(W) else None,
@@ -288,13 +297,76 @@ def run(cfg, n_v3: int, n_v2: int, v3_id: str, v2_id: str, pause: float, min_med
                                   for k, x in W.groupby(pd.cut(W["realized_vol"], [0, 0.3, 0.6, 1.0, 2.0, np.inf]), observed=True)}
     res["note"] = ("Pool-level: fees vs LVR from liquidity at the price (v3) or reserves (v2), as shares of mean TVL. "
                    "Variance max(Parkinson, close-to-close). Ethereum mainnet only; no gas, hedge or selection yet.")
-    (out_dir / "study17_subgraph.json").write_text(json.dumps(res, indent=1, default=str))
+    (out_dir / f"study17_subgraph{'_c2c' if close_only else ''}.json").write_text(json.dumps(res, indent=1, default=str))
     return res
+
+
+EX_ANTE_END = "2025-01-01"          # diagnose looks ex ante only before this; 2025-01..09 stays for validation
+VOL_BINS = [0, 0.3, 0.6, 1.0, 2.0, np.inf]
+
+
+def trailing_vol(W: pd.DataFrame, weeks: int = 4) -> pd.Series:
+    """Mean realized vol of the pool's previous `weeks` rows (never the week itself)."""
+    W = W.sort_values(["pool", "week"])
+    return W.groupby("pool")["realized_vol"].transform(
+        lambda x: x.shift(1).rolling(weeks, min_periods=weeks).mean()).reindex(W.index)
+
+
+def robust(x: pd.Series) -> dict:
+    """Weekly net (share of TVL) summarised so a few broken weeks cannot dominate: median, 1/99% winsorized mean."""
+    x = pd.Series(x, dtype=float).dropna()
+    if x.empty:
+        return {"n": 0}
+    lo, hi = x.quantile([0.01, 0.99])
+    return {"n": int(len(x)), "share_positive": round(float((x > 0).mean()), 3),
+            "median_annual": round(float(x.median() * 52), 4),
+            "winsorized_mean_annual": round(float(x.clip(lo, hi).mean() * 52), 4),
+            "mean_annual": round(float(x.mean() * 52), 3), "weeks_losing_over_100pct": int((x < -1).sum())}
+
+
+def _by(W: pd.DataFrame, key) -> dict:
+    return {str(k): robust(g["net"]) for k, g in W.groupby(key, observed=True)}
+
+
+def diagnose(cfg) -> dict:
+    """Reads the saved pool-weeks only (no queries): tails, robust stats, close-only variance, and an EX-ANTE look
+    (trailing vol and trailing premium from earlier weeks) on weeks before EX_ANTE_END."""
+    d = data_path(cfg, "derived", "defi")
+    W = pd.read_parquet(d / "study17_subgraph_pool_weeks.parquet")
+    W["week"] = pd.to_datetime(W["week"])
+    W["tvol"] = trailing_vol(W)
+    cols = ["symbol", "project", "week", "net", "fees", "lvr", "concentration", "realized_vol", "tvl", "jump_days"]
+    fmt = lambda t: [{k: (str(v.date()) if isinstance(v, pd.Timestamp) else (round(float(v), 4) if isinstance(v, (float, np.floating)) else v))
+                      for k, v in r.items()} for r in t[cols].to_dict("records")]
+    v3 = W["project"].str.startswith("uniswap-v3")
+    out = {"all": robust(W["net"]), "by_project": _by(W, "project"),
+           "by_tvl": _by(W, pd.cut(W["tvl"], [0, 1e6, 1e7, 1e8, np.inf], labels=["<1M", "1-10M", "10-100M", ">100M"])),
+           "v3_concentration_quantiles": {str(q): round(float(W.loc[v3, "concentration"].quantile(q)), 3)
+                                          for q in (0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99)},
+           "worst_weeks": fmt(W.nsmallest(15, "net")), "best_weeks": fmt(W.nlargest(10, "net"))}
+    c = d / "study17_subgraph_pool_weeks_c2c.parquet"
+    if c.exists():
+        C = pd.read_parquet(c)
+        out["close_only_variance"] = {"all": robust(C["net"]), "by_project": _by(C, "project")}
+    E = W[W["week"] < pd.Timestamp(EX_ANTE_END)]
+    calm, pos = E["tvol"] < 0.6, E["trailing"] > 0
+    out["ex_ante_before_2025"] = {
+        "note": "Buckets use only earlier weeks of the same pool (trailing 4-week realized vol, trailing 4-week net).",
+        "by_trailing_vol": _by(E, pd.cut(E["tvol"], VOL_BINS)),
+        "by_trailing_premium_sign": _by(E.dropna(subset=["trailing"]), np.where(E["trailing"].dropna() > 0, "positive", "negative")),
+        "calm_and_positive": robust(E.loc[calm & pos, "net"]),
+        "calm_and_positive_by_project": _by(E[calm & pos], "project"),
+        "calm_and_positive_tvl_over_10M": robust(E.loc[calm & pos & (E["tvl"] > 1e7), "net"]),
+        "ex_post_same_week_vol_for_contrast": _by(E, pd.cut(E["realized_vol"], VOL_BINS))}
+    (d / "study17_subgraph_diagnose.json").write_text(json.dumps(out, indent=1, default=str))
+    return out
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--probe", action="store_true")
+    ap.add_argument("--close-only", action="store_true", help="rebuild from the local cache, close-to-close variance")
+    ap.add_argument("--diagnose", action="store_true", help="tails, robust stats, ex-ante look (saved weeks only)")
     ap.add_argument("--max-pools", type=int, default=1000, help="v3 pools by all-time volume")
     ap.add_argument("--max-pairs", type=int, default=500, help="v2 pairs by all-time volume (0 = skip v2)")
     ap.add_argument("--min-median-tvl", type=float, default=100_000)
@@ -304,11 +376,13 @@ def main(argv=None):
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
-    if a.probe:
+    if a.diagnose:
+        r = diagnose(cfg)
+    elif a.probe:
         r = probe(a.v3_id, a.v2_id, data_path(cfg, "raw", "defi_subgraph"))
     else:
         n2 = a.max_pairs if a.max_pools >= 1000 else min(a.max_pairs, a.max_pools)
-        r = run(cfg, a.max_pools, n2, a.v3_id, a.v2_id, a.pause, a.min_median_tvl)
+        r = run(cfg, a.max_pools, n2, a.v3_id, a.v2_id, a.pause, a.min_median_tvl, close_only=a.close_only)
     print(json.dumps(r, indent=1, default=str))
 
 

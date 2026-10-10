@@ -200,7 +200,10 @@ Update this block at the end of every session.
   (v3 concentration: average-LP fees vs full-range LVR, the largest; survivorship: only live pools; daily sampling).
   Step 0b proposed: The Graph subgraph (free key) poolDayData with liquidity/sqrtPrice/high-low, pools by all-time
   volume (dead ones included), exact pool-level LVR. Key set by Matteo; step 0b BUILT (src/defi_subgraph.py, 6 tests).
-  Next: `python -m src.defi_subgraph --probe`, then `--max-pools 50`, then the default run; post the JSON.
+  Run 2026-10-10 (1,197 Ethereum pools incl. dead, 146,718 pool-weeks): fees beat exact LVR in only 35.8% of
+  pool-weeks, median net -1.1%/yr of TVL (v2 46% / -0.3%; v3 0.30% 18% / -4.9%); means broken by extreme weeks.
+  Calm weeks win (ex post: <30% vol 65% positive) but that is not yet tradeable. `--close-only` and `--diagnose`
+  built (ex-ante look before 2025 only); awaiting Matteo's run, then his call (stop or fix the strategy).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -290,7 +293,7 @@ See README.md for the full runbook in order.
   `--diagnose`, `--risk`
 - Study 15 (long surges): `python -m src.study15 --all`, then `crypto_data --event-data --study 15`, `study15 --diagnose`, `--risk`
 - Study 17 step 0 (free): `python -m src.defi_inventory [--max-pools 50] [--min-tvl 250000]`; step 0b (The Graph key):
-  `python -m src.defi_subgraph --probe`, `--max-pools 50`, then no options
+  `python -m src.defi_subgraph --probe`, `--max-pools 50`, then no options, `--close-only`, `--diagnose`
 - Study 16 (market-neutral crypto theses): `python -m src.study16 --all`, then `--diagnose`; holdout only on
   "run the holdout" (crypto_data --hourly --holdout, --btc --holdout, then study16 --holdout)
 - Study 10 confirmation (fresh sessions): `python -m src.study10 --confirm --sessions-list`, `--confirm --pull

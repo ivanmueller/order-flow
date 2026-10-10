@@ -62,3 +62,26 @@ def test_weekly_normalises_by_mean_tvl_and_drops_holdout():
 
 def test_stable_pairs_excluded():
     assert sg.is_stable_pair("USDC", "USDT") and not sg.is_stable_pair("WETH", "USDC")
+
+
+def test_close_only_variance_ignores_the_range():
+    df = pd.DataFrame({"high": [100.0, 150.0], "low": [100.0, 100.0], "close": [100.0, 105.0]})
+    assert sg.daily_variance(df, use_range=False)[1] == pytest.approx(math.log(1.05) ** 2)
+
+
+def test_ex_ante_uses_only_earlier_weeks_of_the_same_pool():
+    weeks = pd.date_range("2024-01-01", periods=6, freq="W-MON")
+    W = pd.DataFrame({"pool": "a", "project": "uniswap-v2", "week": weeks, "net": [0.0, 0, 0, 0, 0.01, -0.02],
+                      "realized_vol": [0.1, 0.1, 0.1, 0.1, 5.0, 0.1], "trailing": np.nan})
+    t = sg.trailing_vol(W, weeks=4)
+    assert np.isnan(t.iloc[3])                                  # needs 4 earlier weeks
+    assert t.iloc[4] == pytest.approx(0.1)                      # week 5's own 5.0 is not used
+    assert t.iloc[5] == pytest.approx((0.1 * 3 + 5.0) / 4)
+
+
+def test_robust_stats():
+    s = sg.robust(pd.Series([0.01] * 98 + [-50.0, 0.02]))
+    assert s["n"] == 100 and s["share_positive"] == pytest.approx(0.99)
+    assert s["median_annual"] == pytest.approx(0.52)
+    assert s["weeks_losing_over_100pct"] == 1
+    assert s["winsorized_mean_annual"] > -1                     # one broken week cannot dominate

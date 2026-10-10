@@ -176,6 +176,8 @@ python -m src.defi_inventory
 #     Study 17 step 0b: exact LVR from Uniswap subgraphs (needs THEGRAPH_API_KEY in .env)
 python -m src.defi_subgraph --probe
 python -m src.defi_subgraph
+python -m src.defi_subgraph --close-only   # from the cache, no queries
+python -m src.defi_subgraph --diagnose
 #     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
 #     crypto_data --btc --holdout, then study16 --holdout
 
