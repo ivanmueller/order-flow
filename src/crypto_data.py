@@ -8,7 +8,7 @@ GAMMA_EDGE_RUN_HOLDOUT=1 (said only on "run the holdout").
   python -m src.crypto_data --hourly            # 1-hour klines + funding, every USDT coin, every month (~0.7 GB)
   python -m src.crypto_data --event-data        # 5-min klines + daily metrics around events (after study14 --events)
   python -m src.crypto_data --minute            # 1-min klines for the frozen combinations' trades (after --discover)
-Add --holdout (with GAMMA_EDGE_RUN_HOLDOUT=1) to fetch holdout months; --workers N parallel downloads (default 8).
+Add --holdout (with GAMMA_EDGE_RUN_HOLDOUT=1) to fetch holdout months; --workers N parallel downloads (default 24).
 Uses the step-0 inventory cache (data/raw/crypto/inventory_cache.json) for each coin's first and last month.
 """
 from __future__ import annotations
@@ -330,7 +330,7 @@ def main(argv=None):
     g.add_argument("--event-data", action="store_true")
     g.add_argument("--minute", action="store_true")
     ap.add_argument("--holdout", action="store_true")
-    ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument("--workers", type=int, default=24)
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()

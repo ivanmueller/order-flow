@@ -554,26 +554,50 @@ def out_path(cfg, name):
     return p
 
 
-def events(cfg, holdout=False) -> dict:
+def default_jobs() -> int:
+    import os
+    return max(1, min((os.cpu_count() or 2) - 1, 8))
+
+
+def _worker_init():
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s[%(process)d] %(message)s")
+
+
+def _run(fn, tasks, jobs: int):
+    """fn over tasks, in order; jobs > 1 uses that many processes (results identical to a serial run)."""
+    if jobs <= 1 or len(tasks) <= 1:
+        return [fn(t) for t in tasks]
+    from concurrent.futures import ProcessPoolExecutor
+    with ProcessPoolExecutor(max_workers=jobs, initializer=_worker_init) as ex:
+        return list(ex.map(fn, tasks, chunksize=max(1, len(tasks) // (jobs * 8))))
+
+
+def _events_coin(task):
+    cfg, s, holdout = task
     grid = Grid(cfg)
-    syms = cd.study_symbols(cd.inventory_cache(cfg), cfg)
     lb, cool = param(cfg, "s14_volume_lookback_d") * 24, param(cfg, "s14_cooldown_d") * 24
-    rows, data_end, n_coins = [], 0, 0
-    for i, s in enumerate(syms):
-        h = cd.load_bars(cfg, s, "1h", include_holdout=holdout)
-        if len(h) == 0:
-            continue
-        n_coins += 1
-        real = h["real"].to_numpy(bool)
-        data_end = max(data_end, int(h["ts"].to_numpy("int64")[real][-1] + HOUR))
-        sig = {W: pump_signals(h, W, lb) for W in grid.W}
-        for wi, (W, P, V) in enumerate(grid.wpv):
-            k = detect_events(h, W, P, V, lb, cool, signals=sig[W])
-            if len(k):
-                rows.append(pd.DataFrame({"sym": s, "wpv": wi, "W": W, "P": P, "V": V, "k": k,
-                                          "t": h["ts"].to_numpy("int64")[k] + HOUR}))
-        if i % 100 == 0:
-            log.info("events: %d of %d coins", i, len(syms))
+    h = cd.load_bars(cfg, s, "1h", include_holdout=holdout)
+    if len(h) == 0:
+        return [], None
+    real = h["real"].to_numpy(bool)
+    end = int(h["ts"].to_numpy("int64")[real][-1] + HOUR)
+    sig = {W: pump_signals(h, W, lb) for W in grid.W}
+    rows = []
+    for wi, (W, P, V) in enumerate(grid.wpv):
+        k = detect_events(h, W, P, V, lb, cool, signals=sig[W])
+        if len(k):
+            rows.append(pd.DataFrame({"sym": s, "wpv": wi, "W": W, "P": P, "V": V, "k": k,
+                                      "t": h["ts"].to_numpy("int64")[k] + HOUR}))
+    return rows, end
+
+
+def events(cfg, holdout=False, jobs: int = 1) -> dict:
+    syms = cd.study_symbols(cd.inventory_cache(cfg), cfg)
+    log.info("events: %d coins on %d processes", len(syms), jobs)
+    res = _run(_events_coin, [(cfg, s, holdout) for s in syms], jobs)
+    rows = [r for rr, _ in res for r in rr]
+    ends = [e for _, e in res if e is not None]
+    data_end, n_coins = (max(ends) if ends else 0), len(ends)
     ev = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame(
         columns=["sym", "wpv", "W", "P", "V", "k", "t"])
     ev["period"] = period_of(ev["t"].to_numpy("int64"), cfg)
@@ -655,7 +679,51 @@ def trade_signature(cr: pd.DataFrame) -> int:
     return hash(tuple(sorted(map(tuple, t.itertuples(index=False)))))
 
 
-def discover(cfg) -> dict:
+def _real_coin(task):
+    cfg, s, e_ = task
+    coin = Coin(cfg, s)
+    if len(coin.b) == 0:
+        return s, None
+    return s, coin_rows(cfg, Grid(cfg), coin, e_)
+
+
+def _placebo_chunk(task):
+    """A list of coins' placebo searches into one accumulator (summed across processes afterwards)."""
+    cfg, items, model, qcuts, reps = task
+    grid = Grid(cfg)
+    gap = param(cfg, "s14_placebo_gap_h")
+    lb = param(cfg, "s14_volume_lookback_d") * 24 + max(grid.W)
+    acc = Accumulator(len(grid.groups), len(grid.cols), qcuts, reps=reps)
+    t0 = time.time()
+    for j, (ci_, s, e_, allev_s) in enumerate(items):
+        coin = Coin(cfg, s)
+        if len(coin.b) == 0:
+            continue
+        h = coin.h
+        hts = h["ts"].to_numpy("int64")
+        okh = h["real"].to_numpy(bool) & (np.arange(len(h)) >= lb)
+        sig = hts[okh] + HOUR
+        sig = sig[period_of(sig, cfg) == "train"]
+        taus = np.unique(e_["t"].to_numpy("int64"))
+        blocks = []
+        for rep in range(reps):
+            rng = np.random.default_rng([param(cfg, "s14_seed"), rep, ci_])
+            pt = placebo_times(rng, taus, allev_s, sig, gap)
+            pe = e_.copy()
+            pe["t"] = pe["t"].map(dict(zip(taus, pt))).astype("int64")
+            pe = pe[pe["t"] >= 0]
+            pe["k"] = ((pe["t"] - HOUR - hts[0]) // HOUR).astype(int)
+            pe["rep"] = rep
+            blocks.append(pe)
+        rows = coin_rows(cfg, grid, coin, pd.concat(blocks, ignore_index=True), model)
+        for rep, rr in rows.groupby("rep"):
+            acc.add(int(rep), rr, grid.col_names)
+        if j % 10 == 0:
+            log.info("placebo: %d of %d coins in this process (%.0f s)", j + 1, len(items), time.time() - t0)
+    return acc.n, acc.s, acc.ss, acc.wk
+
+
+def discover(cfg, jobs: int = 1) -> dict:
     t_start = time.time()
     grid = Grid(cfg)
     ev = pd.read_parquet(out_path(cfg, "study14_events.parquet"))
@@ -663,19 +731,13 @@ def discover(cfg) -> dict:
     ev["rep"] = -1
     G, C = len(grid.groups), len(grid.cols)
     min_tr, min_wk = cfg["gates"]["study14_min_trades"], cfg["gates"]["study14_min_weeks"]
-    reps, gap = param(cfg, "s14_null_reps"), param(cfg, "s14_placebo_gap_h")
-    lb = param(cfg, "s14_volume_lookback_d") * 24 + max(grid.W)
+    reps = param(cfg, "s14_null_reps")
     # pass 1: real events
-    parts, missing = [], []
-    for i, (s, e_) in enumerate(ev.groupby("sym")):
-        coin = Coin(cfg, s)
-        if len(coin.b) == 0:
-            missing.append(s)
-            continue
-        parts.append(coin_rows(cfg, grid, coin, e_))
-        if i % 50 == 0:
-            log.info("real rows: %d of %d coins", i, ev["sym"].nunique())
-    R = pd.concat([p for p in parts if len(p)], ignore_index=True)
+    log.info("real rows: %d coins on %d processes", ev["sym"].nunique(), jobs)
+    res = _run(_real_coin, [(cfg, s, e_) for s, e_ in ev.groupby("sym")], jobs)
+    parts = [r for _, r in res if r is not None and len(r)]
+    missing = [s for s, r in res if r is None]
+    R = pd.concat(parts, ignore_index=True)
     tr = R[R["period"] == "train"].drop_duplicates(["sym", "e"])
     model = fit_logit(tr[FEATURES], tr["label"].astype(float))
     R["score"] = score(model, R[FEATURES])
@@ -689,40 +751,23 @@ def discover(cfg) -> dict:
     accv.add(0, R[R["period"] == "val"], grid.col_names)
     Tv = accv.table(0, n_va)
     real_best = best_values(acc.stats(0, n_tr), min_tr, min_wk)
-    # pass 2: placebo searches (discovery years only), each rep a full rerun of the grid
-    pacc = Accumulator(G, C, qcuts, reps=reps)
+    # pass 2: placebo searches (discovery years only), each rep a full rerun of the grid; coins split over
+    # processes (balanced by event count); each coin's random hours depend only on (seed, rep, coin index)
     evt = ev[ev["period"] == "train"]
     syms = sorted(evt["sym"].unique())
     ev_all = pd.read_parquet(out_path(cfg, "study14_events.parquet"))          # every real event, kept or not
     allev = ev_all.groupby("sym")["t"].apply(lambda x: np.unique(x.to_numpy("int64"))).to_dict()
-    for ci_, s in enumerate(syms):
-        coin = Coin(cfg, s)
-        if len(coin.b) == 0:
-            continue
-        h = coin.h
-        hts = h["ts"].to_numpy("int64")
-        okh = h["real"].to_numpy(bool) & (np.arange(len(h)) >= lb)
-        sig = hts[okh] + HOUR
-        sig = sig[period_of(sig, cfg) == "train"]
-        e_ = evt[evt["sym"] == s]
-        taus = np.unique(e_["t"].to_numpy("int64"))
-        blocks = []
-        for rep in range(reps):
-            rng = np.random.default_rng([param(cfg, "s14_seed"), rep, ci_])
-            pt = placebo_times(rng, taus, allev[s], sig, gap)
-            mp = dict(zip(taus, pt))
-            pe = e_.copy()
-            pe["t"] = pe["t"].map(mp).astype("int64")
-            pe = pe[pe["t"] >= 0]
-            pe["k"] = ((pe["t"] - HOUR - hts[0]) // HOUR).astype(int)
-            pe["rep"] = rep
-            blocks.append(pe)
-        P_ = pd.concat(blocks, ignore_index=True)
-        rows = coin_rows(cfg, grid, coin, P_, model)
-        for rep, rr in rows.groupby("rep"):
-            pacc.add(int(rep), rr, grid.col_names)
-        if ci_ % 25 == 0:
-            log.info("placebo: %d of %d coins (%.0f s)", ci_, len(syms), time.time() - t_start)
+    items = [(ci_, s, evt[evt["sym"] == s], allev[s]) for ci_, s in enumerate(syms)]
+    n_chunks = max(1, min(jobs, len(items)))
+    order = sorted(range(len(items)), key=lambda i: -len(items[i][2]))
+    chunks = [[items[i] for i in order[k::n_chunks]] for k in range(n_chunks)]
+    log.info("placebo: %d reps x %d coins on %d processes", reps, len(items), n_chunks)
+    pacc = Accumulator(G, C, qcuts, reps=reps)
+    for n_, s_, ss_, wk_ in _run(_placebo_chunk, [(cfg, ch, model, qcuts, reps) for ch in chunks], n_chunks):
+        pacc.n += n_
+        pacc.s += s_
+        pacc.ss += ss_
+        pacc.wk |= wk_
     np.savez_compressed(out_path(cfg, "study14_placebo.npz"), n=pacc.n, s=pacc.s, ss=pacc.ss,
                         weeks=pacc.wk.sum(-1))
     pb = {o: [] for o in OBJECTIVES}
@@ -968,23 +1013,58 @@ def run_holdout(cfg) -> dict:
     return {"study": 14, "step": "holdout (once)", "events": int(len(ev)), "results": res}
 
 
+def _download(cfg, keys, workers, label):
+    """Download, then retry once whatever failed; stop if anything still fails (rerun --all to resume)."""
+    r = cd.download(keys, cd.raw_root(cfg), workers=workers)
+    log.info("%s: %s", label, r)
+    if r["failed"]:
+        r = cd.download(keys, cd.raw_root(cfg), workers=max(1, workers // 2))
+        log.info("%s retry: %s", label, r)
+    if r["failed"]:
+        raise SystemExit(f"{label}: {r['failed']} files still failing; rerun the same command (it resumes)")
+    return r
+
+
+def run_all(cfg, jobs: int, workers: int) -> dict:
+    """The whole research run in one command; every step resumes, and each step's output is saved as JSON."""
+    t0 = time.time()
+    out = {"hourly_download": _download(cfg, cd.hourly_keys(cfg), workers, "hourly + funding")}
+    ev = events(cfg, jobs=jobs)
+    out_path(cfg, "study14_events.json").write_text(json.dumps(ev, default=_js, indent=1))
+    out["events"] = {k: ev[k] for k in ("events_kept", "coins_with_events", "distinct_coin_hours", "to_download")}
+    out["event_data_download"] = _download(cfg, cd.needed_keys(cfg, "event"), workers, "5-min + metrics")
+    d = discover(cfg, jobs=jobs)
+    out["discover"] = d
+    out["minutes"] = round((time.time() - t0) / 60, 1)
+    out["saved"] = "data/derived/crypto/study14_events.json and study14_discover.json"
+    out["next"] = ("python -m src.crypto_data --minute, then python -m src.study14 --diagnose and --risk"
+                   if d["frozen"] else "nothing frozen: the study stops here")
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     g = ap.add_mutually_exclusive_group()
     for f in ("--events", "--discover", "--diagnose", "--risk"):
         g.add_argument(f, action="store_true")
+    g.add_argument("--all", action="store_true", help="hourly download -> events -> event-data download -> discover")
     ap.add_argument("--holdout", action="store_true")
+    ap.add_argument("--jobs", type=int, default=None, help="processes (default: cores - 1, at most 8)")
+    ap.add_argument("--workers", type=int, default=24, help="parallel downloads for --all")
     a = ap.parse_args(argv)
+    jobs = a.jobs or default_jobs()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
-    if not (a.events or a.discover or a.diagnose or a.risk or a.holdout):
-        ap.error("choose --events, --discover, --diagnose, --risk or --holdout")
-    if a.holdout and (a.discover or a.diagnose):
+    if not (a.events or a.discover or a.diagnose or a.risk or a.holdout or a.all):
+        ap.error("choose --all, --events, --discover, --diagnose, --risk or --holdout")
+    if a.holdout and (a.discover or a.diagnose or a.all):
         ap.error("--holdout goes alone, or with --events / --risk")
-    if a.events:
-        r = events(cfg, holdout=a.holdout)
+    if a.all:
+        r = run_all(cfg, jobs, a.workers)
+    elif a.events:
+        r = events(cfg, holdout=a.holdout, jobs=jobs)
     elif a.discover:
-        r = discover(cfg)
+        r = discover(cfg, jobs=jobs)
     elif a.diagnose:
         r = diagnose(cfg)
     elif a.risk:

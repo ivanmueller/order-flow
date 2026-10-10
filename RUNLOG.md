@@ -2159,3 +2159,12 @@ holdout path all ran; the holdout refused without the flag; research exits all b
 Next (Matteo's laptop): crypto_data --hourly, study14 --events (counts only, no P&L), crypto_data --event-data,
 study14 --discover; post the JSON. Expected: the fade exists in some cells; whether any survives placebo, validation
 and stability after fees, slippage and funding is open.
+
+## 2026-10-10 | Study 14 speed-ups (no change to any result; $0)
+Matteo asked to cut the hours. (1) Downloads default to 24 parallel connections (was 8; --workers). (2) --events and
+--discover run coins in parallel processes (--jobs, default cores - 1, at most 8); each coin's placebo hours still
+depend only on (seed, rep, coin index), so results do not depend on the number of processes. Checked on the synthetic
+archive: events output byte-identical with 1 and 4 processes; discover output identical within 1e-9 (summation
+order), 36 s -> 14 s on a 2-core machine. (3) `python -m src.study14 --all` runs hourly download -> events ->
+event-data download -> discover in one go (retries failed downloads once, stops if any still fail; every step
+resumes), saving study14_events.json and study14_discover.json. Dry run with downloads stubbed: OK. Suite passes.
