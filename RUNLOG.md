@@ -2256,3 +2256,26 @@ Synthetic dry run (5 coins): Stage A and Stage B paths ran; found and fixed one 
 at the archive start looked like new listings to C4; now new only if first seen on or after 2020-02-01). Simulator
 vectorised: outputs identical to 1e-9; ~0.8 s for a daily-rebalanced 600-coin, 2,100-day run.
 Next (laptop): python -m src.study16 --all.
+
+## 2026-10-10 (laptop, 00:12-00:26 PT) | Study 16 --all run (commit 0594caf; $0)
+Panel 2,100 days x 575 coins, first rebalance 2020-02-01, research span to 2025-09-30 (295 weeks).
+Stage A (fixed variants; per-week net; placebo 200 reps):
+- C1 funding carry: +0.61%/week (lb +0.38%), Sharpe 1.77, max DD 19.7%; 2020-23 +0.64%, 2024-25 +0.55%; without the
+  best 5% of weeks +0.23%; funding +0.30%/week, costs 0.13%/week (so price also favoured the trade, ~+0.44%/week);
+  placebo -0.10% (p 0.005); 2x slippage +0.52%. PASS.
+- C2 momentum: +0.25% (lb -0.13%), without best weeks -0.33%: FAIL. C3 reversal: -0.29%, placebo p 0.96: FAIL.
+- C4 new-listing short: +0.67%/week (lb +0.21%), Sharpe 1.06, max DD 55.6% (2020-23); 2020-23 +0.54% (lb +0.03%),
+  2024-25 +0.88%; without best weeks +0.18%; placebo (random old coins, same hedge) +0.29% (p 0.005). PASS.
+Stage B (automatic for C1 and C4):
+- C1 (288 versions): noise test FAILS (best +0.84%/week vs shuffled-rank grid bests median +0.68%, p 0.20): the
+  search adds nothing beyond the fixed C1 rule; nothing frozen.
+- C4 (108 versions): noise test passes (best +0.75% vs placebo 95th +0.34%, p 0.01); 4 "frozen" versions are ONE
+  strategy (window 30 d, delay 7 d, weekly; volume floors $0.25M/$1M identical; the weighting axis was inert for C4,
+  a build flaw: C4 only implements equal weight): validation 2024-25 +1.18%/week (lb +0.34%), max DD 22.6%.
+Rule 6 review (before any holdout): flaw found (duplicate frozen versions, inert C4 weighting axis). Fixed: Stage B
+skips a candidate whose period returns equal one already frozen; C4 grid no longer has a weighting axis; the holdout
+and diagnose use Stage A passes plus distinct frozen versions. Added `--diagnose` (research data only): by-year
+means, per-coin attribution (top 10, without the top 5 coins), positions in coins delisted during the hold and the
+mean without them, worst 5 weeks and their worst coin, capacity (position vs 30-day median daily volume at $30k and
+$100k), average names a leg. Test added (contributions add up to gross; signature). Not yet run on real data.
+Holdout untouched. Gate calls (C1 and C4 to the sealed year) are Matteo's, after the diagnose run.

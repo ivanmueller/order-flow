@@ -131,3 +131,12 @@ def test_coins_present_when_the_archive_begins_are_not_new_listings():
     pn["new_from_ns"] = T0 - 0
     out = s16.simulate(pn, {**SPEC, "kind": "c4", "window_d": 4, "delay_d": 1, "hold_d": 2, "min_names": 1})
     assert out.set_index("start")["n_short"][4] == 1          # only coin 3
+
+
+def test_detail_contributions_add_up_to_gross():
+    det = []
+    out = s16.simulate(panel(), SPEC, detail=det)
+    D = pd.concat(det)
+    g = D.groupby("start")["contrib"].sum()
+    assert g[2] == pytest.approx(out.set_index("start")["gross"][2])
+    assert s16.series_signature(out) == s16.series_signature(s16.simulate(panel(), SPEC))

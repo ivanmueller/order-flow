@@ -181,7 +181,12 @@ Update this block at the end of every session.
   gate per variant: mean > 0 with lower bound > 0, placebo p <= 0.05 (shuffled ranks / random old coins, 200 reps),
   both halves positive, positive without the best 5% of weeks. Stage B (automatic, only for passing variants): grid
   on 2020-23, 100-rep noise test, validation 2024-25, stability, 2x slippage, <= 4 frozen; sealed year once.
-  BUILT tests-first (src/study16.py; 10 tests); synthetic dry run passed. Next: Matteo runs `python -m src.study16 --all`.
+  BUILT tests-first (src/study16.py); synthetic dry run passed. Run 2026-10-10 (--all, 14 min): Stage A PASS for C1
+  carry (+0.61%/week, lb +0.38%, Sharpe 1.8, DD 20%, placebo p 0.005) and C4 new-listing short (+0.67%/week, lb
+  +0.21%, DD 56% in 2020-23, placebo p 0.005); C2, C3 FAIL. Stage B: C1 search noise test FAILS (p 0.20, nothing
+  frozen); C4 froze one distinct version (window 30 d, delay 7 d; val +1.18%/week, lb +0.34%) counted 4 times (build
+  flaw, fixed). `--diagnose` added (years, coin concentration, delisting exits, worst weeks, capacity); awaiting
+  Matteo's diagnose run, then his call on the holdout (C1 base, C4 base, C4 window-30). Holdout untouched.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -270,7 +275,8 @@ See README.md for the full runbook in order.
 - Study 14 step 0 (free): `python -m src.crypto_inventory [--sample 20]`; search: `python -m src.study14 --all`, then
   `--diagnose`, `--risk`
 - Study 15 (long surges): `python -m src.study15 --all`, then `crypto_data --event-data --study 15`, `study15 --diagnose`, `--risk`
-- Study 16 (market-neutral crypto theses): `python -m src.study16 --all`
+- Study 16 (market-neutral crypto theses): `python -m src.study16 --all`, then `--diagnose`; holdout only on
+  "run the holdout" (crypto_data --hourly --holdout, --btc --holdout, then study16 --holdout)
 - Study 10 confirmation (fresh sessions): `python -m src.study10 --confirm --sessions-list`, `--confirm --pull
   --price-only`, `--confirm --pull --approve-usd X --allow-past-total`, `--confirm --run`, then `python -m src.study10b --confirm`
 - Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`

@@ -127,7 +127,7 @@ def _prep(pn, spec):
     return cache[key] + (cache,)
 
 
-def simulate(pn: dict, spec: dict, rng=None, day_from=None, day_to=None) -> pd.DataFrame:
+def simulate(pn: dict, spec: dict, rng=None, day_from=None, day_to=None, detail: list | None = None) -> pd.DataFrame:
     """One market-neutral portfolio rebalanced every hold_d days. rng: placebo (C1-C3 shuffled ranks; C4 random
     coins listed >= placebo_min_age_d earlier). Rows: one per rebalance period."""
     P, C, day_ns = pn["P"], pn["C"], pn["day_ns"]
@@ -186,6 +186,17 @@ def simulate(pn: dict, spec: dict, rng=None, day_from=None, day_to=None) -> pd.D
             fb = bcum[d + H] - bcum[d]
             gross += w[N] * (bP[d + H] / bP[d] - 1 - fb)
             fpart -= w[N] * fb
+        if detail is not None:
+            held = np.flatnonzero(wc)
+            contrib = np.where(wc[held] > 0, wc[held] * (r[held] - fund[held]),
+                               -wc[held] * np.maximum(-r[held] + fund[held], -1.0))
+            detail.append(pd.DataFrame({"start": d, "coin": held, "w": wc[held], "contrib": contrib,
+                                        "delisted_in_hold": day_ns[d + H] >= pn["last_ns"][held],
+                                        "qv_med": vm[d][held]}))
+            if w[N]:
+                detail.append(pd.DataFrame({"start": [d], "coin": [-1], "w": [w[N]],
+                                            "contrib": [w[N] * (bP[d + H] / bP[d] - 1 - (bcum[d + H] - bcum[d]))],
+                                            "delisted_in_hold": [False], "qv_med": [np.nan]}))
         turnover = float(np.abs(w - prev).sum())
         cost = turnover * spec["cost"]
         rows.append({"start": d, "day_ns": int(day_ns[d]), "week": int((day_ns[d] - ORIGIN) // WEEK),
@@ -243,8 +254,9 @@ def base_spec(cfg, v: str, slip=None) -> dict:
 def grid_specs(cfg, v: str) -> list[dict]:
     base = base_spec(cfg, v)
     g = param(cfg, f"s16_grid_{v}")
-    axes = {"min_volume": param(cfg, "s16_grid_min_volume"), "weighting": param(cfg, "s16_grid_weighting"),
-            **({} if v == "c4" else {"quantile": param(cfg, "s16_grid_quantile")}), **g}
+    axes = {"min_volume": param(cfg, "s16_grid_min_volume"),
+            **({} if v == "c4" else {"weighting": param(cfg, "s16_grid_weighting"),      # C4 is equal weight only
+                                     "quantile": param(cfg, "s16_grid_quantile")}), **g}
     keys = list(axes)
     return [{**base, **dict(zip(keys, vals))} for vals in itertools.product(*(axes[k] for k in keys))], axes
 
@@ -401,12 +413,85 @@ def stage_b(cfg, v: str, jobs=1) -> dict:
         cands.append({"name": spec_name(s), "spec": s, "discovery_per_week": r["disc"], "validation": vs,
                       "stability": stab, "at_2x_slippage_per_week": float(stress["net"].mean() * 7 / s["hold_d"]),
                       "checks": checks, "ok": all(checks.values())})
-    frozen = []
+    frozen, seen = [], set()
     if noise["p"] <= g["study16_p"]:
-        frozen = sorted([c for c in cands if c["ok"]], key=lambda c: -c["validation"]["mean"])[: g["study16_max_frozen"]]
+        for c in sorted([c for c in cands if c["ok"]], key=lambda c: -c["validation"]["mean"]):
+            sig = series_signature(simulate(pn, c["spec"], day_to=hold))
+            if sig in seen:
+                continue                                   # identical returns: not a new strategy
+            seen.add(sig)
+            frozen.append(c)
+            if len(frozen) >= g["study16_max_frozen"]:
+                break
     return {"variant": NAMES[v], "grid_size": len(specs), "eligible": len(ok), "noise_test": noise,
             "top": cands, "frozen": [{k: c[k] for k in ("name", "spec", "discovery_per_week", "validation", "stability")}
                                      for c in frozen]}
+
+
+def series_signature(per: pd.DataFrame) -> int:
+    return hash(tuple(np.round(per["net"].to_numpy(), 10)))
+
+
+def candidate_specs(cfg, R: dict, pn) -> list[dict]:
+    """Stage A passing base variants plus Stage B frozen versions, each distinct return series once."""
+    specs = [base_spec(cfg, v) for v, a in R["stage_a"].items() if a["pass"]]
+    specs += [f["spec"] for b in R.get("stage_b", {}).values() for f in b["frozen"]]
+    out, seen = [], set()
+    for s in specs:
+        sig = series_signature(simulate(pn, s))
+        if sig not in seen:
+            seen.add(sig)
+            out.append(s)
+    return out
+
+
+def diagnose(cfg) -> dict:
+    """Rule 6 checks on research data only: years, coin concentration, delisting exits, worst weeks, capacity."""
+    R = json.loads(s14.out_path(cfg, "study16_results.json").read_text())
+    pn = _panel_cached(cfg)
+    split, hold = _split_days(cfg, pn)
+    syms = list(pn["syms"]) + ["BTCUSDT (hedge)"]
+    out = []
+    for s in candidate_specs(cfg, R, pn):
+        det = []
+        per = simulate(pn, s, day_to=hold, detail=det)
+        D = pd.concat(det, ignore_index=True) if det else pd.DataFrame()
+        k = 7 / s["hold_d"]
+        n_per = len(per)
+        per["year"] = pd.to_datetime(per["day_ns"], utc=True).dt.year
+        by_year = (per.groupby("year")["net"].mean() * k).round(5).to_dict()
+        coin_tot = D[D["coin"] >= 0].groupby("coin")["contrib"].sum().sort_values(ascending=False)
+        total = float(per["gross"].sum())
+        top = [{"coin": syms[i], "total_contribution": round(float(v), 4)} for i, v in coin_tot.head(10).items()]
+        top5 = set(coin_tot.head(5).index)
+        ex_top5 = (per["net"].sum() - D[D["coin"].isin(top5)]["contrib"].sum()) / n_per * k
+        dl = D[D["delisted_in_hold"]]
+        ex_delist = (per["net"].sum() - dl["contrib"].sum()) / n_per * k
+        worst = per.nsmallest(5, "net")
+        worst_rows = []
+        for _, w in worst.iterrows():
+            dd = D[(D["start"] == w["start"]) & (D["coin"] >= 0)].nsmallest(1, "contrib")
+            worst_rows.append({"date": str(pd.Timestamp(w["day_ns"], tz="UTC").date()), "net": round(float(w["net"]), 4),
+                               "worst_coin": syms[int(dd["coin"].iloc[0])] if len(dd) else None,
+                               "its_contribution": round(float(dd["contrib"].iloc[0]), 4) if len(dd) else None})
+        cap = {}
+        held = D[D["coin"] >= 0]
+        for acct in (30_000, 100_000):
+            ratio = (held["w"].abs() * acct / held["qv_med"]).replace([np.inf], np.nan).dropna()
+            cap[f"${acct:,}"] = {"median_position_vs_daily_volume": float(ratio.median()),
+                                 "p90": float(ratio.quantile(0.9)), "share_over_1pct": float((ratio > 0.01).mean())}
+        out.append({"name": spec_name(s), "weekly_mean": float(per["net"].mean() * k), "by_year": by_year,
+                    "coins_traded": int(coin_tot.size), "top_coins": top,
+                    "top5_share_of_gross": float(coin_tot.head(5).sum() / total) if total else None,
+                    "weekly_mean_without_top5_coins": float(ex_top5),
+                    "delisted_during_hold": {"positions": int(len(dl)), "contribution": round(float(dl["contrib"].sum()), 4),
+                                             "weekly_mean_without_them": float(ex_delist)},
+                    "worst_weeks": worst_rows, "capacity": cap,
+                    "avg_names": {"long": float(per.loc[per["traded"], "n_long"].mean()),
+                                  "short": float(per.loc[per["traded"], "n_short"].mean())}})
+    res = {"study": 16, "step": "diagnose (research data only)", "results": out}
+    s14.out_path(cfg, "study16_diagnose.json").write_text(json.dumps(res, default=_js, indent=1))
+    return res
 
 
 # ---- holdout ------------------------------------------------------------------------------------------------------
@@ -416,12 +501,10 @@ def run_holdout(cfg) -> dict:
         raise HoldoutSealed("Study 16 holdout: set GAMMA_EDGE_RUN_HOLDOUT=1 (only on 'run the holdout')")
     p = s14.out_path(cfg, "study16_results.json")
     R = json.loads(p.read_text())
-    specs = [f["spec"] for b in R.get("stage_b", {}).values() for f in b["frozen"]]
-    if not specs:
-        specs = [base_spec(cfg, v) for v, a in R["stage_a"].items() if a["pass"]]
+    ins = _panel_cached(cfg)
+    specs = candidate_specs(cfg, R, ins)
     pn = _panel_cached(cfg, include_holdout=True)
     hs = int(np.searchsorted(pn["day_ns"], s14.bounds(cfg)["holdout"]))
-    ins = _panel_cached(cfg)
     out = []
     for s in specs:
         per = simulate(pn, s, day_from=hs)
@@ -459,12 +542,13 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--all", action="store_true")
+    g.add_argument("--diagnose", action="store_true")
     g.add_argument("--holdout", action="store_true")
     ap.add_argument("--jobs", type=int, default=None)
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
-    r = run_all(cfg, a.jobs or s14.default_jobs()) if a.all else run_holdout(cfg)
+    r = (run_all(cfg, a.jobs or s14.default_jobs()) if a.all else diagnose(cfg) if a.diagnose else run_holdout(cfg))
     print(json.dumps(r, default=_js, indent=1))
 
 
