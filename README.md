@@ -171,6 +171,8 @@ python -m src.study15 --risk
 #     Study 16: market-neutral crypto theses (C1 funding carry, C2 momentum, C3 reversal, C4 new-listing short;
 #     STUDY16.md), on-disk data, $0. Stage A on all four, then Stage B variations of any variant that passes:
 python -m src.study16 --all
+#     Study 17 step 0: do DEX liquidity fees ever beat the loss to arbitrage? (free DefiLlama API; STUDY17.md)
+python -m src.defi_inventory
 #     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
 #     crypto_data --btc --holdout, then study16 --holdout
 

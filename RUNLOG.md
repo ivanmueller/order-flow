@@ -2312,3 +2312,14 @@ lower bound > 0, >= half the in-sample mean.
 - C4 window 30 / delay 7: +0.27%/week (CI -0.65%..+1.20%), max DD 30%; in-sample +0.88% (needs >= +0.44%). FAIL.
 Study 16 verdict: all three FAIL the sealed year. Holdout year now spent for these variants. Both C4 versions stayed
 positive but at about a third of their in-sample rate and within noise; C1 earned nothing. Gate call is Matteo's.
+
+## 2026-10-10 | Study 17 (DEX liquidity provision as selective volatility selling) DRAFTED; step 0 BUILT ($0, no run)
+Matteo: "yes draft study 17". Framing (STUDY17.md): a liquidity position is short variance; its loss to arbitrage
+accrues at sigma^2/8 of value a year (LVR, Milionis et al. 2022); range concentration scales fees and LVR together and
+hedging removes direction but not LVR, so the edge can only come from selecting pool-weeks where fee-implied
+volatility sqrt(8 x fee yield) exceeds the volatility actually realized. Step 0 built: src/defi_inventory.py (5 tests)
+pulls DefiLlama's free pool list, each two-token non-stable pool's daily TVL and fee APY, and both tokens' daily
+prices; per pool-week fees, LVR (daily quadratic variation / 8, a lower bound), net, jump days, implied vs realized
+volatility, and a first signal check (does the trailing 4-week premium predict next week's?). Rows on or after
+2025-10-01 dropped before saving; requests cached for resume. Not run (the cloud workspace cannot reach the API);
+Matteo runs `python -m src.defi_inventory` on the laptop. Strategy draft, grid and protections to be fixed after it.
