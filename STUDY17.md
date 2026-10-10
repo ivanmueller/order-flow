@@ -50,6 +50,14 @@ premium exists somewhere, the strategy below is fixed to the pools and data that
   when the forecast jumps (e.g. recent jump days, unlock calendars if obtainable).
 - P&L per pool-week: realized fees - realized LVR (hourly prices where available) - gas for entry/exit (per chain)
   - hedge cost where a perpetual exists; reported hedged-equivalent and unhedged.
+- Hedge options (each reported): none; short the perpetual where one exists; or the lending hedge -- deposit
+  stablecoins on a lending market (Aave or similar), borrow the volatile token, pair it with stablecoins in the pool,
+  and adjust the debt as the pool's token balance drifts. Its cost terms: borrow APR on the token minus supply APR on
+  the collateral, a swap and gas per adjustment, and liquidation risk when the token rallies (the debt grows; the pool
+  position usually cannot serve as collateral). Like the perp hedge it removes direction, not LVR: each adjustment
+  buys after rises and sells after falls, which is how LVR is paid. It matters for tokens with a lending market but no
+  perpetual, and costs most when borrow demand spikes (exactly when the token is hot). Borrow-rate history: the same
+  DefiLlama pool list carries lending markets (borrow APY), added once step 0 says the premium exists.
 - Grid (kept small, stated before running): margin [0, 25%, 50%], TVL floor [low, mid, high], forecast look-back
   [7, 30 days], hold [1, 4 weeks].
 - Protections as Studies 14-16: placebo (the same number of random pool-weeks, and shuffled forecasts), 100+ reps;
