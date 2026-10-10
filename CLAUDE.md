@@ -158,8 +158,11 @@ Update this block at the end of every session.
   squeeze filter, funding filter), 3 objectives each with a 100-rep placebo noise test, validation 2024-01..2025-09,
   >= 75% neighbour stability, freeze <= 4, gating diagnose, holdout 2025-10..2026-09 sealed. s14_* / study14_* in
   config.yaml. BUILT tests-first (src/crypto_data.py, src/study14.py; 308 pass); synthetic end-to-end dry run passed
-  (RUNLOG). Not yet run on real data: Matteo runs crypto_data --hourly, study14 --events, crypto_data --event-data,
-  study14 --discover. Research only (no venue open to a BC resident).
+  (RUNLOG). Speed-ups: --jobs (parallel), 24 download connections, one-command `study14 --all`. Run 2026-10-09
+  (--all, 38 min): 17,887 events on 478 coins; unconditional next-hour short negative at every hold (-0.3% to -4.9%
+  a trade); noise test passes per trade/per month (p 0.01), fails t-stat (p 0.14); no top candidate has a validation
+  lower bound > 0 (best +1.0%, leaders ~0 to -2.7%): NOTHING FROZEN, KILL by the rules. Holdout untouched. Awaiting
+  Matteo's call. Research only (no venue open to a BC resident).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

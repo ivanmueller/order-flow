@@ -2168,3 +2168,22 @@ archive: events output byte-identical with 1 and 4 processes; discover output id
 order), 36 s -> 14 s on a 2-core machine. (3) `python -m src.study14 --all` runs hourly download -> events ->
 event-data download -> discover in one go (retries failed downloads once, stops if any still fail; every step
 resumes), saving study14_events.json and study14_discover.json. Dry run with downloads stubbed: OK. Suite passes.
+
+## 2026-10-09 (laptop, 22:27-23:05 PT) | Study 14 --all run (commit 75fd3c3; $0) -- nothing frozen: KILL by the rules
+Downloads: hourly + funding 27,431 files (27,400 fetched, 31 not in the archive, 0 failed); 5-min + metrics 95,118
+(75,779 fetched, 19,339 not in the archive -- mostly metric days that do not exist, e.g. before 2020-09; 0 failed).
+898 USDT coins listed, 580 with hourly data before 2025-10-01 (the rest listed later), 478 with events.
+Events kept 17,887 (8,242 distinct coin-hours; 1,304 dropped at period boundaries); e.g. W24 P0.5 V5: 263 train / 324 val.
+Rows (event x entry) train 35,757, val 47,565; no coin lacked 5-min data. Run time 37.7 min (discover 17.8 min, 7 processes).
+Unconditional reference (next-hour short, no target/filters), mean net return a trade: train -0.3% (H1) to -3.7% (H14 S1.0);
+val -0.3% to -4.9%. Shorting the hour after a pump loses on average at every hold and stop.
+Squeeze model (train, n 3,100 with complete metrics, label rate 27%): all standardized coefficients |b| <= 0.20 -- weak.
+Eligible combinations 21,744 of 38,880. Noise test (100 placebo searches): per trade best +5.15% vs placebo 95th +1.95%,
+p 0.0099 PASS; per month best +0.226 vs +0.082, p 0.0099 PASS; t-stat best 2.62 vs 2.83, p 0.139 FAIL.
+Validation of the 52 distinct top candidates: none has a 90% week-bootstrap lower bound > 0. Best validation means
++1.0% a trade (W24 P0.5 V5 next_hour/drop_10 H14 S0.3 T0.4 Q0.6667; CI about -4%..+6%); the discovery leaders
+(W24 P0.5 V5 drop_10 H14 S0.3 T0.4 Fnonneg, +5.2% disc) are -0.2% in validation; the H1 S1.0 t-stat leaders are
+-1.2% to -2.7% with upper bounds near or below 0. Stability passes for most (0.67-1.0) but is moot. Frozen: none.
+Reading: the pump condition did select better-than-random shorts in 2020-23 (placebo test), but the advantage did not
+carry into 2024-25, and the plain fade is negative after fees, slippage and funding. Holdout untouched (no candidate).
+Study 14 verdict by the pre-registered rules: KILL (gate call is Matteo's).
