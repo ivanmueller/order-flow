@@ -2215,3 +2215,21 @@ direct recomputation; placebo for the same combination +0.07 vs +0.83 real (refe
 4 frozen; diagnose with every cost variant and the 5-minute re-walk; risk; holdout refused without the flag, then
 ran; research entries and exits all before 2025-10-01. Discover 18 s on 2 processes.
 Next (laptop): python -m src.study15 --all. Expected: real drift in-sample; the economics and the sealed year decide.
+
+## 2026-10-09 (laptop, 23:35-23:49 PT) | Study 15 --all run (commit 840a816; $0) -- nothing frozen: KILL by the rules
+BTC hourly 69 files. 529 coins with events; 734,345 events (train 329,593 / val 404,752; 23,580 dropped at period
+boundaries); 105,362 distinct coin-hours. Rows train 869,186 / val 1,067,805. Eligible combinations 290,844 of
+373,248. Run 13.7 min (discover 13.3 min, 7 processes).
+Reference (W3 P10% volume 3x, next hour, no filters, no trail/target): train -0.7% (H1 S10%) to +2.9% (H14 S30%);
+val +0.1% to +1.6%.
+Noise test FAILS on all three objectives, in the wrong direction: placebo bests exceed the real bests (per trade
+real +10.5% vs placebo median +38.6%; per month 5.5 vs 9.4; t-stat 10.6 vs 19.7; p = 1.0 each).
+Per candidate: 59 of 60 top candidates earn LESS than the same combination on random hours of the same coins and
+months (e.g. W6 P5% volatility 2x next hour H14 S30%: disc +3.5% vs placebo +4.7%; W24 P5% volatility 2x pullback
+H14 S30% T+50% BTC filter: +5.9% vs +7.6%). Validation: best +4.6% a trade (lower bound -0.2%); W6 P5% volatility
+2x next-hour H14 S30% has val +4.1% (lb +0.2%, n 8,635, stability 1.0) but median -0.9%, 49% winners, and the best 5%
+of trades carry 143% of the profit (without them -1.9%). Frozen: none (no objective passed the noise test).
+Reading: buying altcoins at random hours in these months made money (market beta, 2020-21 and 2024 bull runs); the
+surge timing adds nothing and is slightly worse than random, consistent with Study 14 (shorts after pumps beat random
+shorts). Positive results here are crypto beta with a lottery-ticket profile, not a timing edge. Holdout untouched.
+Study 15 verdict by the pre-registered rules: KILL (gate call is Matteo's).

@@ -170,7 +170,10 @@ Update this block at the end of every session.
   placebo, validation, stability, freeze <= 4, gating diagnose (own placebo, without best 5%, 2x slippage, 5-minute
   re-walk), holdout >= 30 trades. Cost/fill variants reported, not selected on. 2020-25 partly seen via Study 14; the
   sealed year decides. s15_* / study15_* in config.yaml. BUILT tests-first (src/study15.py; 319 pass); synthetic
-  end-to-end dry run passed. Next: Matteo runs `python -m src.study15 --all`.
+  end-to-end dry run passed. Run 2026-10-09 (--all, 14 min): 734k events on 529 coins; noise test FAILS on all three
+  objectives with placebo bests ABOVE real bests (p 1.0); 59/60 candidates earn less than the same combination on
+  random hours (market beta, not timing); best validation +4.1-4.6% a trade but median < 0 and > 100% of profit from
+  the best 5%. NOTHING FROZEN, KILL by the rules. Holdout untouched. Awaiting Matteo's call.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
