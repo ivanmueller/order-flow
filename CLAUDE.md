@@ -189,7 +189,9 @@ Update this block at the end of every session.
   Matteo's diagnose run, then his call on the holdout (C1 base, C4 base, C4 window-30). Holdout untouched.
   Diagnose run 2026-10-10: no bug found; edges broad (top 5 coins 9-29% of gross; still positive without them),
   delistings immaterial, capacity ample at $100k; C1 flat in 2022-23; C4 base lost in 2021 (worst weeks -12..-16%).
-  Awaiting Matteo's "run the holdout" for the three candidates.
+  HOLDOUT run once 2026-10-10 (2025-10..2026-09, 52 weeks): all three FAIL. C1 +0.01%/week (funding +0.90%/week
+  eaten by price losses on the shorted crowded coins); C4 base +0.24% (CI -0.52..+1.04, < half in-sample); C4
+  window-30 +0.27% (CI -0.65..+1.20). Holdout spent for these. Awaiting Matteo's call.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

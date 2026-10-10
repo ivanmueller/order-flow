@@ -2299,3 +2299,16 @@ fixed earlier; research span ends 2025-09-30, holdout files not read. Caveats: C
 and 2024-25 (2022-23 ~0); C4's hedge is dollar- not beta-neutral, so alt-season rallies (Jan 2021) cost 12-16% in a
 week; some "new listings" are old tokens newly listed as Binance perpetuals in 2020 (DASH, ZEC, XMR).
 Gate call (the sealed year for the three candidates) is Matteo's.
+
+## 2026-10-10 (laptop, 00:44-00:50 PT) | Study 16 HOLDOUT run once (commit 80b5a77; Matteo: "run the holdout"; $0)
+Downloads: hourly + funding for the holdout months (15,616 files, 33 not in the archive, 0 failed); BTC 12 files.
+Sealed year 2025-10..2026-09, 52 weeks, three distinct candidates. Rule: >= 26 weeks, mean > 0, week-bootstrap 90%
+lower bound > 0, >= half the in-sample mean.
+- C1 funding carry (base): +0.01%/week (CI -0.51%..+0.54%), Sharpe 0.03, max DD 27%; funding collected +0.90%/week
+  (3x in-sample) but the price legs lost ~0.8%/week (the crowded high-funding shorts kept rising). In-sample +0.61%.
+  FAIL.
+- C4 new-listing short (base): +0.24%/week (CI -0.52%..+1.04%), without best weeks -0.27%, max DD 23%; in-sample
+  +0.67% (needs >= +0.33%). FAIL.
+- C4 window 30 / delay 7: +0.27%/week (CI -0.65%..+1.20%), max DD 30%; in-sample +0.88% (needs >= +0.44%). FAIL.
+Study 16 verdict: all three FAIL the sealed year. Holdout year now spent for these variants. Both C4 versions stayed
+positive but at about a third of their in-sample rate and within noise; C1 earned nothing. Gate call is Matteo's.
