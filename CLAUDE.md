@@ -187,6 +187,9 @@ Update this block at the end of every session.
   frozen); C4 froze one distinct version (window 30 d, delay 7 d; val +1.18%/week, lb +0.34%) counted 4 times (build
   flaw, fixed). `--diagnose` added (years, coin concentration, delisting exits, worst weeks, capacity); awaiting
   Matteo's diagnose run, then his call on the holdout (C1 base, C4 base, C4 window-30). Holdout untouched.
+  Diagnose run 2026-10-10: no bug found; edges broad (top 5 coins 9-29% of gross; still positive without them),
+  delistings immaterial, capacity ample at $100k; C1 flat in 2022-23; C4 base lost in 2021 (worst weeks -12..-16%).
+  Awaiting Matteo's "run the holdout" for the three candidates.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

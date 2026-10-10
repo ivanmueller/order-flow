@@ -2279,3 +2279,23 @@ means, per-coin attribution (top 10, without the top 5 coins), positions in coin
 mean without them, worst 5 weeks and their worst coin, capacity (position vs 30-day median daily volume at $30k and
 $100k), average names a leg. Test added (contributions add up to gross; signature). Not yet run on real data.
 Holdout untouched. Gate calls (C1 and C4 to the sealed year) are Matteo's, after the diagnose run.
+
+## 2026-10-10 (laptop, 00:38 PT) | Study 16 --diagnose run (commit 24f36aa; $0; research data only)
+Distinct candidates: C1 base, C4 base, C4 window 30 d / delay 7 d (the one frozen version).
+C1 funding carry: by year (per week) 2020 +0.87%, 2021 +1.57%, 2022 -0.05%, 2023 +0.17%, 2024 +0.54%, 2025 +0.58%;
+530 coins traded, ~37 a leg; top 5 coins (THETA, SOL, CRV, TRB, AVAX) 29% of gross, without them +0.39%/week; 13
+positions in coins delisted mid-hold (-0.04 total; without them +0.62%/week); worst weeks -5.2% (2020-08), -4.1%
+(2022-11); positions at $100k <= 0.02% of daily volume (none > 1%).
+C4 base: by year 2020 +1.38%, 2021 -0.83%, 2022 +0.91%, 2023 +0.91%, 2024 +0.82%, 2025 +0.97%; 552 coins, ~24 short;
+top 5 17% of gross, without them +0.55%/week; 3 delisted-mid-hold positions (+0.04 total; without them +0.66%);
+worst weeks -15.8% / -15.1% / -14.2% / -12.4% (Jan 2021 alt season, Aug 2020), -11.7% (2024-08); capacity ample.
+C4 window 30 / delay 7: by year 2020 +1.70%, 2021 +0.11%, 2022 +0.10%, 2023 +1.14%, 2024 +1.02%, 2025 +1.41%; 516
+coins, ~12 short; top 5 9% of gross, without them +0.79%/week; 1 delisted position; worst weeks -16.5% (2020-08),
+-14.4% (2025-09), -12.1% (2021-02); capacity ample.
+Rule 6 review: no bug found. Checked: signals use data to 00:00 UTC, trades at 01:00 (tested); listing dates are the
+first archive bar, known at the time; coins present at the archive start excluded as "new" (tested); funding windows
+(tested); delisted coins kept and their exits immaterial; no single-coin concentration; duplicate frozen versions
+fixed earlier; research span ends 2025-09-30, holdout files not read. Caveats: C1's edge is concentrated in 2020-21
+and 2024-25 (2022-23 ~0); C4's hedge is dollar- not beta-neutral, so alt-season rallies (Jan 2021) cost 12-16% in a
+week; some "new listings" are old tokens newly listed as Binance perpetuals in 2020 (DASH, ZEC, XMR).
+Gate call (the sealed year for the three candidates) is Matteo's.
