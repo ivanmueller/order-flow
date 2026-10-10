@@ -163,6 +163,14 @@ Update this block at the end of every session.
   a trade); noise test passes per trade/per month (p 0.01), fails t-stat (p 0.14); no top candidate has a validation
   lower bound > 0 (best +1.0%, leaders ~0 to -2.7%): NOTHING FROZEN, KILL by the rules. Holdout untouched. Awaiting
   Matteo's call. Research only (no venue open to a BC resident).
+- Study 15 APPROVED 2026-10-09 (Matteo: "Yes to everything ... different entry points, thresholds, filters, costs
+  and fills ... on our data we already have"): long early in crypto volume/volatility surges (STUDY15.md). 373,248
+  combinations (192 signal sets W x P x volume/volatility level x early filter; 3 entries; 108 exits H x hard stop x
+  trailing stop x target; funding x BTC filters) walked on the on-disk hourly bars (low comes first in a bar), 100-rep
+  placebo, validation, stability, freeze <= 4, gating diagnose (own placebo, without best 5%, 2x slippage, 5-minute
+  re-walk), holdout >= 30 trades. Cost/fill variants reported, not selected on. 2020-25 partly seen via Study 14; the
+  sealed year decides. s15_* / study15_* in config.yaml. BUILT tests-first (src/study15.py; 319 pass); synthetic
+  end-to-end dry run passed. Next: Matteo runs `python -m src.study15 --all`.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -248,7 +256,9 @@ See README.md for the full runbook in order.
 - Study 12 (SPY level fade): `python -m src.study12 --count`, `--pull --price-only`, `--pull --approve-usd X
   --allow-past-total`, `--run` (or `--report-only`)
 - Study 13 (flow discovery): `python -m src.study13 --build`, `--discover`, then once `--test`
-- Study 14 step 0 (free): `python -m src.crypto_inventory [--sample 20]`
+- Study 14 step 0 (free): `python -m src.crypto_inventory [--sample 20]`; search: `python -m src.study14 --all`, then
+  `--diagnose`, `--risk`
+- Study 15 (long surges): `python -m src.study15 --all`, then `crypto_data --event-data --study 15`, `study15 --diagnose`, `--risk`
 - Study 10 confirmation (fresh sessions): `python -m src.study10 --confirm --sessions-list`, `--confirm --pull
   --price-only`, `--confirm --pull --approve-usd X --allow-past-total`, `--confirm --run`, then `python -m src.study10b --confirm`
 - Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`

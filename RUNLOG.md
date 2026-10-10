@@ -2187,3 +2187,31 @@ Validation of the 52 distinct top candidates: none has a 90% week-bootstrap lowe
 Reading: the pump condition did select better-than-random shorts in 2020-23 (placebo test), but the advantage did not
 carry into 2024-25, and the plain fade is negative after fees, slippage and funding. Holdout untouched (no candidate).
 Study 14 verdict by the pre-registered rules: KILL (gate call is Matteo's).
+
+## 2026-10-09 | Study 15 APPROVED, PRE-REGISTERED and BUILT (no real-data run; $0)
+Matteo: "Yes to everything. Testing all variations ... different entry points, different thresholds, different
+filters, different trade costs and fills ... run on our data we already have to start." Design: STUDY15.md. Long
+early in crypto surges: W [1,3,6,24] h x P [5,10,20,30]% x surge kind (volume 3/5/10x or volatility 2/3/5x vs the
+median W-hour value over the prior 30 days) x early filter (none / prior 7 days <= +50%) = 192 signal sets; entries
+next hour / pullback (first red hour <= 24 h) / breakout (first close above the signal bar's high <= 24 h); holds
+[1,3,7,14] d x hard stop [10,20,30]% x trailing stop [none,15,30]% x target [none,+50,+100]% = 108 exits; filters
+funding at entry [any, <= 0.01%, <= 0] x BTC above its 480-hour mean [any, yes] = 6. 373,248 combinations.
+Walk on the on-disk hourly bars (every coin and month, $0): buy the next open +0.10%; inside a bar the low comes
+first (trailing level from earlier highs only; a bar opening through the stop exits at its open); stop before
+target; targets on a high above them; time exits at the open -0.10%; 0.05% a side; funding paid by longs; delisted
+coin exits at its last close; loss capped at -100%. Costs and fills: selection uses the base cost; reported for
+finalists: slippage 0.2% / 0.5%, maker entry 0.02% (descriptive), 5-minute re-walk; gating: positive at 0.2% and on
+5-minute bars. Protections as Study 14 (objectives per trade / per month / t-stat with a 100-rep placebo each, placebo
+hours same coin and month >= 24 h from the same signal set's events; validation 2024-01..2025-09; stability >= 75%;
+<= 4 frozen; diagnose gating: own placebo p <= 0.05, positive without the best 5% in both periods, 2x slippage,
+5-minute re-walk >= 95% coverage; holdout PASS needs >= 30 trades, mean > 0, lower bound > 0, >= half in-sample).
+Caveat stated in advance: Study 14 already exposed 2020-01..2025-09 for pump events; the sealed year decides.
+Config: s15_* params and study15_* gates (incl. study15_holdout_min_trades 30, s15_placebo_gap_h 24: with low
+thresholds, 72 h leaves few non-event hours). crypto_data: --btc (BTCUSDT hourly, ~70 files) and --study N for the
+download lists. Code: src/study15.py; rep-parallel placebo (each process walks every coin's hours once, then draws its
+reps; random hours depend only on (seed, rep, coin index)). Tests: 11 new; suite 319 pass.
+Synthetic dry run (5 coins, scratchpad, gates loosened in the overlay only): 13,669 events; accumulator mean equals
+direct recomputation; placebo for the same combination +0.07 vs +0.83 real (reference combination -0.02 vs +0.63);
+4 frozen; diagnose with every cost variant and the 5-minute re-walk; risk; holdout refused without the flag, then
+ran; research entries and exits all before 2025-10-01. Discover 18 s on 2 processes.
+Next (laptop): python -m src.study15 --all. Expected: real drift in-sample; the economics and the sealed year decide.

@@ -282,8 +282,15 @@ def inventory_cache(cfg) -> dict:
     return json.loads(p.read_text())
 
 
-def needs_path(cfg) -> Path:
-    return data_path(cfg, "derived", "crypto", "study14_needs.json")
+def needs_path(cfg, study: int = 14) -> Path:
+    return data_path(cfg, "derived", "crypto", f"study{study}_needs.json")
+
+
+def btc_keys(cfg, holdout: bool = False) -> list[str]:
+    """BTCUSDT hourly klines (Study 15's market filter; BTC itself is never traded)."""
+    inv, stop = inventory_cache(cfg), _stop(cfg, holdout)
+    r = inv.get("klines_1h", {}).get("BTCUSDT", {})
+    return [kline_key("BTCUSDT", "1h", m) for m in months(r["first"], r["last"], stop)] if r.get("first") else []
 
 
 def _stop(cfg, holdout: bool):
@@ -305,9 +312,9 @@ def hourly_keys(cfg, holdout: bool = False) -> list[str]:
     return keys
 
 
-def needed_keys(cfg, which: str, holdout: bool = False) -> list[str]:
+def needed_keys(cfg, which: str, holdout: bool = False, study: int = 14) -> list[str]:
     stop = _stop(cfg, holdout)
-    p = needs_path(cfg)
+    p = needs_path(cfg, study)
     if not p.exists():
         raise SystemExit(f"{p} not found: run `python -m src.study14 --events` (or --discover for --minute) first")
     need = json.loads(p.read_text())
@@ -329,15 +336,19 @@ def main(argv=None):
     g.add_argument("--hourly", action="store_true")
     g.add_argument("--event-data", action="store_true")
     g.add_argument("--minute", action="store_true")
+    g.add_argument("--btc", action="store_true", help="BTCUSDT hourly (Study 15 market filter)")
     ap.add_argument("--holdout", action="store_true")
     ap.add_argument("--workers", type=int, default=24)
+    ap.add_argument("--study", type=int, default=14, help="whose download list (--event-data / --minute)")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
     if a.hourly:
         keys = hourly_keys(cfg, a.holdout)
+    elif a.btc:
+        keys = btc_keys(cfg, a.holdout)
     else:
-        keys = needed_keys(cfg, "event" if a.event_data else "minute", a.holdout)
+        keys = needed_keys(cfg, "event" if a.event_data else "minute", a.holdout, a.study)
     log.info("%d files requested", len(keys))
     r = download(keys, raw_root(cfg), workers=a.workers)
     from src.analysis import to_json

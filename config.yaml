@@ -312,6 +312,37 @@ params:
   s14_max_filled_share: {value: 0.25}                       # a walk with more than this share of gap-filled 5-min bars is dropped
   s14_risk_shares:    {value: [0.005, 0.01, 0.02]}          # risk report (descriptive): equity lost if a stop fills at its level
   s14_max_open:       {value: 10}                           # risk report: at most this many trades open at once
+  # Study 15 (Matteo 2026-10-09: "Yes to everything"): long early in crypto volume / volatility surges (STUDY15.md)
+  s15_windows_h:      {value: [1, 3, 6, 24]}                # surge window W
+  s15_moves:          {value: [0.05, 0.1, 0.2, 0.3]}        # price move P over W
+  s15_kinds:          {value: [volume, volatility]}         # surge kind K
+  s15_volume_mult:    {value: [3, 5, 10]}                   # K=volume levels: quote volume over W / median W-hour volume, prior 30 days
+  s15_vol_mult:       {value: [2, 3, 5]}                    # K=volatility levels: summed hourly (high-low)/open over W, same baseline
+  s15_prior_max:      {value: [null, 0.5]}                  # X: skip if the 7 days before the window rose more than this
+  s15_prior_days:     {value: 7}
+  s15_entries:        {value: [next_hour, pullback, breakout]}
+  s15_entry_window_h: {value: 24}                           # pullback / breakout must happen within this many hours
+  s15_holds_d:        {value: [1, 3, 7, 14]}
+  s15_stops:          {value: [0.1, 0.2, 0.3]}              # hard stop below the entry fill
+  s15_trails:         {value: [null, 0.15, 0.3]}            # trailing stop below the highest earlier high
+  s15_targets:        {value: [null, 0.5, 1.0]}             # target above the entry fill
+  s15_funding_max:    {value: [null, 0.0001, 0.0]}          # F: last settled funding at entry <= this (null = any)
+  s15_btc_filter:     {value: [any, above_ma]}              # B: BTC hourly close above its mean of the last ... 
+  s15_btc_ma_h:       {value: 480}                          # ... 480 hourly closes (20 days)
+  s15_cooldown_d:     {value: 7}
+  s15_volume_lookback_d: {value: 30}
+  s15_fee:            {value: 0.0005}
+  s15_slippage:       {value: 0.001}
+  s15_stress_slippage: {value: [0.002, 0.005]}              # reported; the first is the gating stress
+  s15_maker_fee:      {value: 0.0002}                       # descriptive variant only
+  s15_max_filled_share: {value: 0.25}
+  s15_placebo_gap_h:  {value: 24}
+  s15_null_reps:      {value: 100}
+  s15_top_k:          {value: 20}
+  s15_seed:           {value: 20261015}
+  s15_exclude:        {value: [BTCUSDT, ETHUSDT]}
+  s15_risk_shares:    {value: [0.005, 0.01, 0.02]}
+  s15_max_open:       {value: 10}
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -355,6 +386,13 @@ gates:
   study14_val_min_trades: 30        # frozen: validation 90% week-bootstrap lower bound > 0 on >= this many trades
   study14_neighbour_share: 0.75     # stability: share of eligible grid neighbours positive on discovery
   study14_max_frozen: 4             # family budget
+  study15_min_trades: 100           # study 15 (STUDY15.md): ranked combination, discovery trades ...
+  study15_min_weeks: 20             # ... on this many weeks
+  study15_null_p: 0.05
+  study15_val_min_trades: 30
+  study15_neighbour_share: 0.75
+  study15_max_frozen: 4
+  study15_holdout_min_trades: 30
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 

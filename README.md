@@ -160,6 +160,14 @@ python -m src.study14 --diagnose               # placebo, tails, worst periods, 
 python -m src.study14 --risk                   # descriptive bankroll of the frozen combinations
 #     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
 #     study14 --events --holdout, crypto_data --event-data --holdout, then study14 --holdout
+#     Study 15: long early in crypto surges (hourly data already on disk; STUDY15.md). In order:
+python -m src.study15 --all                    # BTC hourly (tiny) -> events -> discover (373,248 combos + 100 placebo)
+python -m src.crypto_data --event-data --study 15   # 5-minute bars for the frozen combinations' trades
+python -m src.study15 --diagnose               # placebo, tails, cost variants, 2x slippage, 5-minute re-walk
+python -m src.study15 --risk
+#     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
+#     crypto_data --btc --holdout, study15 --events --holdout, crypto_data --event-data --study 15 --holdout,
+#     then study15 --holdout
 
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges
