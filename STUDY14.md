@@ -10,14 +10,21 @@ move back. A short in a perpetual needs no borrow; funding is often paid *to* sh
 squeeze: thin books and liquidation cascades. So the study measures two things: the fade itself, and whether
 squeeze warning signs, known at entry, separate the shorts that get run over from the ones that work.
 
-## Data (free)
+## Data (free; inventory run 2026-10-09, RUNLOG)
 
-- Binance USD-M perpetuals from the public archive (data.binance.vision), every symbol including delisted ones
-  (no survivorship bias), 2020-01 to the latest month: 1-hour klines for event detection, 1-minute klines for the
-  trade walk, monthly funding rates, daily metrics (open interest and long/short ratios) where the archive has them.
-- Step 0: `python -m src.crypto_inventory` lists what exists (symbols, first/last month, size, delisted count).
-- Research only. Trading needs a venue legally open to a BC resident; Binance is not one. Prices on Binance stand
-  in for the market; a live venue's fills and funding would have to be checked before any money.
+| Archive type | Coins | Delisted (not trading now) | From | To | Size | Use |
+|---|---|---|---|---|---|---|
+| 1-hour klines | 1,056 | 272 | 2020-01 | 2026-09 | 0.7 GB | events, all coins, all months |
+| 1-minute klines | 1,056 | 272 | 2020-01 | 2026-09 | 32 GB | the trade walk: only months that hold an event |
+| funding rate | 988 | 208 | 2020-01 | 2026-09 | 23 MB | actual funding, all coins |
+| metrics (open interest, long/short ratios) | 1,034 | 245 | 2020-09 | 2026-10 | 6.7 GB | squeeze score: only the days around events |
+| book depth | 1,004 | 215 | 2023-01 | 2026-10 | 237 GB | descriptive only (from 2023), days around events |
+| liquidation snapshots | 0 | | | | | not available: dropped from the score |
+| aggregate trades | 1,044 | 260 | 2020-01 | 2026-09 | 1.1 TB | not used |
+
+Today 789 coins trade, so about a quarter of the archive is delisted coins (kept: no survivorship bias). Expected
+download: ~0.7 GB hourly + funding, then a few GB of 1-minute and metrics files for event months only.
+Research only. Trading needs a venue legally open to a BC resident; Binance is not one.
 
 ## Events (point in time, hourly bars, UTC)
 
@@ -48,13 +55,16 @@ Holds of 1, 3 and 14 days are reported for every variant, not gated.
 ## Squeeze-risk score (V4, and reported for all)
 
 Known at entry: open interest change over 24 h vs the price change (shorts piling in), funding rate, open interest
-over 24-h volume, top-trader long/short ratio, days since listing, and liquidations if the archive has them. A
+over 24-h volume, top-trader long/short ratio, taker buy/sell volume ratio, and days since listing (metrics exist
+from 2020-09; events without them are scored as missing and reported separately). Liquidations are not in the
+archive. Book depth (2023 on) is reported as a descriptive check, not used in the score. A
 logistic model of "the stop is hit within the hold" fitted on training years only; validation reports whether it
 ranks the losers.
 
 ## Split and holdout
 
-Training 2020-2023, validation 2024, holdout = the last 12 months, sealed until Matteo says "run the holdout".
+Training 2020-01..2023-12, validation 2024-01..2025-09, holdout 2025-10..2026-09 (the last 12 months), sealed until
+Matteo says "run the holdout".
 
 ## Pass rule (per variant, on training + validation)
 
@@ -77,5 +87,5 @@ realistic stops is genuinely uncertain. The squeeze score is the part most likel
 
 s14_pump_return 0.40, s14_volume_mult 5, s14_volume_lookback_days 30, s14_cooldown_days 7, s14_hold_days 7,
 s14_report_holds [1, 3, 14], s14_red_hour_window_h 72, s14_red_day_window_d 7, s14_stop 0.50, s14_fee 0.0005,
-s14_slippage 0.0010, s14_squeeze_cut 0.6667, s14_train_end 2023-12-31, s14_validation_end 2024-12-31;
+s14_slippage 0.0010, s14_squeeze_cut 0.6667, s14_train_end 2023-12-31, s14_validation_end 2025-09-30, s14_holdout_start 2025-10-01;
 gates study14_min_trades 200, study14_min_mean 0.02, study14_tail_drop 0.05.

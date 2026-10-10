@@ -2117,3 +2117,12 @@ No results were kept. Fix: one keep-alive session, retry with back-off (2, 4, 8 
 a reset; 429/5xx retried), a pause between requests (--pause, 0.05 s), a resume cache (data/raw/crypto/
 inventory_cache.json, saved every 50 symbols; --fresh ignores it), and a symbol that still fails is recorded under
 "errors" instead of stopping the run. Tests: 2 new (retry schedule, failure recorded then resumed from cache).
+
+## 2026-10-09 | Study 14 step 0 inventory run 2 (Matteo's laptop, commit b2d536a; $0) -- complete, no errors
+exchangeInfo reachable: 789 USD-M symbols trading. Archive (coins / not trading now / first..last / size):
+klines 1h 1,056 / 272 / 2020-01..2026-09 / 0.7 GB; klines 1m 1,056 / 272 / same / 32 GB; fundingRate 988 / 208 /
+2020-01..2026-09 / 23 MB; metrics (OI, long/short) 1,034 / 245 / 2020-09..2026-10 / 6.7 GB; bookDepth 1,004 / 215 /
+2023-01..2026-10 / 237 GB; liquidationSnapshot 0 (none); aggTrades 1,044 / 260 / 2020-01..2026-09 / 1.1 TB.
+Delisted coins are kept (no survivorship bias). STUDY14.md updated to the data: liquidations dropped from the squeeze
+score, book depth descriptive only, split training 2020-01..2023-12 / validation 2024-01..2025-09 / holdout
+2025-10..2026-09; 1-minute and metrics files downloaded only for months/days around events. Draft awaits approval.
