@@ -2377,3 +2377,22 @@ Built (no run yet): `--close-only` (rebuild from the local cache, close-to-close
 `--diagnose` (saved pool-weeks only: worst/best weeks, v3 concentration quantiles, medians and 1/99% winsorized
 means, the close-only comparison, and an EX-ANTE look before 2025 (trailing 4-week vol and premium from earlier
 weeks only; 2025-01..09 untouched for a later validation). 9 tests in test_defi_subgraph.py; 344 pass.
+
+## 2026-10-10 (laptop, 16:28 PT) | Study 17 step 0b: --close-only rebuild and --diagnose (commit a6df7a4; $0, no queries)
+Close-only variance (same 146,718 pool-weeks): fees beat LVR 52.4%, median net +0.05%/yr, 1/99% winsorized mean
+-9.3%/yr. v3 0.30% 18% -> 48%, v3 1% 41% -> 65.5%, v3 0.01/0.05% -> 54%; v2 unchanged (46%, -0.3%). So the pool's
+own high-low (wicks) inflated v3 LVR a lot; with closes only, fees and LVR are about EQUAL: LP is priced fair.
+Tails are data, not economics: worst weeks show realized vol 440-1,700 (WBTC-renBTC, USDC-EURS, USDD-USDC depegs or
+broken prices; rugged long-tail tokens), LVR up to 850,000x TVL; v3 concentration quantiles 1% 0.0 / 99% 1,387
+(broken tvlUSD or token prices in the v3 subgraph); best v3 weeks have concentration 0 (LVR 0 while earning fees:
+also broken). 1,042 weeks "lose" > 100% of TVL, which the var x V/8 approximation allows and reality does not.
+Means unusable; medians and win shares stand.
+Ex ante, weeks before 2025 only (base Parkinson variance, pessimistic for v3): trailing 4-week vol < 30% -> 52.5%
+positive, median ~0; > 200% -> 23%, median -8%/yr. Trailing premium positive -> 70% positive, median +2.3%/yr,
+winsorized +7.5%/yr (likely inflated by the concentration-0 v3 pools, whose "premium" is permanent). Calm (< 60%)
+and positive: 71%, median +0.85%/yr, winsorized +0.9%/yr; v2 only (cleanest data): 73%, median +1.3%/yr,
+winsorized +2.6%/yr, mean +2.1%/yr, no blowups; TVL > $10M: median +0.26%/yr, winsorized ~0.
+Read: the forecast does sort weeks (persistence real), but the best clean pocket earns ~1-3% a year of capital
+BEFORE gas (weekly entry/exit on mainnet), hedge cost and contract risk, below T-bills (~4-5%). No premium worth
+pre-registering. Against the draft's decision rule: fees do not reliably beat LVR; the premium is ~0 on average.
+Recommendation: stop Study 17 at step 0b (Matteo's call). Holdout 2025-10.. untouched; 2025-01..09 not looked at ex ante.

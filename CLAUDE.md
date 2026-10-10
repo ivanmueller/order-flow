@@ -203,7 +203,9 @@ Update this block at the end of every session.
   Run 2026-10-10 (1,197 Ethereum pools incl. dead, 146,718 pool-weeks): fees beat exact LVR in only 35.8% of
   pool-weeks, median net -1.1%/yr of TVL (v2 46% / -0.3%; v3 0.30% 18% / -4.9%); means broken by extreme weeks.
   Calm weeks win (ex post: <30% vol 65% positive) but that is not yet tradeable. `--close-only` and `--diagnose`
-  built (ex-ante look before 2025 only); awaiting Matteo's run, then his call (stop or fix the strategy).
+  built and run: with close-only variance fees ~= LVR (52% of weeks, median ~0): LP is priced fair; the tails are
+  broken subgraph data. Ex ante (pre-2025) calm + positive trailing premium: v2 median +1.3%/yr, winsorized +2.6%/yr
+  before gas/hedge, below T-bills. Recommended: stop Study 17 (Matteo's call).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
