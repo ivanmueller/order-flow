@@ -2342,3 +2342,13 @@ The 0.83 rank correlation is mostly cross-sectional persistence (high-fee pools 
 Proposed step 0b (not built): Uniswap v3 (and v2) subgraph via The Graph (free API key, 100k queries/month):
 poolDayData (liquidity, sqrtPrice, feesUSD, tvlUSD, high/low) for pools ranked by ALL-TIME volume (dead pools
 included); pool-level fees vs exact LVR from liquidity at the price, Parkinson variance from high/low. Matteo's call.
+
+## 2026-10-10 | Study 17 step 0b BUILT ($0, no real run): exact pool-level LVR from the Uniswap subgraphs
+Matteo set THEGRAPH_API_KEY in .env (placeholder added to .env.example). src/defi_subgraph.py (6 tests): Uniswap v3
+and v2 on Ethereum via The Graph gateway; pools ranked by ALL-TIME volume (dead pools included); per day
+LVR = variance x V_virtual / 8 with V_virtual = 2 x L x sqrt(P) in USD from poolDayData liquidity and sqrtPrice
+(token1 USD from tokenDayData) for v3, reserves for v2; variance = max(Parkinson high-low, close-to-close^2) where the
+day's range is usable, else close-to-close; fees = feesUSD (v3) or 0.3% x volume (v2); weekly shares of mean TVL;
+fee-implied vol measured against virtual value; stablecoin pairs, thin pools (median TVL < $100k) and broken rows
+(TVL < $1k, fees > TVL) dropped and counted. Holdout days are excluded in the query itself. Dry run with a fake
+subgraph: stable pair skipped, pagination past 1,000 days, last week 2025-09-22. `--probe` checks the key first.

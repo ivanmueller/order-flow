@@ -199,7 +199,8 @@ Update this block at the end of every session.
   Quick run 2026-10-10 (50 pools): fees beat daily LVR in 77% of pool-weeks (v3 95%), but three flattering biases
   (v3 concentration: average-LP fees vs full-range LVR, the largest; survivorship: only live pools; daily sampling).
   Step 0b proposed: The Graph subgraph (free key) poolDayData with liquidity/sqrtPrice/high-low, pools by all-time
-  volume (dead ones included), exact pool-level LVR. Awaiting Matteo.
+  volume (dead ones included), exact pool-level LVR. Key set by Matteo; step 0b BUILT (src/defi_subgraph.py, 6 tests).
+  Next: `python -m src.defi_subgraph --probe`, then `--max-pools 50`, then the default run; post the JSON.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -288,7 +289,8 @@ See README.md for the full runbook in order.
 - Study 14 step 0 (free): `python -m src.crypto_inventory [--sample 20]`; search: `python -m src.study14 --all`, then
   `--diagnose`, `--risk`
 - Study 15 (long surges): `python -m src.study15 --all`, then `crypto_data --event-data --study 15`, `study15 --diagnose`, `--risk`
-- Study 17 step 0 (free): `python -m src.defi_inventory [--max-pools 50] [--min-tvl 250000]`
+- Study 17 step 0 (free): `python -m src.defi_inventory [--max-pools 50] [--min-tvl 250000]`; step 0b (The Graph key):
+  `python -m src.defi_subgraph --probe`, `--max-pools 50`, then no options
 - Study 16 (market-neutral crypto theses): `python -m src.study16 --all`, then `--diagnose`; holdout only on
   "run the holdout" (crypto_data --hourly --holdout, --btc --holdout, then study16 --holdout)
 - Study 10 confirmation (fresh sessions): `python -m src.study10 --confirm --sessions-list`, `--confirm --pull

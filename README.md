@@ -173,6 +173,9 @@ python -m src.study15 --risk
 python -m src.study16 --all
 #     Study 17 step 0: do DEX liquidity fees ever beat the loss to arbitrage? (free DefiLlama API; STUDY17.md)
 python -m src.defi_inventory
+#     Study 17 step 0b: exact LVR from Uniswap subgraphs (needs THEGRAPH_API_KEY in .env)
+python -m src.defi_subgraph --probe
+python -m src.defi_subgraph
 #     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
 #     crypto_data --btc --holdout, then study16 --holdout
 
