@@ -2396,3 +2396,16 @@ Read: the forecast does sort weeks (persistence real), but the best clean pocket
 BEFORE gas (weekly entry/exit on mainnet), hedge cost and contract risk, below T-bills (~4-5%). No premium worth
 pre-registering. Against the draft's decision rule: fees do not reliably beat LVR; the premium is ~0 on average.
 Recommendation: stop Study 17 at step 0b (Matteo's call). Holdout 2025-10.. untouched; 2025-01..09 not looked at ex ante.
+
+## 2026-10-10 | Study 17 step 1 APPROVED ("ok go") and BUILT ($0, no real run)
+Matteo objected to the stop recommendation (inventory, not the strategy; LP loss is bounded; selection by forecast;
+perp hedge). Accepted points recorded in STUDY17.md; accounting changed to an exact simulation of our own position
+(daily-hedged residual = sum V(sqrt r - 1)^2/2, whose expectation is LVR). Config added (approved): s17_* (grid
+margin [0, .25, .5] x forecast [har, trailing] x hold [1, 4] w x TVL floor [$1M, $10M] x hedge [none, perp] = 48
+cells; concentration [1, 2, 5] and capital [$10k, $100k, $1M] reported; gas $40/tx, swap 0.30% on half, perp 0.05%,
+max price gap 5%, v3 concentration [0.05, 50], token map WETH->ETH, WBTC->BTC) and study17_* gates.
+src/study17.py (10 tests, hand-verified: exact hedged daily loss, range cap and no fees outside, fee share and
+breach rule, funding to the short, rebalance fees, v3 decimals, market filter, features from earlier days only,
+hold blocks/continuity, perp symbol map, stats). crypto_data --majors fetches BTC/ETH hourly + funding (free).
+Synthetic dry run passed (build 3 pools of 4, renBTC-WBTC dropped for no perp; discovery froze 4 cells on a planted
+regime; validation failed them on placebo in a calm synthetic 2025; validation rerun refused).

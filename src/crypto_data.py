@@ -293,6 +293,20 @@ def btc_keys(cfg, holdout: bool = False) -> list[str]:
     return [kline_key("BTCUSDT", "1h", m) for m in months(r["first"], r["last"], stop)] if r.get("first") else []
 
 
+def majors_keys(cfg, holdout: bool = False) -> list[str]:
+    """BTCUSDT and ETHUSDT hourly klines and funding (Study 17 marks and hedges WBTC and WETH with them)."""
+    inv, stop = inventory_cache(cfg), _stop(cfg, holdout)
+    keys = []
+    for s in ("BTCUSDT", "ETHUSDT"):
+        r = inv.get("klines_1h", {}).get(s, {})
+        if r.get("first"):
+            keys += [kline_key(s, "1h", m) for m in months(r["first"], r["last"], stop)]
+        f = inv.get("funding_rate", {}).get(s, {})
+        if f.get("first"):
+            keys += [funding_key(s, m) for m in months(f["first"], f["last"], stop)]
+    return keys
+
+
 def _stop(cfg, holdout: bool):
     if holdout and not holdout_unsealed():
         raise HoldoutSealed("--holdout needs GAMMA_EDGE_RUN_HOLDOUT=1")
@@ -337,6 +351,7 @@ def main(argv=None):
     g.add_argument("--event-data", action="store_true")
     g.add_argument("--minute", action="store_true")
     g.add_argument("--btc", action="store_true", help="BTCUSDT hourly (Study 15 market filter)")
+    g.add_argument("--majors", action="store_true", help="BTCUSDT and ETHUSDT hourly + funding (Study 17)")
     ap.add_argument("--holdout", action="store_true")
     ap.add_argument("--workers", type=int, default=24)
     ap.add_argument("--study", type=int, default=14, help="whose download list (--event-data / --minute)")
@@ -347,6 +362,8 @@ def main(argv=None):
         keys = hourly_keys(cfg, a.holdout)
     elif a.btc:
         keys = btc_keys(cfg, a.holdout)
+    elif a.majors:
+        keys = majors_keys(cfg, a.holdout)
     else:
         keys = needed_keys(cfg, "event" if a.event_data else "minute", a.holdout, a.study)
     log.info("%d files requested", len(keys))

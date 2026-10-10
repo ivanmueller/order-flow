@@ -206,6 +206,10 @@ Update this block at the end of every session.
   built and run: with close-only variance fees ~= LVR (52% of weeks, median ~0): LP is priced fair; the tails are
   broken subgraph data. Ex ante (pre-2025) calm + positive trailing premium: v2 median +1.3%/yr, winsorized +2.6%/yr
   before gas/hedge, below T-bills. Recommended: stop Study 17 (Matteo's call).
+  Matteo disagreed (inventory, not the strategy): Step 1 APPROVED 2026-10-10 ("ok go") and BUILT (src/study17.py, 10
+  tests): own position simulated exactly (range, fee share, no fees on range-breach days, daily perp hedge with
+  Binance funding), forecast-selected weeks, 48 cells, placebo + search noise test, discovery to 2024-12, validation
+  2025-01..09 once. Next: `crypto_data --majors`, `study17 --build`, `--discover`; post the JSON.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -295,7 +299,8 @@ See README.md for the full runbook in order.
   `--diagnose`, `--risk`
 - Study 15 (long surges): `python -m src.study15 --all`, then `crypto_data --event-data --study 15`, `study15 --diagnose`, `--risk`
 - Study 17 step 0 (free): `python -m src.defi_inventory [--max-pools 50] [--min-tvl 250000]`; step 0b (The Graph key):
-  `python -m src.defi_subgraph --probe`, `--max-pools 50`, then no options, `--close-only`, `--diagnose`
+  `python -m src.defi_subgraph --probe`, `--max-pools 50`, then no options, `--close-only`, `--diagnose`; step 1:
+  `python -m src.crypto_data --majors`, `python -m src.study17 --build`, `--discover`, then once `--validate`
 - Study 16 (market-neutral crypto theses): `python -m src.study16 --all`, then `--diagnose`; holdout only on
   "run the holdout" (crypto_data --hourly --holdout, --btc --holdout, then study16 --holdout)
 - Study 10 confirmation (fresh sessions): `python -m src.study10 --confirm --sessions-list`, `--confirm --pull

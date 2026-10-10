@@ -81,7 +81,7 @@ small full-range edge with a high Sharpe is a large edge on capital; % of TVL vs
 (3) the perpetual hedge with actual funding; (4) the LP's bounded loss (the var x V/8 formula let weeks "lose"
 more than 100%); (5) incentive rewards (small on Uniswap mainnet, large elsewhere); (6) broken subgraph rows.
 
-## Step 1 (PROPOSED, not approved): the strategy test
+## Step 1 (APPROVED 2026-10-10, Matteo: "ok go"; built in src/study17.py): the strategy test
 
 Universe: Uniswap v2/v3 Ethereum pools from step 0b whose volatile token(s) have a Binance USDT-M perpetual on disk
 (WETH = ETH, WBTC = BTC), so the pool is hedgeable and the outside price is known. Broken rows out by rule, stated
@@ -107,7 +107,7 @@ rebalanced daily to the pool's token delta: Binance funding actually paid/receiv
 Range: full range, and concentrated k x (s17_concentration [1, 2, 5]) reported as a scaling with its range-exit cap.
 Rewards: none on Uniswap mainnet except short programs; reported as a known omission, not added.
 Grid (small): margin [0, 0.25, 0.5]; forecast HAR vs trailing 28-day; hold [1, 4] weeks; TVL floor [1M, 10M];
-hedge [none, perp] = 24 cells.
+hedge [none, perp] = 48 cells (the earlier "24" left out the hedge axis).
 Judged on: mean weekly return on capital with a week-clustered 90% CI, Sharpe and t-stat (leverage-free); placebo
 (same number of random pool-weeks, and forecasts shuffled across pools), 200 reps; positive without the best 5% of
 weeks; both halves; gas break-even capital. Discovery 2020-05..2024-12, validation 2025-01..09 (never looked at ex
@@ -116,3 +116,19 @@ Gate per variant (Matteo's to approve): validation mean > 0 with 90% lower bound
 p <= 0.05, positive without the best 5% of weeks; <= 4 frozen.
 Expected: the hedged, selected pocket earns a small positive Sharpe in discovery; validation decides. Cost $0
 (subgraph cache + Binance data already on disk).
+
+### As built (2026-10-10)
+- Parameters: s17_* in config.yaml; gates study17_* (p 0.05, tail 5%, >= 52 active discovery weeks, >= 13 in
+  validation, <= 4 frozen). Gas $40 per mint or burn, swap 0.30% on half the capital at entry, exit and re-centering,
+  perp taker 0.05%, capital $100k per position (reported at $10k and $1M).
+- Each week is a fresh $1 position at the prior Sunday close; costs by continuity (entry, exit; k > 1 re-centers
+  weekly at 2 x gas + swap). Hedge open/close fees only when entering or leaving; between consecutive weeks the
+  hedge carries over (the small re-sizing at the week boundary is not charged; noted).
+- Placebo per cell: each week, as many random pool-weeks from that week's universe as the cell holds, on GROSS
+  results (selection skill, not cost luck); search noise test: best real gross t across 48 cells vs best placebo
+  t per rep (gating: nothing is frozen unless p <= 0.05).
+- Freeze: active weeks >= 52, net 90% lower bound > 0, cell placebo p <= 0.05, both halves > 0, without best 5% > 0;
+  ranked by net t; identical weekly series counted once.
+- Validation (`--validate`) runs once (a marker file refuses a rerun); HAR coefficients from discovery.
+- Synthetic dry run (scratch data): planted fee/variance regime found in discovery (search p 0.005, 4 frozen);
+  in a calm synthetic 2025 all four fail the validation placebo (selection no better than random), as it should.

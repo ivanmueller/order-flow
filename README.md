@@ -178,6 +178,11 @@ python -m src.defi_subgraph --probe
 python -m src.defi_subgraph
 python -m src.defi_subgraph --close-only   # from the cache, no queries
 python -m src.defi_subgraph --diagnose
+#     Study 17 step 1 (strategy test, $0): majors first, then build, discover, and once validate
+python -m src.crypto_data --majors
+python -m src.study17 --build
+python -m src.study17 --discover
+python -m src.study17 --validate
 #     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
 #     crypto_data --btc --holdout, then study16 --holdout
 

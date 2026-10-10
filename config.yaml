@@ -378,6 +378,29 @@ params:
   s16_grid_c4:        {value: {window_d: [30, 90, 180], delay_d: [1, 7, 30], hold_d: [7, 14]}}
   s16_explore_reps:   {value: 100}
   s16_explore_top_k:  {value: 10}
+  # Study 17 step 1 (STUDY17.md; approved 2026-10-10, Matteo: "ok go"): forecast-selected Uniswap LP, perp-hedged
+  s17_discovery_end:  {value: "2024-12-31"}                 # weeks starting on or before: discovery; then validation to the holdout
+  s17_margin:         {value: [0.0, 0.25, 0.5]}             # enter when fee-implied vol >= (1 + margin) x forecast vol
+  s17_forecast:       {value: [har, trailing]}              # har: log-HAR on 1/7/28-day realized variance (fit on discovery)
+  s17_hold_w:         {value: [1, 4]}                       # decide every H weeks, hold H weeks
+  s17_tvl_floor:      {value: [1000000, 10000000]}          # trailing 7-day mean pool TVL
+  s17_hedge:          {value: [none, perp]}                 # perp: short each volatile token's delta, reset daily
+  s17_concentration:  {value: [1, 2, 5]}                    # range = k x capital efficiency of full range (v3 only for k > 1); 1 is selected on
+  s17_capital_usd:    {value: [10000, 100000, 1000000]}     # per position, reported
+  s17_capital_main:   {value: 100000}                       # per position, used for selection and gates
+  s17_gas_usd:        {value: 40}                           # per mint or burn transaction (Ethereum mainnet, conservative)
+  s17_swap_cost:      {value: 0.003}                        # on half the capital at entry, exit and each re-centering
+  s17_perp_fee:       {value: 0.0005}                       # taker fee on every change in hedge notional
+  s17_max_gap:        {value: 0.05}                         # day dropped when pool price and Binance prices disagree by more
+  s17_conc_min:       {value: 0.05}                         # v3 day dropped when liquidity at the price / TVL is outside these
+  s17_conc_max:       {value: 50}
+  s17_token_map:      {value: {WETH: ETHUSDT, WBTC: BTCUSDT}}   # else SYMBOL+USDT, or 1000SYMBOL+USDT (price / 1000)
+  s17_stables:        {value: [USDC, USDT, DAI, FRAX, LUSD, USDE, PYUSD, TUSD, BUSD, GUSD, USDP, SUSD, CRVUSD, GHO, USDS, FDUSD]}
+  s17_fee_days:       {value: 7}                            # fee forecast: trailing fee yield
+  s17_trailing_days:  {value: 28}                           # trailing variance forecast (and HAR's long term)
+  s17_min_days:       {value: [5, 20]}                      # valid days needed in the 7- and 28-day windows
+  s17_placebo_reps:   {value: 200}
+  s17_seed:           {value: 20261017}
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -434,6 +457,11 @@ gates:
   study16_neighbour_share: 0.75
   study16_max_frozen: 4
   study16_holdout_min_weeks: 26
+  study17_p: 0.05                   # study 17 (STUDY17.md): cell placebo p and the search noise test
+  study17_tail_share: 0.05          # net mean without this share of best weeks must stay > 0
+  study17_min_active_weeks: 52      # discovery weeks with a position, to be ranked
+  study17_min_active_weeks_validation: 13
+  study17_max_frozen: 4
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 
