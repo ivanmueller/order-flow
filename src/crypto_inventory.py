@@ -6,8 +6,9 @@ survivorship bias). Types checked: monthly 1h and 1m klines, monthly fundingRate
 long/short ratios), daily liquidationSnapshot and bookDepth, monthly aggTrades (size only, sampled). Current
 listings come from the public exchangeInfo endpoint; if it is unreachable from your network, that column is blank.
 
-  python -m src.crypto_inventory                       # full inventory (a few minutes; ~1-2k listing requests)
+  python -m src.crypto_inventory                       # full inventory (~7k listing requests; resumes if stopped)
   python -m src.crypto_inventory --sample 20           # quick check on 20 symbols per type
+Requests share one connection, retry with back-off after a reset or 429/5xx, and pause --pause seconds apart.
 """
 from __future__ import annotations
 
@@ -33,11 +34,42 @@ TYPES = [
 DATE = re.compile(r"(\d{4}-\d{2})(?:-\d{2})?\.zip$")
 
 
+_SESSION = None
+
+
 def _http_fetch(params: dict) -> str:
+    """One listing request on a shared keep-alive session (fewer TLS handshakes, which is what got reset)."""
     import requests
-    r = requests.get(BUCKET, params=params, timeout=60)
+    global _SESSION
+    if _SESSION is None:
+        _SESSION = requests.Session()
+    r = _SESSION.get(BUCKET, params=params, timeout=60)
     r.raise_for_status()
     return r.text
+
+
+def with_retries(fetch, attempts: int = 6, base_wait: float = 2.0, sleep=None):
+    """Wrap a fetch: on a reset, timeout or 429/5xx, wait 2, 4, 8 ... seconds and try again; give up after
+    `attempts` tries."""
+    import time
+    sleep = sleep or time.sleep
+
+    def wrapped(params):
+        for k in range(attempts):
+            try:
+                return fetch(params)
+            except Exception as e:                                    # requests' errors, resets, HTTP 429/5xx
+                status = getattr(getattr(e, "response", None), "status_code", None)
+                if status is not None and status < 500 and status != 429:
+                    raise
+                if k == attempts - 1:
+                    raise
+                global _SESSION
+                _SESSION = None                                       # a fresh connection after a reset
+                wait = base_wait * (2 ** k)
+                log.warning("listing failed (%s); retry %d/%d in %.0f s", type(e).__name__, k + 1, attempts - 1, wait)
+                sleep(wait)
+    return wrapped
 
 
 def list_all(prefix: str, fetch=_http_fetch) -> tuple[list[str], list[tuple[str, int]]]:
@@ -87,7 +119,24 @@ def trading_symbols() -> set | None:
         return None
 
 
-def inventory(sample: int | None = None, fetch=_http_fetch) -> dict:
+def inventory(sample: int | None = None, fetch=None, cache_path=None, pause: float = 0.05, sleep=None) -> dict:
+    """Per type: list the symbols, then each symbol's files. Results are cached per (type, symbol) in cache_path,
+    so a rerun after a failure resumes where it stopped; a symbol that still fails after the retries is recorded
+    as an error and skipped instead of stopping the run."""
+    import json
+    import time
+    from pathlib import Path
+    sleep = sleep or time.sleep
+    fetch = fetch or with_retries(_http_fetch)
+    cache = {}
+    if cache_path and Path(cache_path).exists():
+        cache = json.loads(Path(cache_path).read_text())
+
+    def save():
+        if cache_path:
+            Path(cache_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(cache_path).write_text(json.dumps(cache))
+
     trading = trading_symbols()
     out = {"current_trading_symbols": None if trading is None else len(trading), "types": {}}
     for label, prefix, sub in TYPES:
@@ -95,13 +144,25 @@ def inventory(sample: int | None = None, fetch=_http_fetch) -> dict:
         symbols = [s for s in symbols if s]
         if sample:
             symbols = symbols[:sample]
-        per = {}
+        per, errors = {}, []
+        done = cache.setdefault(label, {})
         for i, s in enumerate(symbols):
-            _, keys = list_all(f"{prefix}{s}/{sub}", fetch)
-            per[s] = file_range(keys)
-            if i and i % 100 == 0:
+            if s in done:
+                per[s] = done[s]
+                continue
+            try:
+                _, keys = list_all(f"{prefix}{s}/{sub}", fetch)
+                per[s] = done[s] = file_range(keys)
+            except Exception as e:
+                errors.append(s)
+                log.warning("%s %s: giving up (%s)", label, s, type(e).__name__)
+            if pause:
+                sleep(pause)
+            if i and i % 50 == 0:
+                save()
                 log.info("%s: %d of %d symbols", label, i, len(symbols))
-        out["types"][label] = summarize(per, trading)
+        save()
+        out["types"][label] = {**summarize(per, trading), "errors": errors}
         if sample:
             out["types"][label]["sampled"] = sample
     return out
@@ -110,10 +171,16 @@ def inventory(sample: int | None = None, fetch=_http_fetch) -> dict:
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--sample", type=int, default=None, help="only the first N symbols of each type")
+    ap.add_argument("--pause", type=float, default=0.05, help="seconds between listing requests")
+    ap.add_argument("--fresh", action="store_true", help="ignore the resume cache")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     from src.analysis import to_json
-    print(to_json(inventory(a.sample)))
+    from src.config import data_path, load_config
+    cache = data_path(load_config(), "raw", "crypto", "inventory_cache.json")
+    if a.fresh and cache.exists():
+        cache.unlink()
+    print(to_json(inventory(a.sample, cache_path=None if a.sample else cache, pause=a.pause)))
 
 
 if __name__ == "__main__":

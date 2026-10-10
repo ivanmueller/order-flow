@@ -2108,3 +2108,12 @@ bound > 0, positive without the best 5%). Not approved; no parameters in config.
 Step 0: src/crypto_inventory.py (+3 tests) lists data.binance.vision (USD-M klines 1h/1m, fundingRate, metrics,
 liquidationSnapshot, bookDepth, aggTrades): symbols, first/last month, size, delisted count. The archive could not be
 read from the cloud workspace (no network permission); Matteo runs it on the laptop. Full suite 276 pass.
+
+## 2026-10-10 | Study 14 step 0 inventory run 1 FAILED (Matteo's laptop, commit 71866e8; $0)
+The --sample 20 run completed (output not posted). The full run listed 1,056 USD-M symbols with monthly 1h klines
+(about twice today's listings, so delisted coins appear to be kept) and stopped at symbol 600 of klines_1h on a
+connection reset during the TLS handshake (WinError 10054): the bucket throttling ~600 fresh connections in ~5 minutes.
+No results were kept. Fix: one keep-alive session, retry with back-off (2, 4, 8 ... s, 6 tries; fresh connection after
+a reset; 429/5xx retried), a pause between requests (--pause, 0.05 s), a resume cache (data/raw/crypto/
+inventory_cache.json, saved every 50 symbols; --fresh ignores it), and a symbol that still fails is recorded under
+"errors" instead of stopping the run. Tests: 2 new (retry schedule, failure recorded then resumed from cache).
