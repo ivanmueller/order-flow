@@ -174,6 +174,14 @@ Update this block at the end of every session.
   objectives with placebo bests ABOVE real bests (p 1.0); 59/60 candidates earn less than the same combination on
   random hours (market beta, not timing); best validation +4.1-4.6% a trade but median < 0 and > 100% of profit from
   the best 5%. NOTHING FROZEN, KILL by the rules. Holdout untouched. Awaiting Matteo's call.
+- Study 16 APPROVED 2026-10-09 (Matteo: "test all 3 of these at once and then explore variations of the most
+  profitable ones"): market-neutral crypto theses on a daily panel (STUDY16.md): C1 funding carry (short high funding,
+  long low), C2 28-day momentum, C3 7-day reversal, C4 short new listings (first 90 days) hedged long BTC; weekly,
+  quintiles, $1M volume floor, 0.15% per unit traded, funding in returns, short losses capped at notional. Stage A
+  gate per variant: mean > 0 with lower bound > 0, placebo p <= 0.05 (shuffled ranks / random old coins, 200 reps),
+  both halves positive, positive without the best 5% of weeks. Stage B (automatic, only for passing variants): grid
+  on 2020-23, 100-rep noise test, validation 2024-25, stability, 2x slippage, <= 4 frozen; sealed year once.
+  BUILT tests-first (src/study16.py; 10 tests); synthetic dry run passed. Next: Matteo runs `python -m src.study16 --all`.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -262,6 +270,7 @@ See README.md for the full runbook in order.
 - Study 14 step 0 (free): `python -m src.crypto_inventory [--sample 20]`; search: `python -m src.study14 --all`, then
   `--diagnose`, `--risk`
 - Study 15 (long surges): `python -m src.study15 --all`, then `crypto_data --event-data --study 15`, `study15 --diagnose`, `--risk`
+- Study 16 (market-neutral crypto theses): `python -m src.study16 --all`
 - Study 10 confirmation (fresh sessions): `python -m src.study10 --confirm --sessions-list`, `--confirm --pull
   --price-only`, `--confirm --pull --approve-usd X --allow-past-total`, `--confirm --run`, then `python -m src.study10b --confirm`
 - Study 8 (no overlay set): `python -m src.study8 --count`, then `--e0`, then `python -m src.study8 [--report-only]`

@@ -168,6 +168,11 @@ python -m src.study15 --risk
 #     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
 #     crypto_data --btc --holdout, study15 --events --holdout, crypto_data --event-data --study 15 --holdout,
 #     then study15 --holdout
+#     Study 16: market-neutral crypto theses (C1 funding carry, C2 momentum, C3 reversal, C4 new-listing short;
+#     STUDY16.md), on-disk data, $0. Stage A on all four, then Stage B variations of any variant that passes:
+python -m src.study16 --all
+#     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
+#     crypto_data --btc --holdout, then study16 --holdout
 
 # 8. Robustness (in-sample) and the one-shot holdout -- only when you say "run the holdout"
 python -m src.robustness nudges

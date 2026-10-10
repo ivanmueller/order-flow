@@ -2233,3 +2233,26 @@ Reading: buying altcoins at random hours in these months made money (market beta
 surge timing adds nothing and is slightly worse than random, consistent with Study 14 (shorts after pumps beat random
 shorts). Positive results here are crypto beta with a lottery-ticket profile, not a timing edge. Holdout untouched.
 Study 15 verdict by the pre-registered rules: KILL (gate call is Matteo's).
+
+## 2026-10-09 | Study 16 APPROVED, PRE-REGISTERED and BUILT (no real-data run; $0)
+Matteo: "can we test all 3 of these at once and then explore variations of the most profitable ones if there is
+one?" Design STUDY16.md. Daily panel from the on-disk hourly bars and funding (price at 01:00 UTC for trades, close
+at 00:00 UTC and the previous day's volume for signals; funding split into holding and signal windows). Stage A, four
+fixed variants (the family budget): C1 funding carry (7-day funding, short top fifth / long bottom fifth, weekly);
+C2 momentum (28-day return, long top / short bottom, weekly); C3 reversal (7-day return, long bottom / short top,
+weekly); C4 new-listing short (first 90 days after a listing on or after 2020-02-01, equal weight, hedged long BTC,
+weekly). Universe: >= 30 days history, 30-day median daily quote volume >= $1M, >= 5 names a leg; BTC/ETH/index
+contracts excluded. Costs 0.05% + 0.10% per unit of weight traded; funding in returns; a short's loss capped at its
+notional; delisted coins exit at their last price. Gate per variant: weekly mean > 0 with a week-bootstrap 90% lower
+bound > 0; placebo p <= 0.05 (200 reps: shuffled ranks; C4 random coins listed >= 365 days earlier); positive in
+2020-02..2023-12 and 2024-01..2025-09; positive without the best 5% of weeks. Stage B runs automatically for passing
+variants (Matteo's instruction): grid (quantile, volume floor, weighting, look-back/hold or window/delay/hold) on
+2020-23, 100-rep shuffled-rank noise test on the grid's best, top 10 validated on 2024-25 (lower bound > 0),
+stability >= 75%, 2x slippage > 0, without best 5% of weeks > 0, <= 4 frozen; sealed year once (>= 26 weeks).
+Config: s16_* and study16_* added. Code: src/study16.py. Tests: 10 (panel timing and funding windows, momentum /
+reversal / carry legs, turnover costs, funding paid by longs, short cap, C4 with the BTC hedge, archive-start coins
+not "new", filters, placebo leg sizes, weekly means). Suite passes.
+Synthetic dry run (5 coins): Stage A and Stage B paths ran; found and fixed one design gap (coins whose data starts
+at the archive start looked like new listings to C4; now new only if first seen on or after 2020-02-01). Simulator
+vectorised: outputs identical to 1e-9; ~0.8 s for a daily-rebalanced 600-coin, 2,100-day run.
+Next (laptop): python -m src.study16 --all.
