@@ -2510,3 +2510,13 @@ Even with ZERO transaction costs, without funding: V1 ~+0.003%/wk, V3 ~+0.016%/w
 loss, i.e. liquidity priced fair on the L2s as on mainnet since 2022. Selection beats random (p 0.005 in V1/V3) by
 losing less, not by earning. Market path agrees (no stale-price effect). Base alone ~0.
 Not run: validation (nothing passed Stage A, so --validate refuses). Holdout untouched. KILL by the rules (Matteo's call).
+
+## 2026-10-11 | Study 18 closed by default; Study 19 DRAFTED (STUDY19.md; no run)
+Read Mack & Sinclair, Retail Options Trading (2024), ch. 10 and 12-16 (scanned PDF, OCR): the only edge the book
+treats as robust is the index volatility premium; ch. 14-16 ideas are presented as untested candidates; the book is
+sceptical of dealer gamma and order-flow signals (consistent with Studies 1-3, 6, 12, 13). Matteo chose option 1.
+Study 19 draft: weekly SPXW short volatility on the on-disk EOD chains; fixed family V1 20-delta strangle every
+Friday, V2 + VIX/VIX3M inversion filter, V3 ATM straddle + filter, V4 Monday-entry Tuesday 1-day straddle; fills at
+bid/ask, $1.50/leg, cash settlement; gate mean and 90% lb > 0 in EM units, both halves, 2x costs, >= 50 trades;
+sealed SPX holdout 2026-01..09 once for passes. Sample A ($0, ~120 weeks, power ~1/2) or B (~$40 ThetaData month,
+2016+). Awaiting approval and the sample choice.

@@ -226,6 +226,10 @@ Update this block at the end of every session.
   2 active weeks); even at zero transaction cost ~0..+0.016%/wk: fees ~= hedged loss (priced fair). Nothing to
   validate; holdout untouched. KILL by the rules (Matteo's call). Next candidate offered: prediction markets
   (Kalshi via IBKR/Wealthsimple is legal in Canada; Polymarket blocks BC).
+- Study 19 DRAFT 2026-10-11 (STUDY19.md; from Mack & Sinclair ch. 10/14/15): weekly SPXW short volatility on the
+  on-disk EOD chains; V1 20-delta strangle every Friday, V2 + VIX/VIX3M inversion skip, V3 ATM straddle + skip, V4
+  Monday-entry Tuesday 1-day straddle; bid/ask fills, $1.50/leg, cash settlement; SPX holdout 2026-01..09 once.
+  Awaiting approval and sample choice (A $0 ~120 weeks, underpowered; B ~$40 ThetaData month, 2016+).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
