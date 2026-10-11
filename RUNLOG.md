@@ -2489,3 +2489,9 @@ Then BUILT src/study18.py (4 tests: pool age, the pre-registered pass rule, vari
 selection on a synthetic table) reusing Study 17's simulation; synthetic end-to-end dry run passed (build on 2 fake
 chains, Stage A, validation refusing variants that did not pass Stage A). s18_* params and study18_* gates NOT yet in
 config.yaml (awaiting Matteo's approval).
+
+## 2026-10-11 | Study 18 config APPROVED ("Approved as drafted") and added
+Matteo's first --build/--stage-a attempt (00:01 PT) failed before reading data: KeyError s18_capital_main (config
+not yet added, by rule 3); nothing written. Added: s18_chains [arbitrum, base], s18_gas_usd 0.5, s18_capital_main
+25000, s18_discovery_end 2024-12-31, s18_seed 20261018, s18_variants V1-V4 as in STUDY18.md; gates study18_p 0.05,
+study18_tail_share 0.05, study18_min_active_weeks 26, study18_min_active_weeks_validation 13.

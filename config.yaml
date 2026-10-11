@@ -401,6 +401,17 @@ params:
   s17_min_days:       {value: [5, 20]}                      # valid days needed in the 7- and 28-day windows
   s17_placebo_reps:   {value: 200}
   s17_seed:           {value: 20261017}
+  # Study 18 (STUDY18.md; approved 2026-10-11 "Approved as drafted"): Study 17's simulation on Uniswap v3 Arbitrum + Base
+  s18_chains:         {value: [arbitrum, base]}
+  s18_gas_usd:        {value: 0.5}                          # per mint or burn (L2 transactions cost cents)
+  s18_capital_main:   {value: 25000}                        # per position (fee share and gas per $)
+  s18_discovery_end:  {value: "2024-12-31"}                 # Stage A to here; validation 2025-01..09 once
+  s18_seed:           {value: 20261018}
+  s18_variants:       {value: [                             # fixed family; all full range, perp-hedged, hold 4 weeks
+      {name: V1, margin: 0.25, forecast: har, tvl_floor: 1000000, new_pool_weeks: null},
+      {name: V2, margin: 0.5, forecast: har, tvl_floor: 1000000, new_pool_weeks: null},
+      {name: V3, margin: 0.25, forecast: har, tvl_floor: 250000, new_pool_weeks: null},
+      {name: V4, margin: 0.25, forecast: har, tvl_floor: 1000000, new_pool_weeks: 26}]}
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -462,6 +473,10 @@ gates:
   study17_min_active_weeks: 52      # discovery weeks with a position, to be ranked
   study17_min_active_weeks_validation: 13
   study17_max_frozen: 4
+  study18_p: 0.05                   # study 18 (STUDY18.md): selection placebo p
+  study18_tail_share: 0.05          # without the best 5% of weeks, without funding, must stay > 0
+  study18_min_active_weeks: 26      # Stage A
+  study18_min_active_weeks_validation: 13
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 

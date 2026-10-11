@@ -1,6 +1,6 @@
 # Study 18: forecast-selected, perp-hedged Uniswap liquidity on cheap-gas chains (Arbitrum, Base)
 
-Status: DRAFT 2026-10-10 (Matteo: "Okay lets do this" to drafting it). Not approved; no config entries yet. The free
+Status: APPROVED 2026-10-11 ("Approved as drafted"); config s18_* and study18_* added; src/study18.py built. The free
 data step (probe + fetch) is built and can run now; the study module is built after approval. Research only: the
 hedge assumes Binance perpetuals and funding, which are not open to a BC resident; funding elsewhere differs.
 

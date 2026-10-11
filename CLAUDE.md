@@ -221,7 +221,7 @@ Update this block at the end of every session.
   venues"), 4 fixed variants (V1 m0.25 HAR $1M, V2 m0.5 HAR $1M, V3 $250k floor, V4 pools < 26 weeks), gate WITH and
   WITHOUT funding, discovery to 2024-12, validation 2025-01..09 once. Free data step BUILT (defi_subgraph --chain).
   Probe + fetch run 2026-10-10 (Arbitrum FbCGRftH..., Base 43Hwfi3d...; 970 + 994 pools cached, 0 errors).
-  src/study18.py BUILT (4 tests; dry run passed). Awaiting Matteo's approval of s18_*/study18_* config, then
+  src/study18.py BUILT (4 tests; dry run passed). Config APPROVED and added 2026-10-11; next
   `python -m src.study18 --build`, `--stage-a`; `--validate` once, only for Stage A passes.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
