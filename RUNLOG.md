@@ -2589,3 +2589,9 @@ fails the drawdown limit, the -0.5x variants pass, validation runs only for disc
 Probe: VX_<expiry>.csv works (2018-02, 2024-01); CFE_<M><YY>_VX.csv archive works (2006-03, 2010-06, 2018-02); Cboe
 returns 403 (not 404) for files that do not exist, which the fetch treated as an error and stopped at its first
 request (VX_2004-03-17). Fix: 403 = missing. Nothing parsed; files written so far, if any, are kept (idempotent).
+
+## 2026-10-11 (laptop, 01:15 PT) | Study 20 data: fetch ran; panel build stopped on an archive file with 12-field rows
+The fetch completed (no counts printed: the crash came in build_panel). pandas refused an archive CSV whose line 53 had
+12 fields for an 11-column header (trailing field). Parser now reads rows by header position, ignores extra trailing
+fields, skips short rows, and build_panel lists unreadable files instead of stopping. study20 --discover then failed
+only because the panel was not built. Nothing analysed.

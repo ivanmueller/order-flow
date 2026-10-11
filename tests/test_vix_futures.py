@@ -41,3 +41,11 @@ def test_front_second_panel_skips_the_expiry_day():
     # on its expiry day the January contract is no longer the front: February and March are
     assert a.loc[dt.date(2024, 1, 17), "vx1"] == 14.1 and a.loc[dt.date(2024, 1, 17), "vx2"] == 15.1
     assert a.loc[dt.date(2024, 1, 16), "exp1"] == dt.date(2024, 1, 17)
+
+
+def test_rows_with_extra_trailing_fields_are_read():
+    txt = ("Trade Date,Futures,Open,High,Low,Close,Settle,Change,Total Volume,EFP,Open Interest\n"
+           "06/14/2010,M (Jun 10),30,31,29,30,30.5,0,100,0,2000,\n"
+           "06/15/2010,M (Jun 10),30,31,29,30,29.5,0,100,0,2000\n")
+    d = vf.parse(txt, expiry=dt.date(2010, 6, 16))
+    assert list(d["settle"]) == [30.5, 29.5]

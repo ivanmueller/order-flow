@@ -47,15 +47,29 @@ def expiry_for(y: int, m: int) -> dt.date:
 
 
 def parse(text: str, expiry: dt.date) -> pd.DataFrame:
-    lines = text.strip().splitlines()
+    """Rows are read by the header's column positions; extra trailing fields (some archive rows carry them) are
+    ignored and rows too short to hold a settlement are skipped."""
+    import csv
+    lines = [l for l in text.strip().splitlines() if l.strip()]
     start = next(i for i, l in enumerate(lines) if l.lower().startswith("trade date"))
-    df = pd.read_csv(io.StringIO("\n".join(lines[start:])))
-    df.columns = [c.strip().lower() for c in df.columns]
-    out = pd.DataFrame({"date": pd.to_datetime(df["trade date"]).dt.date,
+    rows = list(csv.reader(lines[start:]))
+    head = [h.strip().lower() for h in rows[0]]
+    col = {name: head.index(name) for name in ("trade date", "settle", "total volume", "open interest") if name in head}
+    recs = []
+    for r in rows[1:]:
+        if len(r) <= col["settle"]:
+            continue
+        get = lambda k: r[col[k]].strip() if k in col and col[k] < len(r) else ""
+        recs.append({"date": get("trade date"), "settle": get("settle"), "volume": get("total volume"),
+                     "oi": get("open interest")})
+    df = pd.DataFrame(recs)
+    if df.empty:
+        return pd.DataFrame(columns=["date", "settle", "volume", "oi", "expiry"])
+    out = pd.DataFrame({"date": pd.to_datetime(df["date"], errors="coerce").dt.date,
                         "settle": pd.to_numeric(df["settle"], errors="coerce"),
-                        "volume": pd.to_numeric(df.get("total volume", 0), errors="coerce"),
-                        "oi": pd.to_numeric(df.get("open interest", 0), errors="coerce")})
-    out = out[out["settle"] > 0].copy()
+                        "volume": pd.to_numeric(df["volume"], errors="coerce"),
+                        "oi": pd.to_numeric(df["oi"], errors="coerce")})
+    out = out[out["date"].notna() & (out["settle"] > 0)].copy()
     old = out["date"] < VBI_END
     out.loc[old, "settle"] = out.loc[old, "settle"] / 10.0
     out["expiry"] = expiry
@@ -136,14 +150,18 @@ def fetch(cfg, first=(2004, 3), last=(2026, 12)) -> dict:
 
 
 def build_panel(cfg) -> dict:
-    parts = []
+    parts, bad = [], []
     for f in sorted(_root(cfg).glob("VX_*.csv")):
         text = f.read_text()
         head = [l for l in text.splitlines()[:3] if l.startswith("# expiry")]
         tag = head[0].split()[-1] if head else ""
         exp = dt.date.fromisoformat(tag) if tag[:2] in ("19", "20") else None
         body = "\n".join(l for l in text.splitlines() if not l.startswith("#"))
-        d = parse(body, exp)
+        try:
+            d = parse(body, exp)
+        except Exception as e:                                   # report, keep going
+            bad.append(f"{f.name}: {str(e)[:120]}")
+            continue
         if len(d):
             last = d["date"].max()                               # archive files: the last trade date is the expiry
             if exp is None or abs((last - exp).days) > 3:
@@ -155,7 +173,7 @@ def build_panel(cfg) -> dict:
     out.parent.mkdir(parents=True, exist_ok=True)
     P.to_parquet(out)
     df.to_parquet(data_path(cfg, "derived", "vix_futures_long.parquet"))     # per contract (Study 20's index)
-    return {"contracts": len(parts), "days": int(len(P)), "first": str(P["date"].min()), "last_file_date":
+    return {"contracts": len(parts), "unreadable_files": bad, "days": int(len(P)), "first": str(P["date"].min()), "last_file_date":
             str(P["date"].max()), "note": "panel includes dates after the Study 20 holdout start; loads seal them"}
 
 
