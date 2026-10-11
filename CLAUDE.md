@@ -236,6 +236,10 @@ Update this block at the end of every session.
   (CI incl. 0); worst week 2025-03-28 -2.1 EM. Costs now $0.05/leg (Matteo: $0 commission); rerun with the gross
   diagnostic: weekly straddle realized/implied 1.055, strangle 0.994 (no premium even at the mid; bid haircut
   ~0.012 EM); Tuesday 1-day 0.92/0.76 (+0.05 EM at mid, not significant). B not bought; Matteo's call.
+- Study 20 DRAFT 2026-10-11 (STUDY20.md; Mack & Sinclair ch. 10/15): short VIX futures (rebuilt short-term index,
+  SVXY/SVIX-like daily -0.5x/-1x) X1 always, X2 contango, X3 after inversion normalises (book), X4 -1x + breaker;
+  discovery 2008-19, validation 2020-25/09 once, DD <= 50% proposed. Data step BUILT (src/vix_futures.py, 3 tests).
+  Next: `python -m src.vix_futures --probe`, then `python -m src.vix_futures`; approval, then study20 is built.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

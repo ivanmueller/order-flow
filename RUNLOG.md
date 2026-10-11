@@ -2566,3 +2566,12 @@ Thursday" shows in the gross numbers, mostly 2024-25; not significant, and Tuesd
 so sample B cannot test it. Inverted-curve weeks (n 5) +0.20 EM, reported only.
 Recommendation (Matteo's call): close Study 19 as pre-registered; B ($40) would mainly test whether the weekly
 premium existed in 2016-23 and could pre-register "sell after inversion" on ~50+ fresh inverted weeks.
+
+## 2026-10-11 | Study 20 DRAFTED (STUDY20.md) + free VX data step BUILT ($0, no real run)
+Matteo: next strategy from Mack & Sinclair; chose the VIX futures short after normalisation (ch. 10/15). Draft: a
+rebuilt short-term VIX futures index, daily -0.5x/-1x ETF-like positions (fees, 0.10% slippage, one-day signal lag);
+X1 always short, X2 contango only, X3 book rule (after VIX >= VIX3M, enter when it falls back, hold 20 days), X4 -1x
+contango with a 20% VIX-jump breaker. Gate per period: mean and 90% month-block lb > 0, geometric > 0, both halves,
+max DD <= 50% (proposed); discovery 2008-2019, validation 2020-2025-09 once, holdout 2025-10..2026-09.
+Built src/vix_futures.py (3 tests: expiry rule, both file formats with the pre-2007 x10 scale, front/second panel
+dropping the expiring contract) with --probe; dry run on fake Cboe files passed. URL patterns unverified until probe.
