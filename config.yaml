@@ -407,6 +407,17 @@ params:
   s18_capital_main:   {value: 25000}                        # per position (fee share and gas per $)
   s18_discovery_end:  {value: "2024-12-31"}                 # Stage A to here; validation 2025-01..09 once
   s18_seed:           {value: 20261018}
+  # Study 19 (STUDY19.md; approved 2026-10-11 "Approved as drafted", sample "A now, B if promising")
+  s19_sample:         {value: "A"}                          # A: on-disk chains; B (later, if promising): 2016..2023-05 bought, judged on those years only
+  s19_start:          {value: "2023-06-01"}                 # first entry (ThetaData free tier starts here)
+  s19_entry_weekday:  {value: 4}                            # Friday (Thursday when Friday is a holiday)
+  s19_min_days:       {value: 4}                            # weekly expiry 4..8 calendar days out, closest to 7
+  s19_max_days:       {value: 8}
+  s19_delta:          {value: 0.20}                         # short strangle strikes (forward delta)
+  s19_wing_delta:     {value: 0.02}                         # iron condor wings (reported only)
+  s19_skip_streak:    {value: 3}                            # reported filter: skip after this many straight winning weeks
+  s19_cost_stress:    {value: 2.0}                          # gate: still positive with costs x this
+  s19_seed:           {value: 20261019}
   s18_variants:       {value: [                             # fixed family; all full range, perp-hedged, hold 4 weeks
       {name: V1, margin: 0.25, forecast: har, tvl_floor: 1000000, new_pool_weeks: null},
       {name: V2, margin: 0.5, forecast: har, tvl_floor: 1000000, new_pool_weeks: null},
@@ -477,6 +488,8 @@ gates:
   study18_tail_share: 0.05          # without the best 5% of weeks, without funding, must stay > 0
   study18_min_active_weeks: 26      # Stage A
   study18_min_active_weeks_validation: 13
+  study19_min_trades: 50            # study 19 (STUDY19.md): trades per variant in sample
+  study19_holdout_min_trades: 20
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 

@@ -229,7 +229,9 @@ Update this block at the end of every session.
 - Study 19 DRAFT 2026-10-11 (STUDY19.md; from Mack & Sinclair ch. 10/14/15): weekly SPXW short volatility on the
   on-disk EOD chains; V1 20-delta strangle every Friday, V2 + VIX/VIX3M inversion skip, V3 ATM straddle + skip, V4
   Monday-entry Tuesday 1-day straddle; bid/ask fills, $1.50/leg, cash settlement; SPX holdout 2026-01..09 once.
-  Awaiting approval and sample choice (A $0 ~120 weeks, underpowered; B ~$40 ThetaData month, 2016+).
+  APPROVED 2026-10-11 (sample "A now, B if promising"; B would be judged on 2016..2023-05 only). Config s19_*,
+  study19_* added; ingest_daily adds VIX3M (FRED VXVCLS). BUILT (src/study19.py, 6 tests; dry run passed). Next:
+  `python -m src.ingest_daily --force`, then `python -m src.study19 --run`; holdout only on "run the holdout".
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -321,6 +323,8 @@ See README.md for the full runbook in order.
 - Study 17 step 0 (free): `python -m src.defi_inventory [--max-pools 50] [--min-tvl 250000]`; step 0b (The Graph key):
   `python -m src.defi_subgraph --probe`, `--max-pools 50`, then no options, `--close-only`, `--diagnose`; step 1:
   `python -m src.crypto_data --majors`, `python -m src.study17 --build`, `--discover`, then once `--validate`
+- Study 19: `python -m src.ingest_daily --force`, `python -m src.study19 --run`; holdout (passes only, once):
+  `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study19 --holdout`
 - Study 18 (free): `python -m src.defi_subgraph --chain all --probe`, `--chain all`, then `python -m src.study18 --build`,
   `--stage-a`, then once `--validate`
 - Study 16 (market-neutral crypto theses): `python -m src.study16 --all`, then `--diagnose`; holdout only on

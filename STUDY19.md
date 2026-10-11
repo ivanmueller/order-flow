@@ -1,6 +1,7 @@
 # Study 19: harvesting the index volatility premium the Sinclair & Mack way (weekly SPXW short volatility)
 
-Status: DRAFT 2026-10-11 (Matteo: "lets start with option 1"). Not approved; no config entries. Source: Mack &
+Status: APPROVED 2026-10-11 ("Approved as drafted"; sample "A now, B if promising"); config added; built in src/study19.py.
+If B is bought later, its verdict rests on the new years (2016..2023-05) only, because A's weeks will have been seen. Source: Mack &
 Sinclair, Retail Options Trading (2024), ch. 10 (volatility premium harvesting), ch. 14 (day-of-week), ch. 15
 (straddle breakout). New study family for the SPX options data; the SPX holdout (2026-01-01..2026-09-30) is sealed
 and unused by any option study, so it is available once at the end.

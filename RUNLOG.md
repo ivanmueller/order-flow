@@ -2520,3 +2520,12 @@ Friday, V2 + VIX/VIX3M inversion filter, V3 ATM straddle + filter, V4 Monday-ent
 bid/ask, $1.50/leg, cash settlement; gate mean and 90% lb > 0 in EM units, both halves, 2x costs, >= 50 trades;
 sealed SPX holdout 2026-01..09 once for passes. Sample A ($0, ~120 weeks, power ~1/2) or B (~$40 ThetaData month,
 2016+). Awaiting approval and the sample choice.
+
+## 2026-10-11 | Study 19 APPROVED ("Approved as drafted"; sample "A now, B if promising") and BUILT ($0, no real run)
+Config added: s19_sample A, s19_start 2023-06-01, s19_entry_weekday 4, s19_min_days 4, s19_max_days 8, s19_delta 0.20,
+s19_wing_delta 0.02, s19_skip_streak 3, s19_cost_stress 2.0, s19_seed 20261019; gates study19_min_trades 50,
+study19_holdout_min_trades 20. Pre-registered for B: if bought later, B is judged on 2016..2023-05 only (A's weeks
+will have been seen). ingest_daily now also fetches FRED VXVCLS (vix3m_close; generalized merge).
+src/study19.py (6 hand-verified tests: weekly expiry choice incl. holiday, forward-delta strikes, straddle/strangle/
+condor settlement with bid/ask and fees, inversion and streak filters, gate, worst-week-twice). Synthetic dry run
+(IV 16% vs realized 12% planted): V1 +0.15 EM, V3 +0.29 EM (~ the planted 25% premium), all pass; one-day ~0.

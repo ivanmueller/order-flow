@@ -190,6 +190,9 @@ python -m src.defi_subgraph --chain all
 python -m src.study18 --build
 python -m src.study18 --stage-a
 python -m src.study18 --validate    # once, only Stage A passes
+#     Study 19 (weekly SPXW volatility premium)
+python -m src.ingest_daily --force   # adds VIX3M
+python -m src.study19 --run
 #     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
 #     crypto_data --btc --holdout, then study16 --holdout
 
