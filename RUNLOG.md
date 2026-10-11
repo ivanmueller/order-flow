@@ -2552,3 +2552,17 @@ trade (fees are tiny against a 60-100 point weekly move). Bug fixed: XSP dollar 
 XSP legs now pay the per-contract cost in full (10x relatively). Gate unchanged otherwise. Needs a rerun of --run.
 Note on the reported "inverted weeks" line: n = 5, reported-only, not a pre-registered variant; its bootstrap
 interval on 5 points is not meaningful.
+
+## 2026-10-11 (laptop, 00:45 PT) | Study 19 --run rerun at $0.05/leg with the gross-premium diagnostic (commit c3362eb)
+Gated results unchanged in substance (V1 -0.003, V2 -0.011, V3 -0.085, V4 +0.036 EM; all FAIL); at $0.00/leg V1
+-0.0029, V4 +0.0365: commission was never the issue. XSP $ now with per-contract costs (V1 -$632 total).
+Diagnostic, realized payoff / mid premium (1.0 = no premium) and P&L at the MID:
+weekly straddle 1.055 overall (2023 1.15, 2024 1.07, 2025 1.01), at mid -0.060 EM; weekly strangle 0.994, at mid
++0.005 EM. Bid haircut only ~0.012 EM. => In 2023-25 the weekly SPXW premium was ABSENT even before execution; the
+17:00 curb bid is not what killed it.
+One-day: Tuesday (Monday entry) straddle 0.918, strangle 0.758 (2023 1.13/1.30, 2024 0.92/0.87, 2025 0.85/0.52),
+at mid +0.052 / +0.052 EM; Thursday 1.044 / 1.045, at mid -0.035 / -0.008. The book's "short vol Tuesday, long vol
+Thursday" shows in the gross numbers, mostly 2024-25; not significant, and Tuesday SPXW expiries only exist since 2022,
+so sample B cannot test it. Inverted-curve weeks (n 5) +0.20 EM, reported only.
+Recommendation (Matteo's call): close Study 19 as pre-registered; B ($40) would mainly test whether the weekly
+premium existed in 2016-23 and could pre-register "sell after inversion" on ~50+ fresh inverted weeks.

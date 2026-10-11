@@ -233,7 +233,9 @@ Update this block at the end of every session.
   study19_* added; ingest_daily adds VIX3M (FRED VXVCLS). BUILT (src/study19.py, 6 tests; dry run passed). Next:
   `python -m src.ingest_daily --force`, then `python -m src.study19 --run`; holdout only on "run the holdout".
   Run 2026-10-11 (sample A, 131 weeks): ALL FOUR FAIL: V1 -0.003 EM/wk, V2 -0.011, V3 -0.086, V4 Tuesday +0.035
-  (CI incl. 0); worst week 2025-03-28 -2.1 EM. Gross-premium diagnostic added (rerun --run); B not bought.
+  (CI incl. 0); worst week 2025-03-28 -2.1 EM. Costs now $0.05/leg (Matteo: $0 commission); rerun with the gross
+  diagnostic: weekly straddle realized/implied 1.055, strangle 0.994 (no premium even at the mid; bid haircut
+  ~0.012 EM); Tuesday 1-day 0.92/0.76 (+0.05 EM at mid, not significant). B not bought; Matteo's call.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
