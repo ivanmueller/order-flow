@@ -2584,3 +2584,8 @@ src/study20.py (5 tests: index roll weights and front drop the day before expiry
 and the one-day execution lag, slippage on position changes, stats/gate). Synthetic 2006-2025 dry run with a planted
 roll yield and three crashes (2008-10-06, 2018-02-05, 2020-03-09): crash days are the index's biggest days, X4 (-1x)
 fails the drawdown limit, the -0.5x variants pass, validation runs only for discovery passes; nothing real run.
+
+## 2026-10-11 (laptop, 01:04 PT) | Study 20 data: probe OK, first fetch stopped (403 on a non-existent file)
+Probe: VX_<expiry>.csv works (2018-02, 2024-01); CFE_<M><YY>_VX.csv archive works (2006-03, 2010-06, 2018-02); Cboe
+returns 403 (not 404) for files that do not exist, which the fetch treated as an error and stopped at its first
+request (VX_2004-03-17). Fix: 403 = missing. Nothing parsed; files written so far, if any, are kept (idempotent).

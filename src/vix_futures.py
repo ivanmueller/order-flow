@@ -84,7 +84,7 @@ def _get(url: str):
     for k in range(4):
         try:
             r = requests.get(url, timeout=60, headers={"User-Agent": "Mozilla/5.0 (research script)"})
-            if r.status_code == 404:
+            if r.status_code in (403, 404):                       # Cboe answers 403 for files that do not exist
                 return None
             r.raise_for_status()
             return r.text
