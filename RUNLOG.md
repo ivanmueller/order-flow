@@ -2595,3 +2595,12 @@ The fetch completed (no counts printed: the crash came in build_panel). pandas r
 12 fields for an 11-column header (trailing field). Parser now reads rows by header position, ignores extra trailing
 fields, skips short rows, and build_panel lists unreadable files instead of stopping. study20 --discover then failed
 only because the panel was not built. Nothing analysed.
+
+## 2026-10-11 (laptop, 01:19 PT) | Study 20 data built; first --discover DISCARDED (spot history started 2019)
+vix_futures: 268 contract files on disk (6 future months not found), 264 parsed, 0 unreadable; panel 5,534 days
+2004-03-26..2026-09-15. --discover ran on 2019 only (252 days) because study20 joined the shared FRED daily file,
+which ingest_daily cuts at 2019-01-01: results discarded (not a discovery verdict). Sanity on 2019-2025 index years:
+2019 -68.5%, 2021 -72.3%, 2023 -73.7% (VXX-like); 2020 +12.8% (to be checked: VXX was higher); biggest days
+2024-08-05 +42%, 2020-06-11 +39%, 2020-03-16 +35%. Fix: vix_futures --spot downloads Study 20's own VIX/VIX3M
+history from FRED (VIX 1990+, VIX3M 2007-12+); the shared file is untouched. Added study20 --check-etf (rule 6):
+rebuilt index vs VXX, -0.5x vs SVXY, -1x vs SVIX, in sample only (needs pip install yfinance).

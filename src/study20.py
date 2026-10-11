@@ -145,10 +145,16 @@ def load(cfg, include_holdout: bool = False) -> pd.DataFrame:
     if not include_holdout:
         L, P = L[L["date"] < hs], P[P["date"] < hs]
     I = index_returns(L)
-    daily = store.load_daily(cfg, include_holdout=include_holdout)
-    if "vix3m_close" not in daily:
-        raise SystemExit("VIX3M missing: run python -m src.ingest_daily --force")
-    if not include_holdout:
+    spot_f = data_path(cfg, "raw", "vix_futures", "spot.parquet")
+    if not spot_f.exists():
+        raise SystemExit("VIX/VIX3M history missing: run python -m src.vix_futures --spot")
+    daily = pd.read_parquet(spot_f).rename(columns={"vix": "vix_close", "vix3m": "vix3m_close"})
+    daily["date"] = pd.to_datetime(daily["date"]).dt.date
+    if include_holdout:
+        from src.calendar import holdout_unsealed
+        if not holdout_unsealed():
+            raise SystemExit("holdout needs GAMMA_EDGE_RUN_HOLDOUT=1")
+    else:
         daily = daily[daily["date"] < hs]
     D = I.merge(P[["date", "vx1", "vx2"]], on="date").merge(daily[["date", "vix_close", "vix3m_close"]], on="date")
     D = D.dropna(subset=["ret"]).sort_values("date").reset_index(drop=True)
@@ -200,6 +206,41 @@ def _sanity(D) -> dict:
             "share_days_contango": round(float((D["vx1"] < D["vx2"]).mean()), 3),
             "share_days_vix_inverted": round(float((D["vix_close"] >= D["vix3m_close"]).mean()), 3),
             "first_date": str(D["date"].min()), "last_date": str(D["date"].max())}
+
+
+def check_etf(cfg) -> dict:
+    """Rule 6: the rebuilt index and the simulated -0.5x/-1x legs against the real ETFs (VXX, SVXY, SVIX) over their
+    in-sample histories (yfinance, optional: pip install yfinance). Daily return correlation and yearly returns."""
+    try:
+        import yfinance as yf
+    except ImportError:
+        raise SystemExit("pip install yfinance (only needed for this check)")
+    D = load(cfg)
+    idx = pd.Series(D["ret"].to_numpy(), index=pd.to_datetime(D["date"]))
+    hs = pd.Timestamp(param(cfg, "s20_holdout_start"))
+    legs = {"VXX": (idx, None), "SVXY": (pd.Series(etf_return(idx, param(cfg, "s20_leverage_half"),
+                                                                param(cfg, "s20_fee_half")), index=idx.index),
+                                         "2018-03-01"),
+            "SVIX": (pd.Series(etf_return(idx, param(cfg, "s20_leverage_full"), param(cfg, "s20_fee_full")),
+                               index=idx.index), "2022-04-01")}
+    out = {}
+    for tk, (sim, start) in legs.items():
+        px = yf.download(tk, start=start or "2018-01-01", end=str(hs.date()), auto_adjust=True, progress=False)
+        if px is None or len(px) == 0:
+            out[tk] = "no data"
+            continue
+        close = px["Close"].squeeze()
+        real = close.pct_change().dropna()
+        real.index = pd.to_datetime(real.index).tz_localize(None)
+        both = pd.concat([sim.rename("sim"), real.rename("real")], axis=1, join="inner").dropna()
+        yr = both.groupby(both.index.year).apply(lambda x: (round(float(np.prod(1 + x["sim"]) - 1), 3),
+                                                             round(float(np.prod(1 + x["real"]) - 1), 3)))
+        out[tk] = {"days": int(len(both)), "corr": round(float(both["sim"].corr(both["real"])), 4),
+                   "mean_abs_daily_gap": round(float((both["sim"] - both["real"]).abs().mean()), 5),
+                   "by_year_sim_vs_real": {int(k): v for k, v in yr.items()},
+                   "biggest_gaps": {str(k.date()): (round(float(r.sim), 3), round(float(r.real), 3))
+                                    for k, r in both.assign(g=(both["sim"] - both["real"]).abs()).nlargest(5, "g").iterrows()}}
+    return {"study": 20, "check": "rebuilt index vs real ETFs (in sample only)", **out}
 
 
 def discover(cfg) -> dict:
@@ -256,10 +297,12 @@ def main(argv=None):
     g.add_argument("--discover", action="store_true")
     g.add_argument("--validate", action="store_true")
     g.add_argument("--holdout", action="store_true")
+    g.add_argument("--check-etf", action="store_true", help="rule 6: compare with VXX/SVXY/SVIX (needs yfinance)")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
-    r = discover(cfg) if a.discover else validate(cfg) if a.validate else run_holdout(cfg)
+    r = (discover(cfg) if a.discover else validate(cfg) if a.validate else check_etf(cfg) if a.check_etf
+         else run_holdout(cfg))
     from src.analysis import to_json
     print(to_json(r))
 

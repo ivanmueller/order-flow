@@ -9,6 +9,7 @@ Before 2007-03-26 VX traded as 10 x VIX ("VBI"); those prices are divided by 10 
 
   python -m src.vix_futures --probe        # which patterns answer (a handful of requests)
   python -m src.vix_futures                # fetch 2004-03..2026-12 contracts (~275 files), then build the panel
+  python -m src.vix_futures --spot         # VIX + VIX3M full history from FRED (Study 20's own copy)
   python -m src.vix_futures --panel        # rebuild data/derived/vix_futures_panel.parquet from the files only
 Holdout rows are kept in the raw files (prices only) but every Study 20 load seals them by s20_holdout_start.
 """
@@ -177,6 +178,24 @@ def build_panel(cfg) -> dict:
             str(P["date"].max()), "note": "panel includes dates after the Study 20 holdout start; loads seal them"}
 
 
+def fetch_spot(cfg) -> dict:
+    """Full-history VIX and VIX3M closes from FRED (no key) for Study 20 only; the shared daily file starts in 2019."""
+    import requests
+    from src.ingest_daily import parse_fred_csv, SERIES
+    frames = []
+    for series, name in (("VIXCLS", "vix"), ("VXVCLS", "vix3m")):
+        r = requests.get(cfg["data"]["fred_url"].format(series=series), timeout=60)
+        r.raise_for_status()
+        f = parse_fred_csv(r.text, series).rename(columns={SERIES[series]: name})
+        frames.append(f)
+    df = frames[0].merge(frames[1], on="date", how="outer").sort_values("date").reset_index(drop=True)
+    out = _root(cfg) / "spot.parquet"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(out)
+    return {"rows": int(len(df)), "vix_from": str(df.dropna(subset=["vix"])["date"].min()),
+            "vix3m_from": str(df.dropna(subset=["vix3m"])["date"].min())}
+
+
 def probe() -> dict:
     out = {}
     for (y, m) in ((2024, 1), (2018, 2), (2010, 6), (2006, 3)):
@@ -194,6 +213,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--probe", action="store_true")
     ap.add_argument("--panel", action="store_true")
+    ap.add_argument("--spot", action="store_true", help="only refresh the VIX/VIX3M history (FRED)")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
@@ -201,8 +221,10 @@ def main(argv=None):
         r = probe()
     elif a.panel:
         r = build_panel(cfg)
+    elif a.spot:
+        r = fetch_spot(cfg)
     else:
-        r = {"fetch": fetch(cfg), "panel": build_panel(cfg)}
+        r = {"fetch": fetch(cfg), "panel": build_panel(cfg), "spot": fetch_spot(cfg)}
     print(json.dumps(r, indent=1, default=str))
 
 
