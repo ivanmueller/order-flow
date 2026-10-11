@@ -144,7 +144,9 @@ def trade_one(q: pd.DataFrame, entry: dt.date, expiry: dt.date, settle: float, r
     row = {"entry": entry, "expiry": expiry, "F": F, "K": K, "em": em, "settle": settle, "T": T,
            "Kc": Kc, "Kp": Kp, "straddle": straddle_pnl(w, K, settle, fee), "strangle": strangle_pnl(w, Kc, Kp, settle, fee),
            "straddle_credit": float(w.loc[K, "bid_C"] + w.loc[K, "bid_P"]),
-           "strangle_credit": float(w.loc[Kc, "bid_C"] + w.loc[Kp, "bid_P"]), "fee": fee}
+           "strangle_credit": float(w.loc[Kc, "bid_C"] + w.loc[Kp, "bid_P"]), "fee": fee,
+           "strangle_mid": float(w.loc[Kc, "mid_C"] + w.loc[Kp, "mid_P"]), "straddle_payoff": abs(settle - K),
+           "strangle_payoff": max(settle - Kc, 0.0) + max(Kp - settle, 0.0)}
     if np.isfinite(Kc2) and np.isfinite(Kp2) and Kc2 > Kc and Kp2 < Kp:
         row.update(Kc2=Kc2, Kp2=Kp2, condor=condor_pnl(w, Kc, Kp, Kc2, Kp2, settle, fee))
     if row["straddle_credit"] <= 0 or row["strangle_credit"] <= 0:
@@ -260,7 +262,32 @@ def evaluate(T: pd.DataFrame, cfg, seed_offset: int = 0) -> dict:
         rep["v1_stress"] = {"worst_weekly_move_down_pct": round(worst_dn * 100, 2), "up_pct": round(worst_up * 100, 2),
                             "worst_loss_xsp_usd": round(float(min(stress_loss)) * mult, 1),
                             "median_loss_xsp_usd": round(float(np.median(stress_loss)) * mult, 1)}
+    rep["gross_premium_by_year"] = premium_breakdown(T)
     return {"variants": out, "reported": rep}
+
+
+def premium_breakdown(T: pd.DataFrame) -> dict:
+    """Diagnostic (not gated): is there a premium before execution? Per kind and year: realized payoff / implied
+    (mid) premium for the straddle and the strangle, the straddle P&L at the mid and at the bid (both after fees),
+    and the bid-side haircut, all in EM units."""
+    if "strangle_mid" not in T:
+        return {}
+    out = {}
+    for kind, X in T.groupby("kind"):
+        X = X.assign(year=pd.to_datetime(X["entry"]).dt.year)
+        out[kind] = {}
+        for y, Y in list(X.groupby("year")) + [("all", X)]:
+            em = Y["em"]
+            out[kind][str(y)] = {
+                "n": int(len(Y)),
+                "straddle_payoff_over_mid": round(float(Y["straddle_payoff"].sum() / em.sum()), 3),
+                "strangle_payoff_over_mid": round(float(Y["strangle_payoff"].sum() / Y["strangle_mid"].sum()), 3),
+                "straddle_at_mid_em": round(float(((em - Y["straddle_payoff"] - 2 * Y["fee"]) / em).mean()), 4),
+                "straddle_at_bid_em": round(float((Y["straddle"] / em).mean()), 4),
+                "bid_haircut_em": round(float(((em - Y["straddle_credit"]) / em).mean()), 4),
+                "strangle_at_mid_em": round(float(((Y["strangle_mid"] - Y["strangle_payoff"] - 2 * Y["fee"]) / em).mean()), 4),
+                "mean_vix": round(float(Y["vix"].mean()), 1)}
+    return out
 
 
 def run(cfg) -> dict:

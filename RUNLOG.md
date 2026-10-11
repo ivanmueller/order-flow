@@ -2529,3 +2529,17 @@ will have been seen). ingest_daily now also fetches FRED VXVCLS (vix3m_close; ge
 src/study19.py (6 hand-verified tests: weekly expiry choice incl. holiday, forward-delta strikes, straddle/strangle/
 condor settlement with bid/ask and fees, inversion and streak filters, gate, worst-week-twice). Synthetic dry run
 (IV 16% vs realized 12% planted): V1 +0.15 EM, V3 +0.29 EM (~ the planted 25% premium), all pass; one-day ~0.
+
+## 2026-10-11 (laptop, 00:34 PT) | Study 19 --run, sample A (commit d3903fe; $0)
+ingest_daily --force: 1,987 rows to 2026-10-09 with vix3m_close. Trades 2023-06-02..2025-12-30: weekly 131,
+Tuesday one-day 121, Thursday one-day 123 (skipped: 5 unpriced, 1 weekly without expiry/settlement).
+Gate (per trade, EM units, after bid/ask and $1.50/leg): ALL FOUR FAIL.
+V1 strangle every Friday: -0.003 EM (CI -0.071..+0.061), win 66%, worst -2.10 EM (2025-03-28, SPX -8.8%), XSP total
+-$658 / 131 weeks, max DD $3.6k. V2 (skip inverted, 5 weeks skipped): -0.011 (CI -0.078..+0.052). V3 straddle +
+skip: -0.086 (CI -0.186..+0.016), win 49%, XSP -$9.4k. V4 Tuesday one-day: +0.035 (CI -0.071..+0.140), XSP +$2.6k.
+Reported: condor -0.026; Thursday one-day -0.055 (Tuesday minus Thursday +0.09, as the book; not significant);
+after 3 winning weeks -0.136 (n 32) vs otherwise +0.039 (n 99) -- the ch. 15 breakout direction, not significant;
+inverted weeks +0.20 (n 5); VIX quintiles mixed; stress (worst sample moves -8.8% / +5.9%): worst -$5.1k per XSP.
+Rule 6 on a negative: added a gated-neutral diagnostic (gross premium by kind and year: realized payoff / mid
+premium, straddle P&L at the mid vs at the bid, bid haircut) to tell "no premium" from "premium eaten by the 17:00
+curb bid". Needs a rerun of --run (gated numbers unchanged; verified on synthetic data). B NOT bought.
