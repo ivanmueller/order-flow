@@ -12,6 +12,8 @@ Rows on or after s14_holdout_start are never requested (date filter in the query
   python -m src.defi_subgraph --max-pools 50          # quick run
   python -m src.defi_subgraph                         # default: top 1,000 v3 pools and top 500 v2 pairs by volume
   python -m src.defi_subgraph --close-only            # same pools from the local cache, close-to-close variance
+  python -m src.defi_subgraph --chain all --probe     # Study 18: check the Arbitrum and Base subgraphs
+  python -m src.defi_subgraph --chain all             # Study 18: cache top 1,000 v3 pools per chain (free)
   python -m src.defi_subgraph --diagnose              # tails, robust stats, ex-ante look (weeks before 2025 only)
 Needs THEGRAPH_API_KEY in .env. Subgraph ids are options (--v3-id / --v2-id) in case Uniswap moves them.
 """
@@ -198,6 +200,54 @@ def probe(v3_id: str, v2_id: str, root: Path) -> dict:
     return out
 
 
+CHAINS = {"arbitrum": "FQ6JYszEKApsBpAmiHesRsd9Ygc6mzmpNRANeVQFYoVX",   # Uniswap V3 Arbitrum (The Graph Explorer)
+          "base": "FUbEPQw1oMghy39fwWBFY5fE6MXPXZQtjncQy2cXdrNS"}       # Uniswap V3 Base
+
+
+def probe_chains(chains: dict, root: Path) -> dict:
+    """Per chain: top pools by volume and one day row with every field Study 18 needs (schema check)."""
+    key, out = _key(), {}
+    for name, sid in chains.items():
+        try:
+            g = Graph(key, sid, root / "probe" / f"{name}_{int(time.time())}", 0)
+            rows = g.q("pools", V3_POOLS.replace("first:1000", "first:3"), {"skip": 0})["pools"]
+            day = g.q("day", V3_DAYS.replace("first:1000", "first:1"), {"pool": rows[0]["id"], "date_gt": 0,
+                                                                         "end": 2_000_000_000})["poolDayDatas"]
+            need = {"date", "liquidity", "sqrtPrice", "feesUSD", "tvlUSD", "high", "low", "close"}
+            out[name] = {"ok": bool(day) and need <= set(day[0]),
+                         "top": [f"{r['token0']['symbol']}-{r['token1']['symbol']}" for r in rows],
+                         "first_day": str(pd.Timestamp(int(day[0]["date"]), unit="s").date()) if day else None}
+        except Exception as e:
+            out[name] = {"ok": False, "error": str(e)[:300]}
+    return out
+
+
+def fetch_chain(cfg, chain: str, sid: str, n: int, pause: float) -> dict:
+    """Cache the top-n v3 pools by all-time volume and their daily rows (before the holdout) for one chain.
+    Free (The Graph key); idempotent (cached queries are not repeated); stablecoin pairs skipped."""
+    key, root = _key(), data_path(cfg, "raw", "defi_subgraph", chain)
+    end = int(pd.Timestamp(param(cfg, "s14_holdout_start"), tz="UTC").timestamp())
+    g = Graph(key, sid, root / "v3", pause)
+    pools = []
+    for s in range(0, n, 1000):
+        pools += g.q(f"pools_{s}", V3_POOLS, {"skip": s})["pools"]
+    counts = {"pools": 0, "stable": 0, "fetched": 0, "errors": 0}
+    for i, p in enumerate(pools[:n]):
+        counts["pools"] += 1
+        if is_stable_pair(p["token0"]["symbol"], p["token1"]["symbol"]):
+            counts["stable"] += 1
+            continue
+        try:
+            g.paged(f"days_{p['id']}", V3_DAYS, "poolDayDatas", {"pool": p["id"], "date_gt": 0, "end": end}, "date")
+            counts["fetched"] += 1
+        except Exception as e:
+            counts["errors"] += 1
+            log.warning("%s %s: %s", chain, p.get("id"), str(e)[:200])
+        if i % 100 == 0:
+            log.info("%s: %d of %d pools", chain, i, min(n, len(pools)))
+    return {chain: counts}
+
+
 def run(cfg, n_v3: int, n_v2: int, v3_id: str, v2_id: str, pause: float, min_median_tvl: float,
         close_only: bool = False) -> dict:
     """close_only=True: rebuild from the local cache only (no queries) with close-to-close variance; outputs get a
@@ -365,6 +415,7 @@ def diagnose(cfg) -> dict:
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--probe", action="store_true")
+    ap.add_argument("--chain", choices=["arbitrum", "base", "all"], help="Study 18: probe or fetch Uniswap v3 on an L2")
     ap.add_argument("--close-only", action="store_true", help="rebuild from the local cache, close-to-close variance")
     ap.add_argument("--diagnose", action="store_true", help="tails, robust stats, ex-ante look (saved weeks only)")
     ap.add_argument("--max-pools", type=int, default=1000, help="v3 pools by all-time volume")
@@ -376,7 +427,15 @@ def main(argv=None):
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
-    if a.diagnose:
+    if a.chain:
+        chains = CHAINS if a.chain == "all" else {a.chain: CHAINS[a.chain]}
+        if a.probe:
+            r = probe_chains(chains, data_path(cfg, "raw", "defi_subgraph"))
+        else:
+            r = {}
+            for name, sid in chains.items():
+                r.update(fetch_chain(cfg, name, sid, a.max_pools, a.pause))
+    elif a.diagnose:
         r = diagnose(cfg)
     elif a.probe:
         r = probe(a.v3_id, a.v2_id, data_path(cfg, "raw", "defi_subgraph"))

@@ -2461,3 +2461,14 @@ m0.5 HAR -0.104% (CI -0.190..-0.023, p 0.85); m0 HAR -0.046% (CI -0.102..+0.005,
 FAIL on all four by the rules (mean <= 0, lb <= 0, placebo p > 0.05). Validation period spent for Study 17; the
 sealed year 2025-10..2026-09 untouched. Discovery's edge (fees minus loss +0.4%/wk in 2020-21, ~0 since 2022)
 and funding did not carry into 2025.
+
+## 2026-10-10 | Study 18 DRAFTED (STUDY18.md) + free L2 data step BUILT ($0, no real run)
+Matteo: "Okay lets do this" (to drafting Study 18: Study 17's design on cheap-gas chains). Hypothesis stated in
+advance: the 2020-21 liquidity edge moved to younger, less professional venues. Uniswap v3 on Arbitrum
+(subgraph FQ6JYszEKApsBpAmiHesRsd9Ygc6mzmpNRANeVQFYoVX) and Base (FUbEPQw1oMghy39fwWBFY5fE6MXPXZQtjncQy2cXdrNS),
+ids from The Graph Explorer, unverified until Matteo's probe. Family of 4 fixed variants (no grid): V1 m0.25 HAR
+TVL $1M, V2 m0.5 HAR TVL $1M, V3 V1 with TVL $250k, V4 V1 on pools < 26 weeks old; all full range, perp-hedged, hold
+4 weeks. Gate requires WITH and WITHOUT funding. Proposed params s18_* (gas $0.50/tx, capital $25k, discovery to
+2024-12); not in config.yaml until approved. Built: defi_subgraph --chain arbitrum|base|all [--probe] (probe checks
+every needed field; fetch caches top 1,000 v3 pools per chain, days before the holdout, stable pairs skipped);
+dry-run with a fake subgraph passed.
