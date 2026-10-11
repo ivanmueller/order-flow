@@ -214,7 +214,9 @@ Update this block at the end of every session.
   profit is perp FUNDING (basis trade), not fees; stale pool prices may hide loss. `--diagnose` built (components,
   market-path loss, without funding); diagnose run: stale prices cleared; ~60% of net is funding (carry); without
   funding +0.13..+0.17%/wk, selection beats random (p 0.005), but ~0 since 2022. Proposed: validation must pass with
-  AND without funding (Matteo's call before --validate). --validate NOT run.
+  AND without funding (Matteo's call before --validate). VALIDATION run once 2026-10-10 (2025-01..09, 38 weeks): all
+  four FAIL even with funding: -0.05..-0.10%/wk net (gross +0.01..+0.06), placebo p 0.24-0.85; k = 2/5 worse (CIs
+  < 0). Validation spent; holdout untouched. Awaiting Matteo's call (close Study 17).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

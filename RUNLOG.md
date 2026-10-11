@@ -2450,3 +2450,14 @@ Not yet stressed: 2021 gas ($40/tx assumed; often $100+ then). Venue: Binance pe
 resident; funding elsewhere differs.
 Proposed before validation (Matteo's call): require BOTH net and net-without-funding to pass the validation gate,
 since the funding part is a separate, already-known carry trade.
+
+## 2026-10-10 (laptop, 17:21 PT) | Study 17 step 1: --validate, ONCE (commit 7d1fbd0; $0)
+Run before the proposed dual gate was decided; moot: every frozen cell fails the pre-registered gate WITH funding.
+2025-01-06..2025-09-22, 38 weeks, 36 active. Net per week (with funding, after costs, full range, $100k):
+m0.5 trailing -0.052% (CI -0.110..-0.000, placebo p 0.24); m0.25 HAR -0.057% (CI -0.134..+0.011, p 0.52);
+m0.5 HAR -0.104% (CI -0.190..-0.023, p 0.85); m0 HAR -0.046% (CI -0.102..+0.005, p 0.59). Gross (before costs)
++0.01..+0.06%/wk; selection no better than random pools. Concentration worse: k = 2 -0.16..-0.25%/wk, k = 5
+-0.28..-0.55%/wk (CIs below zero). All negative in both halves and without the best 5% of weeks.
+FAIL on all four by the rules (mean <= 0, lb <= 0, placebo p > 0.05). Validation period spent for Study 17; the
+sealed year 2025-10..2026-09 untouched. Discovery's edge (fees minus loss +0.4%/wk in 2020-21, ~0 since 2022)
+and funding did not carry into 2025.

@@ -132,3 +132,8 @@ Expected: the hedged, selected pocket earns a small positive Sharpe in discovery
 - Validation (`--validate`) runs once (a marker file refuses a rerun); HAR coefficients from discovery.
 - Synthetic dry run (scratch data): planted fee/variance regime found in discovery (search p 0.005, 4 frozen);
   in a calm synthetic 2025 all four fail the validation placebo (selection no better than random), as it should.
+
+### Result (2026-10-10)
+Discovery: 4 frozen (full range, perp-hedged, hold 4 weeks, TVL >= $1M), +0.38..+0.44%/wk, ~60% of it funding;
+without funding +0.13..+0.17%/wk, ~0 since 2022. Validation (2025-01..09, once): all four FAIL, -0.05..-0.10%/wk
+net with funding, selection no better than random pools (placebo p 0.24-0.85); concentrated ranges worse.
