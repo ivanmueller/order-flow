@@ -2543,3 +2543,12 @@ inverted weeks +0.20 (n 5); VIX quintiles mixed; stress (worst sample moves -8.8
 Rule 6 on a negative: added a gated-neutral diagnostic (gross premium by kind and year: realized payoff / mid
 premium, straddle P&L at the mid vs at the bid, bid haircut) to tell "no premium" from "premium eaten by the 17:00
 curb bid". Needs a rerun of --run (gated numbers unchanged; verified on synthetic data). B NOT bought.
+
+## 2026-10-11 | Study 19 cost change (Matteo: "remove all commission"; $0 commission broker)
+Config: s19_cost_per_leg_usd 0.05 (exchange/regulatory pass-through kept, as Study 10's approved $0-commission case;
+set to 0 if Matteo's statements show truly $0 all-in), s19_report_cost_per_leg_usd [0.00, 0.05, 1.50] reported side
+by side. Was opt_cost_per_leg_usd 1.50 (shared with Study 4, unchanged). Effect on SPX-unit results ~0.0005 EM per
+trade (fees are tiny against a 60-100 point weekly move). Bug fixed: XSP dollar figures charged SPX-contract fees;
+XSP legs now pay the per-contract cost in full (10x relatively). Gate unchanged otherwise. Needs a rerun of --run.
+Note on the reported "inverted weeks" line: n = 5, reported-only, not a pre-registered variant; its bootstrap
+interval on 5 points is not meaningful.

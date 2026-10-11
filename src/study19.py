@@ -2,7 +2,7 @@
 
 Entry at the 17:00 ET end-of-day report of the entry day (Friday for the weeklies, Monday/Wednesday for the one-day
 trades), held to cash settlement at the SPX close of the expiry day; sell at the bid, buy at the ask, cost
-opt_cost_per_leg_usd per leg, no adjustment. Forward and discount from put-call parity (gex.fit_forward), deltas
+s19_cost_per_leg_usd per leg (pass-through fees at $0 commission), no adjustment. Forward and discount from put-call parity (gex.fit_forward), deltas
 are forward Black-76 deltas from mid implied vols. P&L in SPX points, in EM units (EM = ATM straddle mid at entry),
 and in dollars per XSP contract (1/10 SPX).
 
@@ -138,7 +138,7 @@ def trade_one(q: pd.DataFrame, entry: dt.date, expiry: dt.date, settle: float, r
     d, wd = param(cfg, "s19_delta"), param(cfg, "s19_wing_delta")
     Kc, Kp = delta_strike(*vols["C"], F, T, d, "C"), delta_strike(*vols["P"], F, T, d, "P")
     Kc2, Kp2 = delta_strike(*vols["C"], F, T, wd, "C"), delta_strike(*vols["P"], F, T, wd, "P")
-    fee = param(cfg, "opt_cost_per_leg_usd") / cfg["market"]["option_multiplier"]
+    fee = param(cfg, "s19_cost_per_leg_usd") / cfg["market"]["option_multiplier"]   # SPX points per SPX leg
     if not (np.isfinite(em) and em > 0 and np.isfinite(Kc) and np.isfinite(Kp)):
         return None
     row = {"entry": entry, "expiry": expiry, "F": F, "K": K, "em": em, "settle": settle, "T": T,
@@ -225,7 +225,12 @@ def evaluate(T: pd.DataFrame, cfg, seed_offset: int = 0) -> dict:
         st = series_stats(em_pnl, draws, seed, lvl)
         st["stress_mean"] = float(((X[col] - (stress - 1) * legs * X["fee"]) / X["em"]).mean()) if len(X) else np.nan
         st["pass"] = passes(st, g["study19_min_trades"])
-        usd = X[col] * mult
+        # per XSP contract (1/10 SPX): gross points x $10, minus the per-contract cost on each XSP leg
+        usd = (X[col] + legs * X["fee"]) * mult - legs * param(cfg, "s19_cost_per_leg_usd")
+        alt = param(cfg, "s19_report_cost_per_leg_usd")
+        st["mean_em_at_reported_costs"] = {str(c): float(((X[col] + legs * X["fee"]
+                                                          - legs * c / cfg["market"]["option_multiplier"]) / X["em"]).mean())
+                                           for c in alt} if len(X) else {}
         cum = usd.cumsum()
         st["xsp_usd"] = {"mean_per_trade": float(usd.mean()) if len(X) else None,
                          "total": float(usd.sum()), "max_drawdown": float((cum.cummax() - cum).max()) if len(X) else None,

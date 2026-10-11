@@ -417,6 +417,8 @@ params:
   s19_wing_delta:     {value: 0.02}                         # iron condor wings (reported only)
   s19_skip_streak:    {value: 3}                            # reported filter: skip after this many straight winning weeks
   s19_cost_stress:    {value: 2.0}                          # gate: still positive with costs x this
+  s19_cost_per_leg_usd: {value: 0.05}                       # 2026-10-11 Matteo: $0 commission; exchange/regulatory pass-through kept (as Study 10)
+  s19_report_cost_per_leg_usd: {value: [0.0, 0.05, 1.50]}   # reported side by side, not gated
   s19_seed:           {value: 20261019}
   s18_variants:       {value: [                             # fixed family; all full range, perp-hedged, hold 4 weeks
       {name: V1, margin: 0.25, forecast: har, tvl_floor: 1000000, new_pool_weeks: null},
