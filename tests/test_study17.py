@@ -119,3 +119,11 @@ def test_series_stats_and_tail():
     s = pd.Series([0.01] * 19 + [1.0])
     st = s17.series_stats(s, draws=500, seed=1, level=0.9, tail=0.05)
     assert st["mean"] == pytest.approx((0.19 + 1.0) / 20) and st["without_best_tail"] == pytest.approx(0.01)
+
+
+def test_components_add_up_to_the_hedged_result():
+    P = [100.0, 121.0, 110.0, 115.0, 115.0, 100.0, 104.0, 104.0]
+    r = s17.simulate_weeks(**_week(P, fees=3.0, Lpool=10.0, F0=0.0003), vol0=True, vol1=False, k=1, capital=1.0,
+                           perp_fee=0.0005)
+    assert r["g_perp"][0] == pytest.approx(r["fees"][0] + r["value"][0] + r["hedge_px"][0] + r["funding"][0] - r["reb"][0])
+    assert r["g_none"][0] == pytest.approx(r["fees"][0] + r["value"][0])

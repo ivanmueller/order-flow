@@ -15,6 +15,7 @@ Forecast: log-HAR on 1/7/28-day realized variance, fit on discovery weeks only, 
   python -m src.crypto_data --majors          # BTCUSDT and ETHUSDT hourly bars and funding (free)
   python -m src.study17 --build               # pool-week table from the step-0b subgraph cache + Binance data
   python -m src.study17 --discover            # 48 cells, placebo per cell, search noise test, freeze <= 4
+  python -m src.study17 --diagnose            # discovery only: components, market path, concentration (rule 6)
   python -m src.study17 --validate            # ONCE: frozen cells on 2025-01..09 (never looked at ex ante)
 """
 from __future__ import annotations
@@ -72,7 +73,9 @@ def simulate_weeks(P, p0, p1, fees, Lpool, F0, F1, hi_x, lo_x, vol0, vol1, k, ca
     reb = perp_fee * (np.abs(np.diff(x[:, :-1], axis=1)) * p0[:, 1:-1] * vol0      # resets at the ends of days 1..6
                       + np.abs(np.diff(y[:, :-1], axis=1)) * p1[:, 1:-1] * vol1)
     g_none = V[:, -1] - V[:, 0] + fee.sum(1)
+    funding = (h0 * p0[:, :-1] * F0[:, d] + h1 * p1[:, :-1] * F1[:, d]).sum(1)
     return {"g_none": g_none, "g_perp": g_none + hedge.sum(1) - reb.sum(1), "fees": fee.sum(1),
+            "value": V[:, -1] - V[:, 0], "hedge_px": hedge.sum(1) - funding, "funding": funding, "reb": reb.sum(1),
             "open_notional": x[:, 0] * p0[:, 0] * vol0 + y[:, 0] * p1[:, 0] * vol1,
             "close_notional": x[:, -1] * p0[:, -1] * vol0 + y[:, -1] * p1[:, -1] * vol1,
             "in_range_days": inside.sum(1)}
@@ -168,8 +171,17 @@ def weekly_rows(d: pd.DataFrame, vol0: bool, vol1: bool, v3: bool, ks, capital, 
         if k > 1 and not v3:
             continue
         r = simulate_weeks(**A, vol0=vol0, vol1=vol1, k=k, capital=capital, perp_fee=perp_fee)
-        for name in ("g_none", "g_perp", "open_notional", "close_notional", "fees", "in_range_days"):
+        names = ("g_none", "g_perp", "open_notional", "close_notional", "fees", "in_range_days")
+        names += ("value", "hedge_px", "funding", "reb") if k == 1 else ()
+        for name in names:
             out[f"{name}_k{k}"] = r[name]
+    # market path (diagnostic): amounts follow the Binance price ratio instead of the pool's own close, so a stale
+    # pool price (no swap late in the day) cannot hide impermanent loss; fees as in the base
+    Am = dict(A, P=A["p0"] / A["p1"])
+    r = simulate_weeks(**Am, vol0=vol0, vol1=vol1, k=1, capital=capital, perp_fee=perp_fee)
+    for name in ("g_none", "g_perp", "value", "hedge_px", "funding", "reb", "fees"):
+        out[f"mkt_{name}_k1"] = r[name]
+    out["stale_gap"] = np.abs(np.log(A["P"][:, 1:] * A["p1"][:, 1:] / A["p0"][:, 1:])).mean(1)
     return out
 
 
@@ -552,16 +564,86 @@ def validate(cfg) -> dict:
     return out
 
 
+def diagnose(cfg) -> dict:
+    """Rule 6 on discovery only: where the hedged result comes from (fees, hedged impermanent loss, funding, rebalance
+    fees, transaction costs), the market-path version, years, pool types, pool concentration, fee-yield tails."""
+    d = data_path(cfg, "derived", "defi")
+    T = pd.read_parquet(d / "study17_pool_weeks.parquet")
+    if "mkt_g_perp_k1" not in T:
+        raise SystemExit("rebuild first: python -m src.study17 --build (adds the components)")
+    disc = json.loads((d / "study17_discover.json").read_text())
+    g = cfg["gates"]
+    draws, lvl = param(cfg, "bootstrap_draws"), param(cfg, "ci_level")
+    rng = np.random.default_rng(param(cfg, "s17_seed") + 2)
+    D = T[_period(T, cfg, "discovery")].reset_index(drop=True)
+    weeks = _weeks(D, np.ones(len(D), bool))
+    D["year"] = D["week"].dt.year
+    specs = [("unconditional_tvl_1M_perp", None)] + [(r["cell"], {k: r[k] for k in ("margin", "forecast", "hold",
+                                                                                    "tvl_floor", "hedge")})
+                                                     for r in disc["frozen"]]
+    out = {"study": 17, "stage": "discovery diagnose", "cells": {}}
+    for name, c in specs:
+        if c is None:
+            act = universe(D, {"tvl_floor": min(param(cfg, "s17_tvl_floor"))}, 1)
+            gross = D["g_perp_k1"].to_numpy(float)
+            net, uni = gross.copy(), act
+        else:
+            act, gross, net, uni = cell_net(cfg, D, c, forecast(D, c["forecast"], disc["har"]))
+        cost = gross - net
+        comp = {"fees": D["fees_k1"], "hedged_impermanent_loss": D["value_k1"] + D["hedge_px_k1"],
+                "funding": D["funding_k1"], "perp_rebalance_fees": -D["reb_k1"], "transaction_costs": -pd.Series(cost)}
+        ws = lambda v: weekly_series(D, act, np.asarray(v, float), weeks)
+        S = {k: float(ws(v).mean()) for k, v in comp.items()}
+        net_mkt = net - gross + D["mkt_g_perp_k1"].to_numpy(float)
+        res = {"components_weekly_mean": S, "net_weekly_mean": float(ws(net).mean()),
+               "net_without_funding": series_stats(ws(net - D["funding_k1"].to_numpy(float)), draws, 1, lvl,
+                                                   g["study17_tail_share"]),
+               "net_market_path": series_stats(ws(net_mkt), draws, 1, lvl, g["study17_tail_share"]),
+               "market_path_hedged_impermanent_loss": float(ws(D["mkt_value_k1"] + D["mkt_hedge_px_k1"]).mean()),
+               "mean_stale_gap_of_positions": float(D.loc[act, "stale_gap"].mean())}
+        if c is not None:
+            gm = D["mkt_g_perp_k1"].to_numpy(float)
+            pl = _placebo(D, act, uni, gm, weeks, param(cfg, "s17_placebo_reps"), rng)
+            res["market_path_selection_placebo_p"] = (1 + int((pl.mean(1) >= ws(gm).mean()).sum())) / (1 + pl.shape[0])
+            gf = gross - D["funding_k1"].to_numpy(float)
+            pl = _placebo(D, act, uni, gf, weeks, param(cfg, "s17_placebo_reps"), rng)
+            res["without_funding_selection_placebo_p"] = (1 + int((pl.mean(1) >= ws(gf).mean()).sum())) / (1 + pl.shape[0])
+        A = D[act]
+        res["by_year"] = {str(y): {"positions": int(len(x)), "net_per_position": float(net[act][A["year"] == y].mean()),
+                                   "fees": float(x["fees_k1"].mean()), "funding": float(x["funding_k1"].mean()),
+                                   "hedged_il": float((x["value_k1"] + x["hedge_px_k1"]).mean()),
+                                   "mkt_hedged_il": float((x["mkt_value_k1"] + x["mkt_hedge_px_k1"]).mean())}
+                          for y, x in A.groupby("year")}
+        res["by_project"] = {k: {"positions": int(len(x)), "net_per_position": float(net[act][(A["project"] == k).to_numpy()].mean()),
+                                 "funding": float(x["funding_k1"].mean())} for k, x in A.groupby("project")}
+        contrib = pd.Series(net[act]).groupby(A["symbol"].to_numpy()).sum().sort_values(ascending=False)
+        res["top_pairs_by_net"] = {k: round(float(v / contrib.sum()), 3) for k, v in contrib.head(10).items()}
+        keep = ~A["symbol"].isin(contrib.head(5).index).to_numpy()
+        a2 = act.copy()
+        a2[np.where(act)[0][~keep]] = False
+        res["net_without_top5_pairs"] = float(weekly_series(D, a2, net, weeks).mean())
+        fy = A["fees_k1"] * 52
+        res["fee_yield_annual_quantiles"] = {str(q): round(float(fy.quantile(q)), 3) for q in (0.5, 0.9, 0.99)}
+        res["funding_annual_quantiles"] = {str(q): round(float((A["funding_k1"] * 52).quantile(q)), 3) for q in (0.1, 0.5, 0.9)}
+        res["top_fee_weeks"] = [{"symbol": r.symbol, "project": r.project, "week": str(r.week.date()),
+                                 "fees": round(float(r.fees_k1), 4), "stale_gap": round(float(r.stale_gap), 4)}
+                                for r in A.nlargest(8, "fees_k1").itertuples()]
+        out["cells"][name] = res
+    (d / "study17_diagnose.json").write_text(json.dumps(out, indent=1, default=str))
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--build", action="store_true")
     g.add_argument("--discover", action="store_true")
     g.add_argument("--validate", action="store_true")
+    g.add_argument("--diagnose", action="store_true", help="discovery only: components, market path, concentration")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     cfg = load_config()
-    r = build(cfg) if a.build else discover(cfg) if a.discover else validate(cfg)
+    r = build(cfg) if a.build else discover(cfg) if a.discover else diagnose(cfg) if a.diagnose else validate(cfg)
     from src.analysis import to_json
     print(to_json({k: v for k, v in r.items() if k != "all_cells"}))
 

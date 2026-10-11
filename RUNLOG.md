@@ -2409,3 +2409,23 @@ breach rule, funding to the short, rebalance fees, v3 decimals, market filter, f
 hold blocks/continuity, perp symbol map, stats). crypto_data --majors fetches BTC/ETH hourly + funding (free).
 Synthetic dry run passed (build 3 pools of 4, renBTC-WBTC dropped for no perp; discovery froze 4 cells on a planted
 regime; validation failed them on placebo in a calm synthetic 2025; validation rerun refused).
+
+## 2026-10-11 (laptop, 17:02 PT 10-10) | Study 17 step 1: --majors, --build, --discover (commit 5c57efe; $0)
+--majors: 276 files (207 new). Build: 2,000 pools seen (1,000 v3 + 1,000 v2 list rows), 36 stable pairs, 1,482 with
+a token lacking a Binance perp, 72 without cached history, 341 USED; 35,794 pool-weeks 2020-05..2025-09 (v2 13,279,
+v3 0.30% 13,390, 1% 7,136, 0.05% 1,712, 0.01% 277); 211 perps used.
+Discovery (241 weeks, 28,967 pool-weeks): HAR log R2 0.28 (corr 0.53 vs trailing 0.49). Unconditional, every pool
+with TVL >= $1M, no selection, no costs: unhedged +1.54%/wk (t 2.5, beta), HEDGED +0.37%/wk (lb +0.31%, Sharpe 4.4,
+t 9.4; first half +0.57, second +0.18). Search noise p 0.005; 25 of 48 cells pass the discovery rules; 4 FROZEN, all
+full-range, perp-hedged, hold 4 w, TVL >= $1M: m0.5 trailing +0.376%/wk net (Sharpe 4.7), m0.25 HAR +0.411%,
+m0.5 HAR +0.440% (gross +0.53 vs placebo +0.36), m0 HAR +0.387%; placebo p 0.005 each; second halves +0.13..+0.17%.
+Concentration kills it: k = 2 +0.01..+0.11%/wk, k = 5 -0.02..+0.10%. $10k capital: +0.25..+0.30%.
+RULE 6 (strong result => suspect a bug): back-solving k = 1 vs k = 2 (fees and impermanent loss scale with k,
+funding does not) says fees minus hedged impermanent loss is NEGATIVE (~-0.1%/wk) and ~+0.5%/wk comes from
+something that does not scale: perp FUNDING received by the short hedge (X-WETH pools short both legs, ~1.0
+notional per $1). That would make it the cash-and-carry basis trade, not liquidity provision. Second suspect: the
+pool's daily close is the last swap's price, so a stale pool hides impermanent loss (amounts frozen while the
+hedge cancels the market move). Built `--diagnose` (discovery only): weekly components (fees, hedged impermanent
+loss, funding, perp rebalance fees, transaction costs), net without funding, a MARKET-PATH version (amounts follow
+the Binance price ratio), placebo p for both, years, pool types, top pairs, without the top 5 pairs, fee-yield
+tails. Needs a rebuild (new columns). 11 tests pass. --validate NOT run.

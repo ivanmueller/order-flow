@@ -209,7 +209,10 @@ Update this block at the end of every session.
   Matteo disagreed (inventory, not the strategy): Step 1 APPROVED 2026-10-10 ("ok go") and BUILT (src/study17.py, 10
   tests): own position simulated exactly (range, fee share, no fees on range-breach days, daily perp hedge with
   Binance funding), forecast-selected weeks, 48 cells, placebo + search noise test, discovery to 2024-12, validation
-  2025-01..09 once. Next: `crypto_data --majors`, `study17 --build`, `--discover`; post the JSON.
+  2025-01..09 once. Discovery run 2026-10-10: 341 hedgeable pools; 4 frozen (full range, perp-hedged, hold 4 w,
+  TVL >= $1M): +0.38..+0.44%/wk net, Sharpe 4.4-4.7, placebo p 0.005; but unhedged-vs-k=2 arithmetic says the
+  profit is perp FUNDING (basis trade), not fees; stale pool prices may hide loss. `--diagnose` built (components,
+  market-path loss, without funding); next: Matteo runs `--build` then `--diagnose`. --validate NOT run.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
