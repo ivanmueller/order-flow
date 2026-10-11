@@ -2479,3 +2479,13 @@ likely Messari's standardized one); the fetch stopped at its first query (nothin
 list of candidate ids (Arbitrum FbCGRftH..., FQ6JYszE...; Base 43Hwfi3d..., HMuAwufq..., BEt2Ug4p..., FUbEPQw1...);
 the probe tries each and saves the first that has the Uniswap v3 schema and every needed day field to
 raw/defi_subgraph/<chain>/subgraph_id.txt; the fetch refuses to run without it. Dry run with a fake subgraph passed.
+
+## 2026-10-10 (laptop, 23:44-23:57 PT) | Study 18 probe + fetch (commit 976720f; $0)
+Probe: Arbitrum FbCGRftH4a3yZugY7TnbYgPJVEv2LvMT6oF1fxPe9aJM and Base 43Hwfi3dJSoGpyas9VwNoDAv55yjgGrPpNSmbQZArzMG
+have the Uniswap v3 schema and every needed field (chosen and saved). Top pools WETH-USDC on both. Fetch: Arbitrum
+1,000 pools (30 stable pairs skipped, 970 cached, 0 errors); Base 1,000 (6 stable, 994 cached, 0 errors). Daily rows
+before 2025-10-01 only (query filter).
+Then BUILT src/study18.py (4 tests: pool age, the pre-registered pass rule, variant evaluation separating funding and
+selection on a synthetic table) reusing Study 17's simulation; synthetic end-to-end dry run passed (build on 2 fake
+chains, Stage A, validation refusing variants that did not pass Stage A). s18_* params and study18_* gates NOT yet in
+config.yaml (awaiting Matteo's approval).

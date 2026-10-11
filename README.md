@@ -187,6 +187,9 @@ python -m src.study17 --validate
 #     Study 18 (L2 liquidity, DRAFT): free data first
 python -m src.defi_subgraph --chain all --probe
 python -m src.defi_subgraph --chain all
+python -m src.study18 --build
+python -m src.study18 --stage-a
+python -m src.study18 --validate    # once, only Stage A passes
 #     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
 #     crypto_data --btc --holdout, then study16 --holdout
 
