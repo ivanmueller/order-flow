@@ -2575,3 +2575,12 @@ contango with a 20% VIX-jump breaker. Gate per period: mean and 90% month-block 
 max DD <= 50% (proposed); discovery 2008-2019, validation 2020-2025-09 once, holdout 2025-10..2026-09.
 Built src/vix_futures.py (3 tests: expiry rule, both file formats with the pre-2007 x10 scale, front/second panel
 dropping the expiring contract) with --probe; dry run on fake Cboe files passed. URL patterns unverified until probe.
+
+## 2026-10-11 | Study 20 APPROVED ("approved"; drawdown limit 50% as drafted) and BUILT ($0, no real run)
+Config: s20_discovery 2008-01-01..2019-12-31, s20_validation 2020-01-01..2025-09-30, s20_holdout_start 2025-10-01,
+leverage 0.5/1.0, fees 0.95%/1.35% a year, slippage 0.10%, inversion lookback 10, hold 20, breaker 20% VIX jump,
+max DD 0.50, seed 20261020; gate study20_min_days_in_market 250. vix_futures now also saves the per-contract table.
+src/study20.py (5 tests: index roll weights and front drop the day before expiry, ETF fee and -100% floor, X3 entry
+and the one-day execution lag, slippage on position changes, stats/gate). Synthetic 2006-2025 dry run with a planted
+roll yield and three crashes (2008-10-06, 2018-02-05, 2020-03-09): crash days are the index's biggest days, X4 (-1x)
+fails the drawdown limit, the -0.5x variants pass, validation runs only for discovery passes; nothing real run.

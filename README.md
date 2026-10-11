@@ -193,6 +193,11 @@ python -m src.study18 --validate    # once, only Stage A passes
 #     Study 19 (weekly SPXW volatility premium)
 python -m src.ingest_daily --force   # adds VIX3M
 python -m src.study19 --run
+#     Study 20 (short VIX futures, ETF-like)
+python -m src.vix_futures --probe
+python -m src.vix_futures
+python -m src.study20 --discover
+python -m src.study20 --validate     # once, discovery passes only
 #     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
 #     crypto_data --btc --holdout, then study16 --holdout
 

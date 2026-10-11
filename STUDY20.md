@@ -1,6 +1,6 @@
 # Study 20: short VIX futures after the curve normalises (Mack & Sinclair ch. 10 and 15)
 
-Status: DRAFT 2026-10-11 (Matteo: "yes do that"). Not approved; no config entries. The free data step is built
+Status: APPROVED 2026-10-11 ("approved"; drawdown limit 50%); config added; built in src/study20.py. The free data step is built
 (`src/vix_futures.py`). Research only until a variant passes validation; the tradeable form is a long position in an
 inverse VIX-futures ETF (SVXY -0.5x, SVIX -1x) at a Canadian broker, no shorting needed.
 
@@ -64,3 +64,8 @@ gates study20_min_days_in_market 250.
 1. `python -m src.vix_futures --probe` (checks both Cboe URL patterns; a few requests)
 2. `python -m src.vix_futures` (fetches ~275 contract files, builds the panel; free; resumable)
 3. After approval: `python -m src.study20 --discover`, then once `--validate`.
+
+## As built (2026-10-11)
+- X3's entry is the first close with VIX < VIX3M right after an inverted close (the lookback is then always met).
+- X4's breaker sets that day's signal to 0; with the one-day lag the position is closed at the next close.
+- The -100% floor applies to the ETF day: a -1x position on a +100% index day is a total loss (XIV, 2018-02-05).

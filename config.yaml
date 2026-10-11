@@ -419,6 +419,20 @@ params:
   s19_cost_stress:    {value: 2.0}                          # gate: still positive with costs x this
   s19_cost_per_leg_usd: {value: 0.05}                       # 2026-10-11 Matteo: $0 commission; exchange/regulatory pass-through kept (as Study 10)
   s19_report_cost_per_leg_usd: {value: [0.0, 0.05, 1.50]}   # reported side by side, not gated
+  # Study 20 (STUDY20.md; approved 2026-10-11 "approved", drawdown limit 50% as drafted): short VIX futures (ETF-like)
+  s20_discovery:      {value: ["2008-01-01", "2019-12-31"]}
+  s20_validation:     {value: ["2020-01-01", "2025-09-30"]}   # once, only for discovery passes
+  s20_holdout_start:  {value: "2025-10-01"}                 # sealed: 2025-10..2026-09, only on "run the holdout"
+  s20_leverage_half:  {value: 0.5}                          # SVXY-like daily -0.5x
+  s20_leverage_full:  {value: 1.0}                          # SVIX-like daily -1x
+  s20_fee_half:       {value: 0.0095}                       # annual ETF fee
+  s20_fee_full:       {value: 0.0135}
+  s20_slippage:       {value: 0.001}                        # per unit of account traded (spread + slippage), $0 commission
+  s20_inversion_lookback_d: {value: 10}                     # X3: VIX >= VIX3M within this many prior trading days
+  s20_hold_d:         {value: 20}                           # X3: hold this many trading days after entry
+  s20_breaker_vix_jump: {value: 0.20}                       # X4: flat after a day VIX rises this much
+  s20_max_dd:         {value: 0.50}                         # gate: maximum drawdown allowed
+  s20_seed:           {value: 20261020}
   s19_seed:           {value: 20261019}
   s18_variants:       {value: [                             # fixed family; all full range, perp-hedged, hold 4 weeks
       {name: V1, margin: 0.25, forecast: har, tvl_floor: 1000000, new_pool_weeks: null},
@@ -492,6 +506,7 @@ gates:
   study18_min_active_weeks_validation: 13
   study19_min_trades: 50            # study 19 (STUDY19.md): trades per variant in sample
   study19_holdout_min_trades: 20
+  study20_min_days_in_market: 250   # study 20 (STUDY20.md): validation only
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 

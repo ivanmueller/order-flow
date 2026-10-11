@@ -149,11 +149,12 @@ def build_panel(cfg) -> dict:
             if exp is None or abs((last - exp).days) > 3:
                 d["expiry"] = last
             parts.append(d)
-    df = pd.concat(parts, ignore_index=True)
+    df = pd.concat(parts, ignore_index=True).drop_duplicates(["date", "expiry"], keep="last")
     P = front_second(df)
     out = data_path(cfg, "derived", "vix_futures_panel.parquet")
     out.parent.mkdir(parents=True, exist_ok=True)
     P.to_parquet(out)
+    df.to_parquet(data_path(cfg, "derived", "vix_futures_long.parquet"))     # per contract (Study 20's index)
     return {"contracts": len(parts), "days": int(len(P)), "first": str(P["date"].min()), "last_file_date":
             str(P["date"].max()), "note": "panel includes dates after the Study 20 holdout start; loads seal them"}
 

@@ -239,7 +239,9 @@ Update this block at the end of every session.
 - Study 20 DRAFT 2026-10-11 (STUDY20.md; Mack & Sinclair ch. 10/15): short VIX futures (rebuilt short-term index,
   SVXY/SVIX-like daily -0.5x/-1x) X1 always, X2 contango, X3 after inversion normalises (book), X4 -1x + breaker;
   discovery 2008-19, validation 2020-25/09 once, DD <= 50% proposed. Data step BUILT (src/vix_futures.py, 3 tests).
-  Next: `python -m src.vix_futures --probe`, then `python -m src.vix_futures`; approval, then study20 is built.
+  APPROVED 2026-10-11 (DD limit 50%); config s20_*/study20_* added; BUILT (src/study20.py, 5 tests; dry run passed).
+  Next: `python -m src.vix_futures --probe`, `python -m src.vix_futures`, then `python -m src.study20 --discover`;
+  `--validate` once for discovery passes; holdout only on "run the holdout".
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -333,6 +335,8 @@ See README.md for the full runbook in order.
   `python -m src.crypto_data --majors`, `python -m src.study17 --build`, `--discover`, then once `--validate`
 - Study 19: `python -m src.ingest_daily --force`, `python -m src.study19 --run`; holdout (passes only, once):
   `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study19 --holdout`
+- Study 20: `python -m src.vix_futures --probe`, `python -m src.vix_futures`, `python -m src.study20 --discover`,
+  then once `--validate`; holdout (validation passes only): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study20 --holdout`
 - Study 18 (free): `python -m src.defi_subgraph --chain all --probe`, `--chain all`, then `python -m src.study18 --build`,
   `--stage-a`, then once `--validate`
 - Study 16 (market-neutral crypto theses): `python -m src.study16 --all`, then `--diagnose`; holdout only on
