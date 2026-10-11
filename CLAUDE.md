@@ -221,8 +221,11 @@ Update this block at the end of every session.
   venues"), 4 fixed variants (V1 m0.25 HAR $1M, V2 m0.5 HAR $1M, V3 $250k floor, V4 pools < 26 weeks), gate WITH and
   WITHOUT funding, discovery to 2024-12, validation 2025-01..09 once. Free data step BUILT (defi_subgraph --chain).
   Probe + fetch run 2026-10-10 (Arbitrum FbCGRftH..., Base 43Hwfi3d...; 970 + 994 pools cached, 0 errors).
-  src/study18.py BUILT (4 tests; dry run passed). Config APPROVED and added 2026-10-11; next
-  `python -m src.study18 --build`, `--stage-a`; `--validate` once, only for Stage A passes.
+  src/study18.py BUILT (4 tests; dry run passed). Config APPROVED and added 2026-10-11. Stage A run 2026-10-11 (231
+  hedgeable pools, 2021-09..2024-12): ALL FAIL WITHOUT funding (V1 -0.024%/wk, V2 -0.010, V3 -0.034; V4 untestable,
+  2 active weeks); even at zero transaction cost ~0..+0.016%/wk: fees ~= hedged loss (priced fair). Nothing to
+  validate; holdout untouched. KILL by the rules (Matteo's call). Next candidate offered: prediction markets
+  (Kalshi via IBKR/Wealthsimple is legal in Canada; Polymarket blocks BC).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

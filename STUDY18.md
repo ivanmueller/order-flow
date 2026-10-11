@@ -63,3 +63,9 @@ period resembles mainnet's decline). A pass, if any, most likely in V3/V4 (thin 
 1. `python -m src.defi_subgraph --chain all --probe` (checks both subgraph ids and the fields; 4 small queries)
 2. `python -m src.defi_subgraph --chain all` (caches ~2,000 pools' daily rows; a few thousand queries; resumable)
 3. After approval: `python -m src.study18 --build`, `--stage-a`; validation once, only if something passes.
+
+## Result (2026-10-11): Stage A FAIL on all four
+Without funding, after costs: V1 -0.024%/wk (lb -0.035), V2 -0.010%, V3 -0.034%; V4 had 2 active weeks (untestable as
+designed: young pools rarely have >= $1M TVL, a perp, and 28 days of history). With zero transaction costs the
+liquidity part is still ~0 (+0.003 to +0.016%/wk): fees about equal the hedged impermanent loss. Selection beats
+random pools only by losing less. Validation not run; holdout untouched.

@@ -2495,3 +2495,18 @@ Matteo's first --build/--stage-a attempt (00:01 PT) failed before reading data: 
 not yet added, by rule 3); nothing written. Added: s18_chains [arbitrum, base], s18_gas_usd 0.5, s18_capital_main
 25000, s18_discovery_end 2024-12-31, s18_seed 20261018, s18_variants V1-V4 as in STUDY18.md; gates study18_p 0.05,
 study18_tail_share 0.05, study18_min_active_weeks 26, study18_min_active_weeks_validation 13.
+
+## 2026-10-11 (laptop, 00:02 PT) | Study 18 --build + --stage-a (commit 578ccfb; $0)
+Build: Arbitrum 1,000 pools -> 152 used (29 stable, 759 without a Binance perp, 25 no history); Base 1,000 -> 79 used
+(5, 836, 51). 14,754 pool-weeks 2021-09..2025-09 (Base only from late 2023: 18 + 570 pool-weeks before 2025).
+Stage A (discovery 2021-09..2024-12, 174 weeks, 9,585 pool-weeks; HAR log R2 0.27). After costs, per week:
+V1 (m0.25, $1M): with funding +0.019% (lb +0.005), WITHOUT funding -0.024% (lb -0.035), placebo p 0.005, 52 active wks
+V2 (m0.5, $1M):  +0.012% / -0.010% (lb -0.019), placebo p 0.11, 28 active weeks
+V3 (m0.25, $250k): +0.052% / -0.034% (lb -0.047), placebo p 0.005, 99 active weeks
+V4 (new pools): 2 active weeks only (young pools rarely have >= $1M TVL, a perp, and 28 days of history) -> untestable
+ALL FOUR FAIL (without funding negative in every variant, both halves, every year 2022-24 per position; concentrated
+ranges worse). Components V1: fees +0.053, hedged impermanent loss -0.049, transaction costs -0.027, funding +0.043.
+Even with ZERO transaction costs, without funding: V1 ~+0.003%/wk, V3 ~+0.016%/wk (~0-0.8%/yr): fees ~= the hedged
+loss, i.e. liquidity priced fair on the L2s as on mainnet since 2022. Selection beats random (p 0.005 in V1/V3) by
+losing less, not by earning. Market path agrees (no stale-price effect). Base alone ~0.
+Not run: validation (nothing passed Stage A, so --validate refuses). Holdout untouched. KILL by the rules (Matteo's call).
