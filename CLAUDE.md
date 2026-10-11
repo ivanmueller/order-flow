@@ -212,7 +212,9 @@ Update this block at the end of every session.
   2025-01..09 once. Discovery run 2026-10-10: 341 hedgeable pools; 4 frozen (full range, perp-hedged, hold 4 w,
   TVL >= $1M): +0.38..+0.44%/wk net, Sharpe 4.4-4.7, placebo p 0.005; but unhedged-vs-k=2 arithmetic says the
   profit is perp FUNDING (basis trade), not fees; stale pool prices may hide loss. `--diagnose` built (components,
-  market-path loss, without funding); next: Matteo runs `--build` then `--diagnose`. --validate NOT run.
+  market-path loss, without funding); diagnose run: stale prices cleared; ~60% of net is funding (carry); without
+  funding +0.13..+0.17%/wk, selection beats random (p 0.005), but ~0 since 2022. Proposed: validation must pass with
+  AND without funding (Matteo's call before --validate). --validate NOT run.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

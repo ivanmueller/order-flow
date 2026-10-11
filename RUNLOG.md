@@ -2429,3 +2429,24 @@ hedge cancels the market move). Built `--diagnose` (discovery only): weekly comp
 loss, funding, perp rebalance fees, transaction costs), net without funding, a MARKET-PATH version (amounts follow
 the Binance price ratio), placebo p for both, years, pool types, top pairs, without the top 5 pairs, fee-yield
 tails. Needs a rebuild (new columns). 11 tests pass. --validate NOT run.
+
+## 2026-10-10 (laptop, 17:14 PT) | Study 17 step 1: --build (with components) + --diagnose (commit d6031f9; $0)
+Rebuild identical counts (341 pools, 35,794 pool-weeks). Discovery only; --validate NOT run.
+Weekly components (strategy mean, per $1; frozen cells): fees +0.41..+0.49%, hedged impermanent loss -0.20..-0.24%,
+FUNDING +0.23..+0.27%, perp rebalance fees -0.004%, transaction costs -0.06..-0.09% => net +0.38..+0.44%.
+Unconditional (TVL >= $1M, no costs): fees +0.34, loss -0.23, funding +0.27, net +0.37%.
+Stale-price suspicion CLEARED: market-path (Binance ratio) loss equals the pool-close loss within 0.002%/wk (mean
+gap 0.4%); market-path net identical; selection placebo p 0.005 on the market path.
+Funding suspicion CONFIRMED in part: ~60% of net is funding paid to the short hedge (a cash-and-carry return that
+needs no liquidity position; 2022 funding negative, as in the bear market). WITHOUT funding the frozen cells still
+earn +0.13..+0.17%/wk (lb +0.10..+0.14, Sharpe 3.2-3.7) and selection still beats random pools (placebo p 0.005);
+unconditional without funding +0.105%/wk. BUT the second half (2022-09..2024-12) without funding is ~0
+(-0.008..+0.020%/wk); by year fees minus loss per position +0.4/+0.4/+0.15/+0.1/+0.11%/wk (2020-24) before ~0.08%
+of costs. The liquidity edge was a 2020-21 phenomenon; since 2022 the hedged position is essentially funding.
+v2 carries most of it (net per position +0.58..+0.72%/wk vs v3 0.30% +0.10..+0.19%, 0.05%/0.01% negative).
+Concentration: top pair SHIB-WETH 8.5-14.7% of net (Oct 2021 mania); without the top 5 pairs +0.31..+0.38%/wk.
+Fee tails plausible (SHIB Oct 2021 27% in a week, GALA Nov 2021 14%); no broken-data signature.
+Not yet stressed: 2021 gas ($40/tx assumed; often $100+ then). Venue: Binance perps/funding not open to a BC
+resident; funding elsewhere differs.
+Proposed before validation (Matteo's call): require BOTH net and net-without-funding to pass the validation gate,
+since the funding part is a separate, already-known carry trade.
