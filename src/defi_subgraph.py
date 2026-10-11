@@ -200,31 +200,52 @@ def probe(v3_id: str, v2_id: str, root: Path) -> dict:
     return out
 
 
-CHAINS = {"arbitrum": "FQ6JYszEKApsBpAmiHesRsd9Ygc6mzmpNRANeVQFYoVX",   # Uniswap V3 Arbitrum (The Graph Explorer)
-          "base": "FUbEPQw1oMghy39fwWBFY5fE6MXPXZQtjncQy2cXdrNS"}       # Uniswap V3 Base
+CHAINS = {   # candidate subgraph ids per chain (The Graph Explorer); the probe keeps the first with the Uniswap v3 schema
+    "arbitrum": ["FbCGRftH4a3yZugY7TnbYgPJVEv2LvMT6oF1fxPe9aJM", "FQ6JYszEKApsBpAmiHesRsd9Ygc6mzmpNRANeVQFYoVX"],
+    "base": ["43Hwfi3dJSoGpyas9VwNoDAv55yjgGrPpNSmbQZArzMG", "HMuAwufqZ1YCRmzL2SfHTVkzZovC9VL2UAKhjvRqKiR1",
+             "BEt2Ug4pbDaBuBxP9Y7qYk5zxk5MbCcDto6U2wD2uGQg", "FUbEPQw1oMghy39fwWBFY5fE6MXPXZQtjncQy2cXdrNS"]}
+NEED = {"date", "liquidity", "sqrtPrice", "feesUSD", "tvlUSD", "high", "low", "close"}
+
+
+def _chosen(root: Path, chain: str) -> Path:
+    return root / chain / "subgraph_id.txt"
 
 
 def probe_chains(chains: dict, root: Path) -> dict:
-    """Per chain: top pools by volume and one day row with every field Study 18 needs (schema check)."""
+    """Per chain, try each candidate id: top pools by volume and one day row with every field Study 18 needs.
+    The first id that passes is saved (raw/defi_subgraph/<chain>/subgraph_id.txt) and used by the fetch."""
     key, out = _key(), {}
-    for name, sid in chains.items():
-        try:
-            g = Graph(key, sid, root / "probe" / f"{name}_{int(time.time())}", 0)
-            rows = g.q("pools", V3_POOLS.replace("first:1000", "first:3"), {"skip": 0})["pools"]
-            day = g.q("day", V3_DAYS.replace("first:1000", "first:1"), {"pool": rows[0]["id"], "date_gt": 0,
-                                                                         "end": 2_000_000_000})["poolDayDatas"]
-            need = {"date", "liquidity", "sqrtPrice", "feesUSD", "tvlUSD", "high", "low", "close"}
-            out[name] = {"ok": bool(day) and need <= set(day[0]),
-                         "top": [f"{r['token0']['symbol']}-{r['token1']['symbol']}" for r in rows],
-                         "first_day": str(pd.Timestamp(int(day[0]["date"]), unit="s").date()) if day else None}
-        except Exception as e:
-            out[name] = {"ok": False, "error": str(e)[:300]}
+    for name, ids in chains.items():
+        out[name] = {}
+        for sid in ids:
+            try:
+                g = Graph(key, sid, root / "probe" / f"{name}_{sid[:6]}_{int(time.time())}", 0)
+                rows = g.q("pools", V3_POOLS.replace("first:1000", "first:3"), {"skip": 0})["pools"]
+                day = g.q("day", V3_DAYS.replace("first:1000", "first:1"), {"pool": rows[0]["id"], "date_gt": 0,
+                                                                             "end": 2_000_000_000})["poolDayDatas"]
+                ok = bool(day) and NEED <= set(day[0])
+                out[name][sid[:8]] = {"ok": ok, "top": [f"{r['token0']['symbol']}-{r['token1']['symbol']}" for r in rows],
+                                      "first_day": str(pd.Timestamp(int(day[0]["date"]), unit="s").date()) if day else None}
+            except Exception as e:
+                out[name][sid[:8]] = {"ok": False, "error": str(e)[-160:]}
+                continue
+            if ok:
+                f = _chosen(root, name)
+                f.parent.mkdir(parents=True, exist_ok=True)
+                f.write_text(sid)
+                out[name]["chosen"] = sid
+                break
+        out[name].setdefault("chosen", None)
     return out
 
 
-def fetch_chain(cfg, chain: str, sid: str, n: int, pause: float) -> dict:
+def fetch_chain(cfg, chain: str, n: int, pause: float) -> dict:
     """Cache the top-n v3 pools by all-time volume and their daily rows (before the holdout) for one chain.
     Free (The Graph key); idempotent (cached queries are not repeated); stablecoin pairs skipped."""
+    f = _chosen(data_path(cfg, "raw", "defi_subgraph"), chain)
+    if not f.exists():
+        raise SystemExit(f"no working subgraph id saved for {chain}: run --chain {chain} --probe first")
+    sid = f.read_text().strip()
     key, root = _key(), data_path(cfg, "raw", "defi_subgraph", chain)
     end = int(pd.Timestamp(param(cfg, "s14_holdout_start"), tz="UTC").timestamp())
     g = Graph(key, sid, root / "v3", pause)
@@ -433,8 +454,8 @@ def main(argv=None):
             r = probe_chains(chains, data_path(cfg, "raw", "defi_subgraph"))
         else:
             r = {}
-            for name, sid in chains.items():
-                r.update(fetch_chain(cfg, name, sid, a.max_pools, a.pause))
+            for name in chains:
+                r.update(fetch_chain(cfg, name, a.max_pools, a.pause))
     elif a.diagnose:
         r = diagnose(cfg)
     elif a.probe:

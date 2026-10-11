@@ -2472,3 +2472,10 @@ TVL $1M, V2 m0.5 HAR TVL $1M, V3 V1 with TVL $250k, V4 V1 on pools < 26 weeks ol
 2024-12); not in config.yaml until approved. Built: defi_subgraph --chain arbitrum|base|all [--probe] (probe checks
 every needed field; fetch caches top 1,000 v3 pools per chain, days before the holdout, stable pairs skipped);
 dry-run with a fake subgraph passed.
+
+## 2026-10-10 (laptop, 23:43 PT) | Study 18 probe: both drafted subgraph ids FAIL ($0)
+`--chain all --probe`: Arbitrum FQ6JYs... and Base FUbEPQ... answer but have no `pools` field (a different schema,
+likely Messari's standardized one); the fetch stopped at its first query (nothing cached). Fix: each chain now has a
+list of candidate ids (Arbitrum FbCGRftH..., FQ6JYszE...; Base 43Hwfi3d..., HMuAwufq..., BEt2Ug4p..., FUbEPQw1...);
+the probe tries each and saves the first that has the Uniswap v3 schema and every needed day field to
+raw/defi_subgraph/<chain>/subgraph_id.txt; the fetch refuses to run without it. Dry run with a fake subgraph passed.
