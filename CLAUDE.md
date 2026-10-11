@@ -240,8 +240,10 @@ Update this block at the end of every session.
   SVXY/SVIX-like daily -0.5x/-1x) X1 always, X2 contango, X3 after inversion normalises (book), X4 -1x + breaker;
   discovery 2008-19, validation 2020-25/09 once, DD <= 50% proposed. Data step BUILT (src/vix_futures.py, 3 tests).
   APPROVED 2026-10-11 (DD limit 50%); config s20_*/study20_* added; BUILT (src/study20.py, 5 tests; dry run passed).
-  Next: `python -m src.vix_futures --probe`, `python -m src.vix_futures`, then `python -m src.study20 --discover`;
-  `--validate` once for discovery passes; holdout only on "run the holdout".
+  Data: 264 VX contracts 2004+, own FRED VIX/VIX3M; ETF check: -0.5x vs SVXY corr 0.98, -1x vs SVIX 0.99, yearly
+  returns within a few points (rebuild validated). DISCOVERY 2008-2019: X1 FAIL (DD 57%), X2 FAIL (DD 63%), X4 FAIL
+  (DD 98%, -96% on 2018-02-05), X3 PASS (geo +11.3%/yr, lb > 0, DD 34%, 35% of days in market, out on 2018-02-05).
+  Matches the pre-stated expectation. Validation (2020-2025/09, X3 only, once) awaiting Matteo's go.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

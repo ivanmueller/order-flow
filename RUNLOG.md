@@ -2604,3 +2604,24 @@ which ingest_daily cuts at 2019-01-01: results discarded (not a discovery verdic
 2024-08-05 +42%, 2020-06-11 +39%, 2020-03-16 +35%. Fix: vix_futures --spot downloads Study 20's own VIX/VIX3M
 history from FRED (VIX 1990+, VIX3M 2007-12+); the shared file is untouched. Added study20 --check-etf (rule 6):
 rebuilt index vs VXX, -0.5x vs SVXY, -1x vs SVIX, in sample only (needs pip install yfinance).
+
+## 2026-10-11 (laptop, 01:24 PT) | Study 20: --spot, --check-etf, --discover (commit 0eaa548; $0)
+Spot: VIX 1990-01-02+, VIX3M 2007-12-04+ (9,291 rows; Study 20's own copy).
+ETF CHECK (rule 6, in sample only): rebuilt -0.5x vs SVXY corr 0.981 (1,906 days), yearly returns within ~1-5 pts
+(2020 -36.4% vs -36.5%, 2023 +71.1% vs +76.2%); -1x vs SVIX corr 0.993 (876 days); index vs VXX corr 0.928, yearly
+within ~1-3 pts (2018 +69.4% vs +69.9%, 2020 +12.8% vs +11.0% -- my recollection of a larger 2020 VXX gain was wrong);
+the VXX gaps are timing: VXX closes at 16:00, futures settle 16:15 (2018-02-05: index +95.9% vs VXX +33.5% at 16:00,
+VXX caught up the next day). The rebuild is validated.
+DISCOVERY 2008-01..2019-12 (2,898 days): index by year matches known history (2008 +124%, 2018 +67%, calm years -50..-78%).
+X1 always -0.5x: geo +13.4%/yr, mean lb > 0, Sharpe 0.55, max DD 57.5% > 50% -> FAIL (drawdown); 2018 -53%, 2008 -44%.
+X2 contango -0.5x: geo +12.2%/yr, DD 63.1% -> FAIL; 2018-02-05 -48% in one day.
+X3 book rule (after VIX >= VIX3M, enter when it falls back, hold 20 days), -0.5x: geo +11.3%/yr, mean +0.050%/day
+(lb +0.011%), halves +0.023%/+0.077% a day, max DD 34.4%, Sharpe 0.64, in market 1,025 of 2,898 days (35%); worst day
+-10.0% (2011-11-09); 2008 -13.9%, 2018 -18.8%; out of the market on 2018-02-05 -> PASS.
+X4 -1x contango + breaker: DD 98.2%, -96% on 2018-02-05 (the breaker cannot act before the jump day) -> FAIL.
+Reported: X1 at -1x DD 97%; X3 at -1x geo +19.8%/yr, DD 59.9%.
+All four outcomes match the expectation written in STUDY20.md before the run.
+Rule 6 on the X3 pass: signals use 16:15 closes and trade a day later (no lookahead); loads sealed before 2025-10-01;
+the rebuilt legs track the real ETFs; caveat: the book's authors had seen 2008-2023 when they wrote the rule, so
+discovery and validation are not fully "unseen" for the rule's design -- only the sealed year (2025-10..2026-09) is.
+Validation NOT run (Matteo's call; once, X3 only).
