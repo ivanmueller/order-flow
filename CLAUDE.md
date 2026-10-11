@@ -243,7 +243,9 @@ Update this block at the end of every session.
   Data: 264 VX contracts 2004+, own FRED VIX/VIX3M; ETF check: -0.5x vs SVXY corr 0.98, -1x vs SVIX 0.99, yearly
   returns within a few points (rebuild validated). DISCOVERY 2008-2019: X1 FAIL (DD 57%), X2 FAIL (DD 63%), X4 FAIL
   (DD 98%, -96% on 2018-02-05), X3 PASS (geo +11.3%/yr, lb > 0, DD 34%, 35% of days in market, out on 2018-02-05).
-  Matches the pre-stated expectation. Validation (2020-2025/09, X3 only, once) awaiting Matteo's go.
+  Matches the pre-stated expectation. VALIDATION run once 2026-10-11 (2020-01..2025-09): X3 FAIL (+0.036%/day, lb
+  -0.019%; geo +6.8%/yr, DD 31%, Sharpe 0.41; 2020 -8%, 2021 +40%, 2022 +13%, 2023 0 (no entries; to confirm), 2024
+  +13%, 2025 -11%; worst 2025-04-03 -12.6%). Validation spent; holdout untouched. Awaiting Matteo's call.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

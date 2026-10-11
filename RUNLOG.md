@@ -2625,3 +2625,12 @@ Rule 6 on the X3 pass: signals use 16:15 closes and trade a day later (no lookah
 the rebuilt legs track the real ETFs; caveat: the book's authors had seen 2008-2023 when they wrote the rule, so
 discovery and validation are not fully "unseen" for the rule's design -- only the sealed year (2025-10..2026-09) is.
 Validation NOT run (Matteo's call; once, X3 only).
+
+## 2026-10-11 -- Study 20 VALIDATION (run once by Matteo; commit 810f651; no config change)
+`python -m src.study20 --validate`, X3 only, 2020-01-01..2025-09-30 (1,445 days, 357 in market).
+X3: mean +0.036%/day, 90% lower bound -0.019% (FAIL: lb must be > 0); geo +6.8%/yr, Sharpe 0.41, max DD 30.6%
+(within 50%), halves +0.062% / +0.009% a day. By year: 2020 -8.1%, 2021 +40.0%, 2022 +13.2%, 2023 0.0%, 2024 +12.6%,
+2025 (to 09) -11.1%. Worst days 2025-04-03 -12.6%, 2024-09-03 -10.3%, 2025-04-04 -10.0%, 2025-04-10 -9.9%.
+Verdict by the rules: FAIL (lower bound below zero; second half ~0). Validation spent; holdout untouched.
+Open check: 2023 shows exactly 0.0% (no X3 entries). Confirm on the panel that VIX never closed >= VIX3M in 2023
+(the March 2023 bank stress is the candidate); a missed ~20-day entry would add ~+0.003%/day, not enough to flip lb.
