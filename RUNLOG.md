@@ -2651,3 +2651,10 @@ microcaps only appear from 10-Ks filed 2012-13 (XBRL phase-in for smaller filers
 lowest for gross margin (63%). Full run crashed at the end (companyfacts JSON without a cik). Fixes: ratios with a zero or
 missing denominator give a missing signal, not a crash (_div); CIK taken from the file name; skips counted in the JSON
 (files_skipped, examples) instead of printed. 2 regression tests (7 in file). Rerun needed.
+
+## 2026-10-12 -- Study 21 step 0: quick inventory rerun after the fix (Matteo; commit c7fb429)
+`edgar_inventory --limit 500`: 0 files skipped (was 13); 404 companies, 168 stopped filing before 2024, 188 without a
+current ticker. Non-financial firm-years with all 9 signals 145-186 a year 2013-2019, ~110-125 in 2021-25; microcaps
+(float < $300M) with all 9: 25-52 a year from 2013; F >= 8 microcaps 0-3 a year. Coverage: gross margin 63%, others
+81-99%. The first 500 CIKs are the oldest registrants (larger, older firms), so microcap counts here understate the full
+set. Full run in progress.
