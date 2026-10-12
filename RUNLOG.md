@@ -2666,3 +2666,13 @@ same output: (1) byte pre-filter skips files with no 10-K or none of our tags be
 200-company chunk saved under data/derived/edgar_chunks_v2/ so a stopped run resumes (a --limit run's partial chunk is
 not reused). Profiling a 23 MB synthetic filer: JSON parsing ~3x the scoring time. Dry run: limit, full, and resumed
 runs give identical counts; resumed run 0.1 s. 8 tests in the file pass.
+
+## 2026-10-12 -- Study 21 step 0: FULL inventory (Matteo; commit 579080f; 2.5 min with orjson)
+20,454 companyfacts files, 14,116 parsed (rest: no 10-K / none of our tags), 0 skipped. 13,585 companies with 10-K
+firm-years; 7,490 stopped filing before 2024 (dead firms kept); 8,816 (65%) have no current ticker -> a price file with
+delisted stocks is required. Non-financial firm-years 4,200-5,400 a year (2012-25); all 9 signals only 1,400-1,800 a year;
+>= 7 signals 3,350-3,900. Coverage: gross margin 45%, equity issue 63%, turnover 63%, leverage 70%, others 81-95%.
+Microcaps (float < $300M) with all 9 signals: 814 (2013), 696, 642, 594, 533, 478, 478, 438, 449, 445, 682, 640, 665 (2025);
+microcaps with F >= 8: 31, 26, 20, 18, 24, 17, 11, 10, 10, 26, 13, 12, 22 a year -- thin before the cheapness and liquidity
+filters. Microcap F-scores start with 10-Ks filed 2013 (2011-12 near zero: XBRL phase-in). Long-term debt imputed as 0
+for 17-36% of full-score firm-years. No returns or prices seen.

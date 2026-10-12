@@ -251,6 +251,9 @@ Update this block at the end of every session.
   firm-year = original 10-K, first-filed values filed on or before it, dead filers kept, sealed at holdout_start;
   counts only. Next: Matteo sets SEC_USER_AGENT, runs `python -m src.edgar_inventory --limit 500`, then without
   --limit; then strategy approval and pricing a survivorship-free price file. No config entries yet.
+  Full inventory run 2026-10-12: 13,585 companies (7,490 dead, 65% no current ticker); all-9 microcaps 440-810 a year
+  from 2013 (none usable before 10-Ks filed 2013); F >= 8 microcaps only 10-31 a year; gross margin coverage 45% is the
+  binding input. Awaiting Matteo's decisions: missing-signal rule, high/low cut-offs, sample split, price source.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
