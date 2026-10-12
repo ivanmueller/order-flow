@@ -262,6 +262,8 @@ Update this block at the end of every session.
   Study 21b (buy strong low-coverage microcaps k days before earnings; earnings date = min(8-K 2.02, 10-Q/K);
   expected = last year's lag; exit 2 days after; gated k = 5/10/20, family 4 of 4) APPROVED and BUILT (src/study21b.py,
   7 tests; s21b_* + study21b_min_trades). Next: `python -m src.study21b --events`, `--prices`, `--run`.
+  21b run 2026-10-12: NO ADVANCE on k5/k10/k20 (strong gross +0.18 / -0.39 / +0.68% a trade vs ~2.0% costs; net
+  -1.9 / -2.4 / -1.3%); strong > weak gross; family 4 of 4 used. Awaiting Matteo's call (close Study 21).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

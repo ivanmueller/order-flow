@@ -2705,3 +2705,15 @@ s21b_no_report_exit_days 15 (as described), s21b_8k_window_days 60, s21b_prior_t
 Synthetic dry runs: planted +5% pre-announcement drift -> ADVANCE at all three k; no drift -> 1 false advance in 15
 variant-runs (each variant uses a one-sided 90% bound, so ~10% per variant by construction; the pilot only decides a
 data purchase).
+
+## 2026-10-12 -- Study 21b pilot run (Matteo; commit 13efe75; config as committed)
+Events: 3,408 universe companies, 52,703 periodic reports (2013-18 window), 49,358 with an expected date, 58% with an
+8-K earnings release. Prices: 792 tickers, 778 priced. Trades (strong / all): k5 697 / 5,463; k10 737 / 5,880;
+k20 750 / 6,158. Average round-trip cost 2.0%.
+Gross per trade, strong (all): k1 +0.38% (+0.12), k2 +0.33 (+0.23), k3 +0.21 (+0.19), k5 +0.18 (+0.05), k10 -0.39
+(+0.14), k15 -0.21 (+0.09), k20 +0.68 (+0.27). Weak gross -0.22 / -0.37 / -0.41% (k5/10/20).
+Net per trade, strong: k5 -1.86%, k10 -2.42%, k20 -1.33%; monthly mean -1.28 / -1.52 / -0.89% (90% lb -2.3 / -2.7 /
+-1.7%). Strong minus all, monthly: k5 +0.87% (lb +0.17%), k10 +0.04% (lb -1.1%), k20 +0.24% (lb -0.86%).
+Gate: all three NO ADVANCE (strong net < 0 everywhere). Pre-earnings gross drift +0.2..+0.7% a trade vs ~2% costs;
+strong > weak gross by ~0.4-1.1% a trade, not monotone in k. Survivorship matters little over 1-4 week windows.
+Family: 4 of 4 gated variants used (pilot + k5/k10/k20). Matches the stated expectation (fails after costs).

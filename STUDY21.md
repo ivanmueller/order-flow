@@ -104,3 +104,9 @@ strong beats all universe trades (monthly mean difference > 0); >= 100 strong tr
 advance: positive before costs, fails after costs (needs > ~2% per window against ~0.5-1.5% published premiums).
 Dry runs: planted +5% pre-announcement drift -> ADVANCE at k = 5/10/20 (+3.8% / +5.3% / +5.3% gross per trade);
 no drift -> 1 advance in 15 variant-runs (k20 once).
+
+## Study 21b result (2026-10-12): NO ADVANCE on all three gated variants
+
+Strong gross per trade +0.18% (k5), -0.39% (k10), +0.68% (k20) against ~2.0% average round-trip cost; net -1.9 / -2.4 /
+-1.3% a trade. The pre-earnings drift exists only at a few tenths of a percent; strong beats weak before costs.
+The Study 21 family's 4 gated variants are used.
