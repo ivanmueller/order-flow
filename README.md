@@ -158,6 +158,9 @@ python -m src.study14 --discover               # 38,880 combinations + 100 place
 python -m src.crypto_data --minute             # 1-minute klines for the frozen combinations' trades
 python -m src.study14 --diagnose               # placebo, tails, worst periods, 1-minute re-walk
 python -m src.study14 --risk                   # descriptive bankroll of the frozen combinations
+#     Study 21 step 0 (free; set SEC_USER_AGENT="Your Name you@example.com" in .env)
+python -m src.edgar_inventory --limit 500   # quick check
+python -m src.edgar_inventory               # all companies (downloads the SEC bulk files once)
 #     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
 #     study14 --events --holdout, crypto_data --event-data --holdout, then study14 --holdout
 #     Study 15: long early in crypto surges (hourly data already on disk; STUDY15.md). In order:

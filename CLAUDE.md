@@ -246,6 +246,11 @@ Update this block at the end of every session.
   Matches the pre-stated expectation. VALIDATION run once 2026-10-11 (2020-01..2025-09): X3 FAIL (+0.036%/day, lb
   -0.019%; geo +6.8%/yr, DD 31%, Sharpe 0.41; 2020 -8%, 2021 +40%, 2022 +13%, 2023 0 (no entries; to confirm), 2024
   +13%, 2025 -11%; worst 2025-04-03 -12.6%). Validation spent; holdout untouched. Awaiting Matteo's call.
+- Study 21 DRAFT 2026-10-12 (STUDY21.md): Piotroski F-score in neglected US microcaps (Matteo: "okay lets do the
+  fundamental microcaps"). Step 0 BUILT (src/edgar_inventory.py, 5 tests): SEC companyfacts/submissions bulk files,
+  firm-year = original 10-K, first-filed values filed on or before it, dead filers kept, sealed at holdout_start;
+  counts only. Next: Matteo sets SEC_USER_AGENT, runs `python -m src.edgar_inventory --limit 500`, then without
+  --limit; then strategy approval and pricing a survivorship-free price file. No config entries yet.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -341,6 +346,7 @@ See README.md for the full runbook in order.
   `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study19 --holdout`
 - Study 20: `python -m src.vix_futures --probe`, `python -m src.vix_futures`, `python -m src.study20 --discover`,
   then once `--validate`; holdout (validation passes only): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study20 --holdout`
+- Study 21 step 0 (free, SEC_USER_AGENT in .env): `python -m src.edgar_inventory [--limit 500] [--no-sic]`
 - Study 18 (free): `python -m src.defi_subgraph --chain all --probe`, `--chain all`, then `python -m src.study18 --build`,
   `--stage-a`, then once `--validate`
 - Study 16 (market-neutral crypto theses): `python -m src.study16 --all`, then `--diagnose`; holdout only on

@@ -2634,3 +2634,10 @@ X3: mean +0.036%/day, 90% lower bound -0.019% (FAIL: lb must be > 0); geo +6.8%/
 Verdict by the rules: FAIL (lower bound below zero; second half ~0). Validation spent; holdout untouched.
 Open check: 2023 shows exactly 0.0% (no X3 entries). Confirm on the panel that VIX never closed >= VIX3M in 2023
 (the March 2023 bank stress is the candidate); a missed ~20-day entry would add ~+0.003%/day, not enough to flip lb.
+
+## 2026-10-12 -- Study 21 DRAFT + step 0 built (no analysis run)
+STUDY21.md drafted (Piotroski F-score in neglected US microcaps; strategy proposed, not frozen; no config change).
+src/edgar_inventory.py + tests/test_edgar_inventory.py (5 tests, hand-computed F-score 8 incl. a restatement that would
+flip dROA, a value filed after the 10-K excluded, missing-debt imputation flagged). Synthetic end-to-end dry run of
+run() on a fake bulk zip passed (malformed file skipped, financials split, seal applied). The SEC is not reachable
+from the build container; Matteo runs it.
