@@ -83,7 +83,9 @@ def rebuild_calendar(cfg):
     files = sorted(data_path(cfg, "raw", "es", "bars").glob("*.parquet"))
     if not files:
         return
-    bars = pd.concat([store.read(f) for f in files], ignore_index=True).drop_duplicates("ts_open_utc")
+    # Only the two columns the calendar uses: keeps memory low on long bar histories (MemoryError 2026-10-08).
+    bars = pd.concat([pd.read_parquet(f, columns=["ts_open_utc", "instrument_id"]) for f in files],
+                     ignore_index=True).drop_duplicates("ts_open_utc")
     equity = None
     if store.daily_path(cfg).exists():
         d = store.read(store.daily_path(cfg))

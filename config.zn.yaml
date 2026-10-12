@@ -1,0 +1,21 @@
+# Study 7 overlay (RUNLOG 2026-10-07, approved): Study 5 momentum (S5a) anchored to the settlement of 10-year note (CBOT), settlement 14:00 CT = 15:00 ET; tick 1/64 (half of 1/32).
+# Separate data root; one shared spend ledger. Use per command:
+#   $env:GAMMA_EDGE_CONFIG = "config.zn.yaml"   ...   Remove-Item Env:GAMMA_EDGE_CONFIG
+extends: config.yaml
+name: zn
+
+data:
+  root: "data_zn"
+  es_symbol: "ZN.v.0"
+  ledger: "data/spend_ledger.csv"
+
+market:
+  tick: 0.015625
+  point_value: 1000.0
+  rth_close: "15:00"            # settlement minute: P_prev is D-1's bar closing here; the time exit is this bar's open
+  moc_imbalance_time: "14:50"      # descriptive sub-window only (no MOC in this market)
+
+params:
+  s5_decision_time: {value: "14:30", nudges: []}
+  s5_exit_time:     {value: "15:00", nudges: []}
+  s5_em_unit:       {value: "realized"}

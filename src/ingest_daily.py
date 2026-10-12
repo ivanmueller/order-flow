@@ -1,7 +1,7 @@
 """Ingest SPX and VIX daily closes from FRED (no key needed).
 
 Run: python -m src.ingest_daily [--force]
-Output: data/raw/daily/spx_vix.parquet  (date, spx_close, vix_close)
+Output: data/raw/daily/spx_vix.parquet  (date, spx_close, vix_close, vix3m_close)
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import requests
 from src import store
 from src.config import load_config
 
-SERIES = {"SP500": "spx_close", "VIXCLS": "vix_close"}
+SERIES = {"SP500": "spx_close", "VIXCLS": "vix_close", "VXVCLS": "vix3m_close"}   # VIX3M added for Study 19
 
 
 def parse_fred_csv(text: str, series: str) -> pd.DataFrame:
@@ -32,7 +32,10 @@ def fetch(cfg) -> pd.DataFrame:
         r = requests.get(cfg["data"]["fred_url"].format(series=series), timeout=60)
         r.raise_for_status()
         frames.append(parse_fred_csv(r.text, series))
-    df = frames[0].merge(frames[1], on="date", how="outer").sort_values("date")
+    df = frames[0]
+    for f in frames[1:]:
+        df = df.merge(f, on="date", how="outer")
+    df = df.sort_values("date")
     return df[df["date"] >= pd.Timestamp("2019-01-01").date()].reset_index(drop=True)
 
 

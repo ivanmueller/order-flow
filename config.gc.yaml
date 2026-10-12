@@ -1,0 +1,21 @@
+# Study 7 overlay (RUNLOG 2026-10-07, approved): Study 5 momentum (S5a) anchored to the settlement of gold (COMEX), settlement 13:28-13:30 ET.
+# Separate data root; one shared spend ledger. Use per command:
+#   $env:GAMMA_EDGE_CONFIG = "config.gc.yaml"   ...   Remove-Item Env:GAMMA_EDGE_CONFIG
+extends: config.yaml
+name: gc
+
+data:
+  root: "data_gc"
+  es_symbol: "GC.v.0"
+  ledger: "data/spend_ledger.csv"
+
+market:
+  tick: 0.1
+  point_value: 100.0
+  rth_close: "13:30"            # settlement minute: P_prev is D-1's bar closing here; the time exit is this bar's open
+  moc_imbalance_time: "13:20"      # descriptive sub-window only (no MOC in this market)
+
+params:
+  s5_decision_time: {value: "13:00", nudges: []}
+  s5_exit_time:     {value: "13:30", nudges: []}
+  s5_em_unit:       {value: "realized"}

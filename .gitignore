@@ -1,4 +1,9 @@
 data/
+data_nq/
+data_cl/
+data_gc/
+data_zn/
+data_6e/
 .env
 __pycache__/
 *.pyc

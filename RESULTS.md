@@ -185,7 +185,7 @@ contrast; a 1,000-draw permutation of the percentile across sessions is the plac
 
 Study 3 decision: pending Matteo's call.
 
-## Study 4, regime-conditioned 0DTE straddle at the D-1 close (approved 2026-10-07; build complete, run pending)
+## Study 4, regime-conditioned 0DTE straddle at the D-1 close (approved and run 2026-10-07; KILL)
 
 ### How it is built
 One position per session, entered at the D-1 17:00 ET EOD quotes (the same report the engine's EM
@@ -221,3 +221,108 @@ lower > 0, permutation p < 0.05; tail block reported. `python -m src.study4`.
   +0.19, p=0.17 (same-day, non-tradeable: +0.35, p=0.001). Friction is 0.02 EM against a 0.13 EM contrast;
   the per-session sd of 0.77 EM is what fails the gate (about 460 high-gamma sessions would be needed).
   Pooled S4a+S4b switching (not pre-registered): +0.047 EM, 90% lower bound about -0.01. 15 of 20 variants.
+
+## Study 5, last-30-minute ES momentum into the close (approved 2026-10-07, sample A; 17 of 20 variants)
+
+### How it is built
+At 15:30 ET, one ES contract in the direction of the move from the prior 16:00 close to the 15:29 bar's
+close; entry at the 15:30 bar's open plus a tick, exit at the 16:00 bar's open minus a tick, $3.98 round
+trip. S5b adds a stop 0.5 EM_V from entry on the tick grid. Unit EM_V = 0.75 x VIX(D-1)/sqrt(252) x prior
+close. Gates split into existence (timing contrast CI, session and block permutations) and economics (mean,
+CI, tail). `python -m src.study5`.
+
+### S5a and S5b (618 sessions)
+- **Result.** S5a -0.037 EM_V (-1.66 pts, -$83 per contract), CI -0.054..-0.020; S5b -0.031, CI
+  -0.046..-0.015. Timing contrast -0.024 / -0.020 with the whole interval below zero; permutation p 0.99.
+  The close reverses the day: slope -0.028 (t -2.3), negative every year, strongest when net_gex >= 0
+  (descriptive).
+- **Verdict.** KILL on both (existence and economics fail). The published momentum is excluded in this
+  sample; the mirror fade nets about +0.009 EM_V with an interval including zero and was not registered.
+
+Study 5 decision: pending Matteo's call.
+
+## Study 5f, fade the rest-of-day move into the close (holdout only; 18 of 20 variants)
+- **Build.** Study 5's S5b trade in the opposite direction; reference from the in-sample table, then one run
+  on the sealed holdout.
+- **Result.** In sample +0.0080 EM_V (CI -0.009..+0.025, timing contrast CI > 0, perm p 0.016 / 0.039, but
+  about zero without the best five days). Holdout 2026-01-02..09-30, 184 sessions: +0.0145 EM_V (CI
+  -0.006..+0.036), timing contrast +0.023 (CI > 0), perm p 0.037 / block 0.077.
+- **Hypothetical bankroll (in sample, descriptive, 2026-10-08).** $30,000 on 1 NQ fixed -> $81,948 (max DD 27.7%,
+  stress +1 tick $75,738); on 1 ES fixed -> $43,490 (stress -6.5%); micro schemes small or negative at a
+  pessimistic $3.98 a micro. Half the NQ profit comes from five sessions.
+- **NQ holdout (2026-01..09, 184 sessions, 2026-10-08).** +0.0072 EM_V (CI -0.022..+0.037), timing contrast
+  +0.006 (CI crosses 0), perm p 0.38; gate needs >= 0.0122: FAIL. Bankroll: 1 NQ $30k -> $35.0k with a 31%
+  drawdown; micros roughly flat at $1.18 a round trip.
+- **Verdict.** ES holdout gate PASS (positive and at least half the in-sample mean); NQ holdout gate FAIL. The reversal replicates;
+  the after-cost edge (about 0.4-0.5 points a trade) is not statistically resolved. Next by SPEC: nudges,
+  splits, NQ replication, paper trading. Decision pending Matteo.
+- **Robustness (in sample).** Nudge rule PASS (7 of 8 positive, timing positive in all 8), but one extra
+  tick of slippage or a 15:55 exit takes the ES edge to about zero.
+- **NQ replication (in sample, 621 sessions).** +0.0243 EM_V (CI +0.004..+0.044), timing contrast +0.027
+  (CI > 0), perm p 0.012 / block 0.008: replication gate PASS. Four of the five best days are shared with ES,
+  so this confirms the pattern rather than adding an independent sample; NQ's edge is larger after costs
+  mainly because its friction is about a third of ES's in EM_V terms.
+
+## Study 6, pure order flow pilot (110 on-disk Stage 3 sessions; family budget 4 of 4)
+- **Build.** Aggressor imbalance I_L = signed volume / volume over the last L minutes, top quintile vs the
+  previous 20 sessions; F1 continuation 5/5, F2 absorption fade 15/15, F3 pressure reversal 15/15, F4
+  absorption fade 5/5; time exits, one tick each way, $3.98.
+- **Result.** Net -0.52, -1.19, -0.49, -0.68 points a trade; gross between -0.61 and +0.09, no CI above
+  zero. Imbalance vs forward return: corr 0.009 (5 min) and 0.020 (15 min), t < 1, deciles flat.
+- **Verdict.** KILL on all four; no confirmation run. Aggressor imbalance carries no usable direction at
+  5-15 minutes; friction is about ten times the best gross edge.
+
+## Study 7, last-30-minute momentum into settlement on CL, GC, ZN, 6E (family budget 4 of 4)
+- **Build.** Study 5's S5a (no stop) with each overlay's clock: P_prev = D-1 settlement-minute close,
+  decision 30 minutes before settlement, entry next bar + 1 tick, time exit at settlement - 1 tick, $3.98;
+  unit EM_R = 20-session realized volatility x P_prev; Study 5 gates per market. Direction chosen from the
+  literature (Baltussen et al. 2021) before any of these markets' data was read.
+- **Result.** S5a after costs: CL -0.013, GC -0.011, ZN -0.066, 6E -0.020 EM_R, every CI below zero. Timing
+  (existence) passes only in ZN: contrast +0.027 (CI +0.015..+0.038), permutation p 0.001, slope t +3.2, but
+  its best days are all FOMC days (the 14:30 ET press conference sits in the window). ZN friction is 0.092
+  EM_R a trade against +0.027 before costs. The fade loses after costs in all four. ES rerun under EM_R
+  gives the same ES results (fade +0.0066, contrast CI above zero).
+- **Verdict.** KILL on all four. Momentum into settlement is absent in CL, GC and 6E, and in ZN it is real but
+  about 0.6 of a tick wide and possibly a Fed-day effect. Neither direction diversifies the ES fade.
+
+## Study 9, can a passive ES trader earn the spread? (report-only, $0)
+- **Build.** Part A: realized spread to the passive side of every ES print on the 106 tick sessions (quote
+  inferred from the one-tick tape, checked), by queue proxy, time of day and trade size. Part B: every in-sample
+  level touch traded with a resting order at the level, held 1-60 minutes, perfect fills ($0 commission scenario)
+  versus rule-5 fills.
+- **Result.** Average passive fill: ~0 tick at 5-60 s. Back-of-queue (clearing) fills: -0.57 to -0.63 tick before
+  fees. Front-of-queue fills: +0.04 to +0.06 tick, under the $0-commission fee (0.11 tick a side). Level reversion,
+  perfect fills: +0.08 points at 1 minute (CI includes 0), negative beyond 3 minutes, and worse than placebo levels
+  throughout; conservative fills: -0.42 to -1.18 points, every CI below zero.
+- **Verdict.** KILL on both advance rules. Market makers leave hundredths of a tick at the front of the queue; a
+  retail resting order at the back pays about 0.6 tick per fill.
+
+
+## Study 8, month-end compelled flow (Track A; family budget 2 of 4; $0)
+- **Build.** E0: FRED 10-year yield change over the last 1-5 sessions of each month (1990-2025, in sample) and
+  the S&P last-day return on stock-minus-bond month-to-date performance. M1: long ZN from the settlement 4 sessions
+  before month end to the last session's settlement. M2: at the ES close 2 sessions before month end, short ES if
+  stocks beat bonds month to date (long otherwise), out at the last close. Rule-5 fills, $3.98.
+- **Result.** E0: yields fall ~2.5 bp over the last 4 sessions in 2020-25 (t -2.2) as in 1990-2019 (t -4.1),
+  versus a +0.6 bp drift; no rebalancing effect in the S&P last day (slope t -0.24). M1: -0.30 ZN ticks after
+  costs on 21 month-ends (CI -12.7..+12.5; 12 months skipped for rolls and half days). M2: +8.7 ES points on 30
+  months (CI -6.6..+24.5), all from three 2024 months (-1.9 without them).
+- **Verdict.** KILL on both by the rules. The Treasury month-end effect is real and post-publication (~10 ZN ticks
+  gross vs 2.25 of friction), but 21 futures month-ends cannot resolve it; it needs ~90.
+
+## Study 10, can a priority-customer resting order earn the option spread? (IWM pilot; $8.19)
+- **Build.** Every IWM option print exactly at the consolidated bid or ask on 5 random in-sample sessions (OPRA
+  tcbbo), one opportunity per sweep, marked at the midpoint 1, 5 and 15 minutes later (cbbo-1m), $ per contract,
+  $0 commission (Matteo's broker). Advance rule: a spread bucket with >= 1,000 fills in every session, 5-minute 90%
+  lower bound > 0 and 15-minute mean > 0.
+- **Result.** 215,533 fills. Quoted spread 2-4 cents: +$0.50 per contract at 5 minutes (CI +0.34..+0.76), positive
+  on all 5 days, 42% of the half-spread kept; 5-9 cents: +$0.78 (CI +0.44..+1.36). Penny-wide +$0.11 (CI includes
+  0). Fills the price trades through within a minute (12-15%) lose $2-7. Rule-6 checks found no bug. Bankroll
+  (descriptive): $30k to $44.6-150.4k a year at the data's fill quality, still positive at 20% break-through fills,
+  negative at 30% (to ruin at 5 lots and 300 fills a day).
+- **Verdict.** ADVANCE by the rule (the first in the programme). The tape says market makers keep part of the
+  spread in IWM options; whether a retail order gets fills of that quality is not measured and decides the sign.
+- **Confirmation (5 fresh sessions, $6.81).** The unfiltered result replicates: 2-4 cents +$0.68 a contract at 5
+  minutes (CI +0.41..+0.89), 5-9 cents +$2.25 (CI +0.61..+3.98), penny spreads +$0.27 (CI +0.18..+0.36) and 10-24
+  cents +$2.86 also pass. H1 (skip the first 30 minutes): FAIL (fewer break-throughs, RS gain not resolved). H2
+  (quote only near the gamma flip): PASS by the rule on 4% of fills in 2 sessions; promising, not established.

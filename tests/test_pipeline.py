@@ -216,3 +216,170 @@ def test_study4_end_to_end(synth_env):
         assert v["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") and "permutation" in v and "tail" in v
     assert "short_straddle_ln_vix" in out["stage1_restated"]
     analysis.to_json(out)
+
+
+def test_study5_end_to_end(synth_env):
+    """Synthetic bars (tests/synth.py) run 18:00-17:00, so every session has its 15:29, 15:30 and 16:00
+    bars; the roll day is skipped; no holdout date appears; the direction is the sign of r_ROD; the
+    holdout cannot be requested without the flag."""
+    from src import study5
+    cfg, _ = synth_env
+    gex.build(cfg=cfg)
+    T = study5.run(cfg)
+    cal = store.load_calendar(cfg)
+    roll_days = set(cal.loc[cal["roll"], "date"])
+    assert not T.empty and T["date"].is_unique
+    assert (T["date"] < calm.holdout_start(cfg)).all() and not (set(T["date"]) & roll_days)
+    assert T.attrs["skipped"].get("roll_day", 0) == len(roll_days & set(cal["date"]))
+    assert (T["d"] == np.sign(T["r_rod_em"])).all()
+    for mode in study5.MODES:
+        assert np.isfinite(T[f"pnl_em_{mode}"]).all()
+    # the stop variant can never lose more than the stop distance plus one tick, slippage and costs
+    worst = -(T["E_long"] - T["S_long"] + 0.25 + 3.98 / 50) / T["em_v"]
+    assert (T["pnl_em_momentum_stop_long"] >= worst - 1e-9).all()
+    assert T["em_option"].notna().any()                   # D rows whose nearest expiry is D's SPXW
+    out = study5.report(cfg, T)
+    assert set(out["variants"]) == set(study5.VARIANTS) and out["sample"] == "A"
+    for v in out["variants"].values():
+        assert v["verdict_vs_rules"] in ("PASS", "KILL", "INDICATIVE") and v["existence"] in ("PASS", "FAIL")
+    analysis.to_json(out)
+    with pytest.raises(calm.HoldoutSealed):
+        study5.run(cfg, save=False, include_holdout=True)
+
+
+def test_study5f_holdout_path(synth_env, monkeypatch):
+    """The fade's holdout run is refused without the flag, reads only holdout sessions with it, and the
+    input check looks at file names and the daily file's last date only."""
+    from src import study5
+    cfg, _ = synth_env
+    chk = study5.holdout_check(cfg)
+    assert set(chk) >= {"bar_months_expected", "bar_months_missing", "daily_last_date", "ok"}
+    with pytest.raises(calm.HoldoutSealed):
+        study5.run_fade_holdout(cfg, reference=0.01)
+    monkeypatch.setenv(calm.HOLDOUT_ENV, "1")
+    out, T = study5.run_fade_holdout(cfg, reference=0.01, save=False)
+    assert not T.empty and (T["date"] >= calm.holdout_start(cfg)).all()
+    assert out["gate"] in ("PASS", "FAIL") and out["reference_in_sample_mean_em"] == 0.01
+    out0, _ = study5.run_fade_holdout(cfg, reference=-0.01, save=False)
+    assert out0["gate"] == "VOID"
+
+
+def test_study5f_robustness_on_synthetic_store(synth_env):
+    from src import study5
+    cfg, _ = synth_env
+    gex.build(cfg=cfg)
+    out = study5.fade_robustness(cfg)
+    names = [r["param"] for r in out["nudges"]]
+    assert names[0] == "BASE" and len(names) == 9
+    assert 0.0 <= out["positive_share"] <= 1.0 and out["rule_min_share"] == 0.8
+    assert set(out["splits"]) >= {"year", "em_v_tercile", "net_gex_sign", "weekday"}
+    assert isinstance(out["year_carry_warning"], list)
+
+
+def test_study6_on_synthetic_ticks(synth_env):
+    """Pilot sessions are in-sample Stage 3 days with tick files (no roll days, no holdout); counts read no
+    outcomes; every trade enters at or after its decision minute; thresholds come from earlier sessions."""
+    from src import study6
+    cfg, bars = synth_env
+    gex.build(cfg=cfg)
+    levels.build(cfg=cfg)
+    tc = touches.build(cfg=cfg)
+    synth.write_trades_for_touches(cfg, bars, tc, np.random.default_rng(1))
+    # synthetic sessions are short: shrink warm-up and lookback for the test only
+    cfg["params"]["s6_warmup_sessions"]["value"] = 3
+    cfg["params"]["s6_lookback_sessions"]["value"] = 5
+    days = study6.pilot_days(cfg)
+    cal = store.load_calendar(cfg)
+    assert days and all(d < calm.holdout_start(cfg) for d in days)
+    assert not set(days) & set(cal.loc[cal["roll"], "date"])
+    c = study6.count(cfg, study6.build_slots(cfg, days))
+    assert set(c["slots"]) == {"L5_H5", "L15_H15"}
+    T, slots = study6.run(cfg, save=True)
+    assert len(T) and set(T["variant"]) <= {"F1", "F2", "F3", "F4"}
+    assert (T["entry_ts"] >= T["t"]).all() and not T.duplicated(["variant", "date", "t"]).any()
+    first = sorted(slots[(5, 5)]["date"].unique())[3]
+    assert T["date"].min() >= first
+    out = study6.report(cfg, T, slots)
+    for v in out["variants"].values():
+        assert v["verdict"] in ("ADVANCE", "KILL")
+    analysis.to_json(out)
+    assert len(store.load_derived("flow_trades", cfg)) == len(T)
+
+
+def test_study7_realized_unit_on_synthetic_store(synth_env):
+    """EM_R path end to end: sigma from settlement-minute closes strictly before D, rolls never form a return,
+    every traded session has a finite unit, and the first s5_rv_sessions sessions are skipped as no_vol."""
+    from src import study5, study7
+    from src.config import with_params
+    cfg, _ = synth_env
+    c = with_params(cfg, s5_em_unit="realized", s5_rv_sessions=5)
+    T = study5.run(c, save=False)
+    assert len(T) and np.isfinite(T["em_v"]).all() and (T["em_v"] > 0).all()
+    assert T.attrs["skipped"].get("no_vol", 0) >= 1
+    cal = store.load_calendar(c)
+    _, by_day, _ = study5._load(c)
+    sig = study7.sigma_by_session(cal, by_day, c)
+    for r in T.itertuples():
+        assert r.em_v == pytest.approx(sig[r.date] * r.P_prev)
+
+
+def test_bankroll_on_synthetic_store(synth_env):
+    """The bankroll simulation reads the saved Study 5 table (in sample), runs every scheme with and without
+    stress, and the fixed one-contract equity equals the start plus the summed fade dollars."""
+    from src import bankroll, study5
+    cfg, _ = synth_env
+    gex.build(cfg=cfg)
+    T = study5.run(cfg)
+    out = bankroll.run(cfg)
+    assert set(out["schemes"]) == {"full_fixed", "micro_fixed", "micro_risk_1pct", "micro_risk_2pct"}
+    L = bankroll.fade_legs(T, cfg)
+    exp = cfg["bankroll"]["start_usd"] + (L["gross_pts"] * cfg["market"]["point_value"] - 3.98).sum()
+    assert out["schemes"]["full_fixed"]["final_usd"] == pytest.approx(exp)
+    assert out["last"] < str(calm.holdout_start(cfg))
+    assert len(store.load_derived("bankroll_full_fixed", cfg)) == len(L)
+
+
+def test_fade_holdout_without_holdout_sessions_is_not_spent(synth_env, monkeypatch):
+    """If the calendar has no holdout sessions (e.g. the rebuild failed), the holdout run computes nothing and
+    says so instead of crashing; the one-shot run is not spent."""
+    from src import study5
+    cfg, _ = synth_env
+    cal = store.load_calendar(cfg, include_holdout=False, equity_only=False)
+    store.save_derived(cal, "calendar", cfg)                  # drop every holdout session from the calendar
+    monkeypatch.setenv(calm.HOLDOUT_ENV, "1")
+    out, T = study5.run_fade_holdout(cfg, reference=0.02, save=False)
+    assert out["gate"] == "NO_DATA" and T.empty
+
+
+def test_calendar_rebuild_reads_two_columns(synth_env, monkeypatch):
+    from src import ingest_futures
+    cfg, _ = synth_env
+    monkeypatch.setenv(calm.HOLDOUT_ENV, "1")
+    before = store.load_calendar(cfg, include_holdout=True, equity_only=False)
+    ingest_futures.rebuild_calendar(cfg)
+    after = store.load_calendar(cfg, include_holdout=True, equity_only=False)
+    pd.testing.assert_frame_equal(before.reset_index(drop=True), after.reset_index(drop=True))
+
+
+def test_study9_on_synthetic_store(synth_env):
+    """Both parts run end to end on the synthetic store, in sample only; the conservative fill never beats the
+    perfect fill on the same touch and horizon; reports carry a verdict."""
+    from src import study9
+    cfg, bars = synth_env
+    gex.build(cfg=cfg)
+    levels.build(cfg=cfg)
+    tc = touches.build(cfg=cfg)
+    synth.write_trades_for_touches(cfg, bars, tc, np.random.default_rng(1))
+    cfg["params"]["s9_lr_horizons_min"]["value"] = [1, 5]
+    T = study9.run_lr(cfg)
+    assert len(T) == len(tc) and (T["date"] < calm.holdout_start(cfg)).all()
+    same = T.dropna(subset=["perfect_gross_5", "cons_gross_5"])
+    same = same[same["perfect_fill_bar"] == same["cons_fill_bar"]]
+    assert len(same) and np.allclose(same["cons_gross_5"], same["perfect_gross_5"] - 0.25)   # same fill bar: one tick worse
+    assert (T["cons_fill_bar"].dropna() >= T.loc[T["cons_fill_bar"].notna(), "perfect_fill_bar"]).all()
+    assert study9.report_lr(cfg, T)["verdict"] in ("ADVANCE", "KILL")
+    A, chk = study9.run_rs(cfg)
+    assert len(A) and chk["opposite_pairs"] > 0
+    out = study9.report_rs(cfg, A, chk)
+    assert out["verdict"] in ("ADVANCE", "KILL") and "clearing" in out["cells"]["60s"]
+    analysis.to_json(out)
