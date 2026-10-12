@@ -106,11 +106,16 @@ def _dei_float(cf: dict, accn: str) -> float:
     return float(max(rows, key=lambda x: x["end"])["val"]) if rows else np.nan
 
 
+def _div(a: float, b: float) -> float:
+    """a / b, NaN when b is 0 or either side is missing (a zero current-liability or revenue year is not a crash)."""
+    return a / b if b and not np.isnan(b) and not np.isnan(a) else np.nan
+
+
 def _sig(cond, *inputs) -> float:
     return np.nan if any(np.isnan(v) for v in inputs) else float(cond)
 
 
-def firm_years(cf: dict) -> pd.DataFrame:
+def firm_years(cf: dict, cik: int | None = None) -> pd.DataFrame:
     """One row per original 10-K: inputs at t, t-1, t-2 (point in time, first reported) and the nine signals."""
     F = _facts(cf)
     filings: dict[str, int] = {}
@@ -143,12 +148,12 @@ def firm_years(cf: dict) -> pd.DataFrame:
             if np.isnan(g[f"gp{s}"]):
                 g[f"gp{s}"] = g[f"rev{s}"] - g[f"cogs{s}"]
         a, a1, a2 = g["assets"], g["assets_1"], g["assets_2"]
-        roa, roa1 = g["ni"] / a1, g["ni_1"] / a2
-        cfoa = g["cfo"] / a1
-        lev, lev1 = g["ltd"] / ((a + a1) / 2), g["ltd_1"] / ((a1 + a2) / 2)
-        cr, cr1 = g["ca"] / g["cl"], g["ca_1"] / g["cl_1"]
-        gm, gm1 = g["gp"] / g["rev"], g["gp_1"] / g["rev_1"]
-        tu, tu1 = g["rev"] / a1, g["rev_1"] / a2
+        roa, roa1 = _div(g["ni"], a1), _div(g["ni_1"], a2)
+        cfoa = _div(g["cfo"], a1)
+        lev, lev1 = _div(g["ltd"], (a + a1) / 2), _div(g["ltd_1"], (a1 + a2) / 2)
+        cr, cr1 = _div(g["ca"], g["cl"]), _div(g["ca_1"], g["cl_1"])
+        gm, gm1 = _div(g["gp"], g["rev"]), _div(g["gp_1"], g["rev_1"])
+        tu, tu1 = _div(g["rev"], a1), _div(g["rev_1"], a2)
         s = {"s_roa": _sig(roa > 0, roa), "s_cfo": _sig(cfoa > 0, cfoa),
              "s_droa": _sig(roa > roa1, roa, roa1), "s_accrual": _sig(cfoa > roa, cfoa, roa),
              "s_dlever": _sig(lev < lev1, lev, lev1), "s_dliquid": _sig(cr > cr1, cr, cr1),
@@ -156,10 +161,10 @@ def firm_years(cf: dict) -> pd.DataFrame:
              "s_dmargin": _sig(gm > gm1, gm, gm1), "s_dturn": _sig(tu > tu1, tu, tu1)}
         n = sum(not np.isnan(v) for v in s.values())
         fl = _dei_float(cf, accn)
-        out.append({"cik": cf.get("cik"), "accn": accn, "filed": filed, "fye": fye, **g, **s,
+        out.append({"cik": cik if cik is not None else cf.get("cik"), "accn": accn, "filed": filed, "fye": fye, **g, **s,
                     "ltd_imputed": not ltd_seen, "n_signals": n,
                     "fscore": float(sum(s.values())) if n == 9 else np.nan,
-                    "float_usd": fl, "bm": g["equity"] / fl if fl and fl > 0 else np.nan})
+                    "float_usd": fl, "bm": _div(g["equity"], fl) if fl > 0 else np.nan})
     return pd.DataFrame(out)
 
 
@@ -225,19 +230,19 @@ def download(name: str, root: Path, refresh: bool = False) -> Path:
     return dest
 
 
-def _cf_chunk(args) -> pd.DataFrame:
+def _cf_chunk(args) -> tuple[pd.DataFrame, list[str]]:
     path, names = args
-    parts = []
+    parts, skipped = [], []
     with zipfile.ZipFile(path) as z:
         for n in names:
             try:
-                d = firm_years(json.loads(z.read(n)))
+                d = firm_years(json.loads(z.read(n)), cik=int(n[3:13]))
             except Exception as e:                                  # malformed company file: count, don't stop
-                log.warning("skip %s: %s", n, e)
+                skipped.append(f"{n}: {type(e).__name__}: {e}")
                 continue
             if len(d):
                 parts.append(d)
-    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+    return (pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()), skipped
 
 
 def _sic_chunk(args) -> list[tuple]:
@@ -266,8 +271,9 @@ def run(cfg, limit: int | None, jobs: int, sic: bool, refresh: bool) -> dict:
         names = sorted(n for n in z.namelist() if n.endswith(".json"))
     names = names[:limit] if limit else names
     with ProcessPoolExecutor(jobs) as ex:
-        parts = [p for p in ex.map(_cf_chunk, [(cf_zip, c) for c in _chunks(names, jobs)]) if len(p)]
-    fy = pd.concat(parts, ignore_index=True)
+        res = list(ex.map(_cf_chunk, [(cf_zip, c) for c in _chunks(names, jobs)]))
+    skipped = [x for _, sk in res for x in sk]
+    fy = pd.concat([p for p, _ in res if len(p)], ignore_index=True)
     fy = fy[in_sample(fy["filed"], cfg)].reset_index(drop=True)          # seal: nothing filed on/after holdout_start
     if sic:
         sub_zip = download("submissions.zip", root, refresh)
@@ -283,6 +289,8 @@ def run(cfg, limit: int | None, jobs: int, sic: bool, refresh: bool) -> dict:
     fy.to_parquet(out / "edgar_firm_years.parquet", index=False)
     s = summarize(fy, last_filed_cut=pd.Timestamp("2024-01-01"), buckets=[50e6, 300e6, 2e9])
     s["companies"]["files_read"] = len(names)
+    s["companies"]["files_skipped"] = len(skipped)
+    s["companies"]["skipped_examples"] = skipped[:5]
     s["sealed_from"] = str(holdout_start(cfg))
     if sic:
         nt = fy.drop_duplicates("cik")

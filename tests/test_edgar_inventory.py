@@ -110,3 +110,25 @@ def test_summary_counts_and_size_buckets():
     y = s["by_filed_year"]["2021"]
     assert y["firm_years"] == 1 and y["all_9_signals"] == 1 and y["float_lt_50m"] == 1
     assert s["companies"]["stopped_filing_before_cut"] == 1     # last 10-K filed 2021 -> dead firms are kept
+
+
+def test_zero_denominators_give_missing_signals_not_a_crash():
+    c = company()
+    cl = c["facts"]["us-gaap"]["LiabilitiesCurrent"]["units"]["USD"]
+    for x in cl:
+        if x["end"] == "2020-12-31":
+            x["val"] = 0                                         # no current liabilities in 2020
+    rv = c["facts"]["us-gaap"]["Revenues"]["units"]["USD"]
+    for x in rv:
+        if x.get("end") == "2019-12-31":
+            x["val"] = 0                                         # pre-revenue in 2019
+    r = ei.firm_years(c, cik=777).set_index("accn").loc["A20"]
+    assert np.isnan(r["s_dliquid"]) and np.isnan(r["s_dmargin"])
+    assert r["s_dturn"] == 1                                     # 120/120 vs 0/100: zero revenue is a valid turnover
+    assert r["cik"] == 777 and r["n_signals"] == 7
+
+
+def test_cik_comes_from_the_file_name_when_the_json_has_none():
+    c = company()
+    del c["cik"]
+    assert (ei.firm_years(c, cik=42)["cik"] == 42).all()

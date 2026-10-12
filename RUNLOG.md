@@ -2641,3 +2641,13 @@ src/edgar_inventory.py + tests/test_edgar_inventory.py (5 tests, hand-computed F
 flip dROA, a value filed after the 10-K excluded, missing-debt imputation flagged). Synthetic end-to-end dry run of
 run() on a fake bulk zip passed (malformed file skipped, financials split, seal applied). The SEC is not reachable
 from the build container; Matteo runs it.
+
+## 2026-10-12 -- Study 21 step 0: first inventory runs (Matteo; commit 8e70d73) -- SUPERSEDED
+`edgar_inventory --limit 500` completed but is BIASED: every company with a zero denominator anywhere (zero current
+liabilities, zero revenue) crashed with "division by zero" and was skipped whole (13 of the first 500; ~1,500+ in the full
+run). Headline of the biased quick run (391 companies, 161 stopped filing before 2024, 180 without a current ticker):
+all-9-signal firm-years 11 (2010) -> 116-180 a year 2012-2019; microcaps (float < $300M) with all 9 signals 8-48 a year;
+microcaps only appear from 10-Ks filed 2012-13 (XBRL phase-in for smaller filers: periods after 2011-06-15); signal coverage
+lowest for gross margin (63%). Full run crashed at the end (companyfacts JSON without a cik). Fixes: ratios with a zero or
+missing denominator give a missing signal, not a crash (_div); CIK taken from the file name; skips counted in the JSON
+(files_skipped, examples) instead of printed. 2 regression tests (7 in file). Rerun needed.

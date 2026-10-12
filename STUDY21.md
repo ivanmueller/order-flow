@@ -50,7 +50,9 @@ Choices flagged for approval (made in the step 0 code, changeable):
   delisting return is in the data.
 - Gate (per variant, <= 4 variants): mean monthly excess over the cheap-microcap average after costs > 0 with the
   90% block-bootstrap lower bound > 0; both halves positive; positive without the best 5% of months; and
-  the F >= 8 minus F <= 1 spread positive. Discovery: formations 2010-04..2018-12. Validation once:
+  the F >= 8 minus F <= 1 spread positive. Discovery: formations 2010-04..2018-12 (step 0 shows smaller filers
+  only enter XBRL with periods after 2011-06-15, so microcap F-scores start with 10-Ks filed ~2013; the discovery
+  start will move to 2013 unless the full inventory says otherwise). Validation once:
   2019-01..2022-12. Holdout (sealed, "run the holdout"): 2023-01..2024-12 (returns to 2025-12, before the
   project seal of 2026-01-01).
 - Prices: a survivorship-free daily US price file with delisted tickers (Sharadar via Nasdaq Data Link or
