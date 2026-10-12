@@ -253,7 +253,10 @@ Update this block at the end of every session.
   --limit; then strategy approval and pricing a survivorship-free price file. No config entries yet.
   Full inventory run 2026-10-12: 13,585 companies (7,490 dead, 65% no current ticker); all-9 microcaps 440-810 a year
   from 2013 (none usable before 10-Ks filed 2013); F >= 8 microcaps only 10-31 a year; gross margin coverage 45% is the
-  binding input. Awaiting Matteo's decisions: missing-signal rule, high/low cut-offs, sample split, price source.
+  binding input. Matteo approved 1b (>= 7 of 9 signals, share passed), 2b (strong >= 7/9, weak <= 2/9), split as
+  proposed. Survivors-only PILOT (free, yfinance, discovery filings 2013-18, prices to 2019-12-31) APPROVED and BUILT
+  (src/study21.py, 5 tests; s21_* + study21_pilot_min_names in config, universe/entry/cost values PROPOSED). Next:
+  `pip install yfinance`, `python -m src.study21 --prices`, then `--pilot`. Can only ADVANCE (buy delisted prices).
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -350,6 +353,7 @@ See README.md for the full runbook in order.
 - Study 20: `python -m src.vix_futures --probe`, `python -m src.vix_futures`, `python -m src.study20 --discover`,
   then once `--validate`; holdout (validation passes only): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study20 --holdout`
 - Study 21 step 0 (free, SEC_USER_AGENT in .env): `python -m src.edgar_inventory [--limit 500] [--no-sic]`
+- Study 21 pilot (survivors only, free): `python -m src.study21 --prices`, then `python -m src.study21 --pilot`
 - Study 18 (free): `python -m src.defi_subgraph --chain all --probe`, `--chain all`, then `python -m src.study18 --build`,
   `--stage-a`, then once `--validate`
 - Study 16 (market-neutral crypto theses): `python -m src.study16 --all`, then `--diagnose`; holdout only on

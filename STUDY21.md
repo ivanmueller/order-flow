@@ -1,6 +1,7 @@
 # Study 21: Piotroski F-score in neglected US microcaps
 
-Status: DRAFT 2026-10-12 (Matteo: "okay lets do the fundamental microcaps"). Step 0 (free inventory) BUILT in
+Status: DRAFT 2026-10-12 (Matteo: "okay lets do the fundamental microcaps"). Scoring and split APPROVED (1b, 2b, 3);
+survivors-only pilot APPROVED ("yes") and BUILT (`src/study21.py`). Step 0 (free inventory) BUILT in
 `src/edgar_inventory.py`. The strategy below is a proposal; nothing in it is frozen until Matteo approves it after
 step 0, and no config entries are added before then.
 
@@ -59,3 +60,27 @@ Choices flagged for approval (made in the step 0 code, changeable):
   QuantRocket, one month, priced first; EODHD only if it confirms delisted coverage). Not bought without approval.
 - Live, only if validation and holdout pass: EDGAR feed -> weekly rescore -> candidate list -> IBKR limit orders
   with manual approval.
+
+## Approved choices (Matteo 2026-10-12)
+
+1b: scored when >= 7 of 9 signals exist, on the share passed. 2b: strong = passes >= 7/9, weak <= 2/9. 3: discovery =
+10-Ks filed 2013-2018, validation 2019-2022 once (full data only), holdout 2023-2024 sealed (returns to 2025-12).
+
+## Full inventory (2026-10-12)
+
+13,585 companies; 7,490 dead before 2024; 65% have no current ticker. Fully scored microcaps 440-810 a year from 2013;
+F >= 8 only 10-31 a year (hence 2b). Gross margin exists for 45% of firm-years (hence 1b).
+
+## Survivors-only pilot (free; can only ADVANCE or NO ADVANCE)
+
+Discovery filings only; companies that still trade today, priced with yfinance under their current ticker; no price
+after 2019-12-31. Universe as proposed above (float $5M-300M, non-financial, positive book, top third of
+book-to-float in the filing year; the third is set on ALL companies, dead included). Entry at the close of the 2nd
+trading day after the 10-K filing date if price >= $1 and the 20-day median dollar volume >= $50k; hold 252 trading
+days; round trip 3% / 2% / 1% for median dollar volume < $250k / < $1M / above. Monthly calendar-time portfolios,
+equal weight: STRONG, WEAK, ALL (every cheap priced position, the benchmark), all charged the same costs.
+ADVANCE iff (a) STRONG - ALL after costs: mean > 0 and one-sided 90% block-bootstrap (6-month blocks) lower bound > 0;
+(b) STRONG - WEAK gross mean > 0; (c) STRONG holds >= 10 names on average. Absolute returns are survivor-inflated and
+are not judged. Expected: thin; a pass is possible because survivorship works against the strong-vs-all gap.
+Dry runs: a planted ~10%/yr edge -> ADVANCE; no edge -> 0/12 seeds ADVANCE at 80% or 90% (one other seed at 80%
+did advance, hence 90%).

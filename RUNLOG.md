@@ -2676,3 +2676,12 @@ Microcaps (float < $300M) with all 9 signals: 814 (2013), 696, 642, 594, 533, 47
 microcaps with F >= 8: 31, 26, 20, 18, 24, 17, 11, 10, 10, 26, 13, 12, 22 a year -- thin before the cheapness and liquidity
 filters. Microcap F-scores start with 10-Ks filed 2013 (2011-12 near zero: XBRL phase-in). Long-term debt imputed as 0
 for 17-36% of full-score firm-years. No returns or prices seen.
+
+## 2026-10-12 -- Study 21 survivors-only pilot BUILT (no real run yet)
+Matteo approved 1b / 2b / split 3 and the free pilot. src/study21.py + tests/test_study21.py (5 tests, hand-checked).
+config.yaml: s21_* added -- APPROVED: s21_min_signals 7, s21_strong_min 7, s21_weak_max 2, s21_pilot_filed 2013..2018,
+s21_validation_filed 2019..2022, s21_holdout_filed 2023..2024; PROPOSED (for confirmation): float $5M-300M, top third
+book-to-float, entry lag 2 days, hold 252, price >= $1, 20-day median $ volume >= $50k, costs 3/2/1% round trip by
+$ volume bucket, lb level 0.90, 6-month blocks, 2000 reps, seed 20261021, price window 2012-06-01..2019-12-31; gate
+study21_pilot_min_names 10. Dry runs on synthetic data: planted ~10%/yr edge -> ADVANCE (strong-all +12.7%/yr x12);
+no edge -> NO ADVANCE in 12/12 seeds at 80% and 90% (one earlier seed advanced at 80% -> level set to 90%).

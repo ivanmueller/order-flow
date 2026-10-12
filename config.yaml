@@ -439,6 +439,29 @@ params:
       {name: V2, margin: 0.5, forecast: har, tvl_floor: 1000000, new_pool_weeks: null},
       {name: V3, margin: 0.25, forecast: har, tvl_floor: 250000, new_pool_weeks: null},
       {name: V4, margin: 0.25, forecast: har, tvl_floor: 1000000, new_pool_weeks: 26}]}
+  # Study 21 (STUDY21.md): Piotroski F-score in cheap US microcaps. Scoring and split APPROVED by Matteo 2026-10-12
+  # (1b, 2b, 3); the rest PROPOSED with the survivors-only pilot (flagged in RUNLOG), for his confirmation.
+  s21_min_signals:    {value: 7}                            # approved: scored when >= 7 of 9 signals exist
+  s21_strong_min:     {value: 7}                            # approved: strong = passes >= 7/9 of available signals
+  s21_weak_max:       {value: 2}                            # approved: weak = passes <= 2/9
+  s21_pilot_filed:    {value: ["2013-01-01", "2018-12-31"]} # approved: discovery = 10-Ks filed in these years
+  s21_validation_filed: {value: ["2019-01-01", "2022-12-31"]}  # approved: once, full data only
+  s21_holdout_filed:  {value: ["2023-01-01", "2024-12-31"]} # approved: sealed, only on "run the holdout"
+  s21_pilot_price_end: {value: "2019-12-31"}                # pilot reads no price after this (last discovery exit)
+  s21_price_start:    {value: "2012-06-01"}
+  s21_float_min:      {value: 5000000}                      # proposed: public float range ($)
+  s21_float_max:      {value: 300000000}
+  s21_bm_quantile:    {value: 0.6667}                       # proposed: cheap = top third of book-to-float in the filing year
+  s21_entry_lag_days: {value: 2}                            # proposed: buy at the close of the 2nd trading day after filing
+  s21_hold_days:      {value: 252}                          # proposed: hold 12 months
+  s21_min_price:      {value: 1.0}
+  s21_min_dollar_volume: {value: 50000}                     # proposed: median daily $ volume at entry
+  s21_adv_window:     {value: 20}                           # trading days ending at the entry day
+  s21_cost_buckets:   {value: [[250000, 0.03], [1000000, 0.02], [1.0e+18, 0.01]]}  # proposed: round trip by $ volume
+  s21_lb_level:       {value: 0.90}                         # pilot: one-sided 90% block-bootstrap lower bound
+  s21_block_months:   {value: 6}
+  s21_boot_reps:      {value: 2000}
+  s21_seed:           {value: 20261021}
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -507,6 +530,7 @@ gates:
   study19_min_trades: 50            # study 19 (STUDY19.md): trades per variant in sample
   study19_holdout_min_trades: 20
   study20_min_days_in_market: 250   # study 20 (STUDY20.md): validation only
+  study21_pilot_min_names: 10       # study 21 pilot: average strong names held per month
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 

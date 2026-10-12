@@ -161,6 +161,8 @@ python -m src.study14 --risk                   # descriptive bankroll of the fro
 #     Study 21 step 0 (free; set SEC_USER_AGENT="Your Name you@example.com" in .env)
 python -m src.edgar_inventory --limit 500   # quick check
 python -m src.edgar_inventory               # all companies (downloads the SEC bulk files once)
+python -m src.study21 --prices              # survivors-only pilot: yfinance prices (pip install yfinance)
+python -m src.study21 --pilot
 #     holdout, once, only on "run the holdout": GAMMA_EDGE_RUN_HOLDOUT=1 with crypto_data --hourly --holdout,
 #     study14 --events --holdout, crypto_data --event-data --holdout, then study14 --holdout
 #     Study 15: long early in crypto surges (hourly data already on disk; STUDY15.md). In order:
