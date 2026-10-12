@@ -257,6 +257,8 @@ Update this block at the end of every session.
   proposed. Survivors-only PILOT (free, yfinance, discovery filings 2013-18, prices to 2019-12-31) APPROVED and BUILT
   (src/study21.py, 5 tests; s21_* + study21_pilot_min_names in config, universe/entry/cost values PROPOSED). Next:
   `pip install yfinance`, `python -m src.study21 --prices`, then `--pilot`. Can only ADVANCE (buy delisted prices).
+  Pilot run 2026-10-12: NO ADVANCE. 525 survivor positions (strong 80, avg 13 names); strong - all after costs
+  -0.3%/yr (90% lb -8%/yr); strong - weak gross -11%/yr (weak survivors = recoveries). Awaiting Matteo's call.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").

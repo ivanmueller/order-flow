@@ -2685,3 +2685,13 @@ book-to-float, entry lag 2 days, hold 252, price >= $1, 20-day median $ volume >
 $ volume bucket, lb level 0.90, 6-month blocks, 2000 reps, seed 20261021, price window 2012-06-01..2019-12-31; gate
 study21_pilot_min_names 10. Dry runs on synthetic data: planted ~10%/yr edge -> ADVANCE (strong-all +12.7%/yr x12);
 no edge -> NO ADVANCE in 12/12 seeds at 80% and 90% (one earlier seed advanced at 80% -> level set to 90%).
+
+## 2026-10-12 -- Study 21 survivors-only PILOT run (Matteo; commit 6e9b5b7; config as proposed, lb 0.90)
+Prices: 339 tickers, 335 priced (4 no data). Cheap firm-years 2,124 (discovery filings 2013-18); 873 with a current
+ticker (41%); 862 priced; 337 failed entry filters (price < $1 or < $50k/day); 525 positions (strong 80, weak 43).
+Avg names held: strong 13.0, weak 7.0, all 82.0. STRONG - ALL after costs: -0.02%/month (-0.3%/yr x12), 90% lb -0.68%,
+ub +0.27%/month; halves -0.15% / +0.10%. STRONG - WEAK gross: -0.92%/month (-11%/yr), lb -2.1%. Survivor-inflated
+absolute (net): strong +9.3%/yr, weak +23.0%/yr, all +10.4%/yr. Gate: (a) FAIL, (b) FAIL, (c) pass -> NO ADVANCE.
+Reading: weak survivors are the companies that recovered (failures removed), as expected from the design; strong
+shows no edge over the cheap average even though that comparison was tilted against it only mildly. Inconclusive by
+construction for the full strategy; Matteo's call (close, a free delisting-bound check from EDGAR, or buy full prices).
