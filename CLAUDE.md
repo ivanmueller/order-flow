@@ -258,7 +258,10 @@ Update this block at the end of every session.
   (src/study21.py, 5 tests; s21_* + study21_pilot_min_names in config, universe/entry/cost values PROPOSED). Next:
   `pip install yfinance`, `python -m src.study21 --prices`, then `--pilot`. Can only ADVANCE (buy delisted prices).
   Pilot run 2026-10-12: NO ADVANCE. 525 survivor positions (strong 80, avg 13 names); strong - all after costs
-  -0.3%/yr (90% lb -8%/yr); strong - weak gross -11%/yr (weak survivors = recoveries). Awaiting Matteo's call.
+  -0.3%/yr (90% lb -8%/yr); strong - weak gross -11%/yr (weak survivors = recoveries). Matteo chose a new variant:
+  Study 21b (buy strong low-coverage microcaps k days before earnings; earnings date = min(8-K 2.02, 10-Q/K);
+  expected = last year's lag; exit 2 days after; gated k = 5/10/20, family 4 of 4) APPROVED and BUILT (src/study21b.py,
+  7 tests; s21b_* + study21b_min_trades). Next: `python -m src.study21b --events`, `--prices`, `--run`.
 - 2026-10-08: Matteo moving to a laptop. backup_to_usb.bat / restore_from_usb.bat (scripts/*_usb.ps1, shared
   check in transfer_common.ps1) copy code, git, every data folder and the spend ledger, skip .venv/caches, ask
   before copying .env, verify every file by size, and rebuild .venv on the laptop (README "Moving to another computer").
@@ -356,6 +359,7 @@ See README.md for the full runbook in order.
   then once `--validate`; holdout (validation passes only): `GAMMA_EDGE_RUN_HOLDOUT=1 python -m src.study20 --holdout`
 - Study 21 step 0 (free, SEC_USER_AGENT in .env): `python -m src.edgar_inventory [--limit 500] [--no-sic]`
 - Study 21 pilot (survivors only, free): `python -m src.study21 --prices`, then `python -m src.study21 --pilot`
+- Study 21b (before earnings, free): `python -m src.study21b --events`, `--prices`, `--run`
 - Study 18 (free): `python -m src.defi_subgraph --chain all --probe`, `--chain all`, then `python -m src.study18 --build`,
   `--stage-a`, then once `--validate`
 - Study 16 (market-neutral crypto theses): `python -m src.study16 --all`, then `--diagnose`; holdout only on

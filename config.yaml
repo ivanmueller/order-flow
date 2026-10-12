@@ -462,6 +462,15 @@ params:
   s21_block_months:   {value: 6}
   s21_boot_reps:      {value: 2000}
   s21_seed:           {value: 20261021}
+  # Study 21b (STUDY21.md): strong low-coverage microcaps bought before earnings. APPROVED 2026-10-12 ("build as
+  # described and test different days before"): k=5 as described; k=10 and 20 added as the other gated variants.
+  s21b_entry_days_gated: {value: [5, 10, 20]}               # gated (family of 4 with the Study 21 pilot)
+  s21b_entry_days_curve: {value: [1, 2, 3, 5, 10, 15, 20]}  # reported only, not gated
+  s21b_exit_after_days: {value: 2}                          # sell at the close 2 trading days after the announcement
+  s21b_no_report_exit_days: {value: 15}                     # ...or 15 trading days after the expected date
+  s21b_8k_window_days: {value: 60}                          # an 8-K 2.02 counts if filed within 60 days before the 10-Q/K
+  s21b_prior_tol_days: {value: 20}                          # last year's same quarter: period end within +/- 20 days
+  s21b_fy_max_age_days: {value: 456}                        # strong/weak from a 10-K no older than ~15 months
   bootstrap_draws:    {value: 5000}
   bootstrap_seed:     {value: 7}
   ci_level:           {value: 0.90}
@@ -531,6 +540,7 @@ gates:
   study19_holdout_min_trades: 20
   study20_min_days_in_market: 250   # study 20 (STUDY20.md): validation only
   study21_pilot_min_names: 10       # study 21 pilot: average strong names held per month
+  study21b_min_trades: 100          # study 21b: strong trades per gated variant
   robustness_min_positive_share: 0.80
   max_variants_before_nq: 20
 

@@ -2695,3 +2695,13 @@ absolute (net): strong +9.3%/yr, weak +23.0%/yr, all +10.4%/yr. Gate: (a) FAIL, 
 Reading: weak survivors are the companies that recovered (failures removed), as expected from the design; strong
 shows no edge over the cheap average even though that comparison was tilted against it only mildly. Inconclusive by
 construction for the full strategy; Matteo's call (close, a free delisting-bound check from EDGAR, or buy full prices).
+
+## 2026-10-12 -- Study 21b BUILT (no real run yet)
+Matteo: "build as described and test different days before". src/study21b.py + tests/test_study21b.py (7 tests);
+study21.fetch_prices takes a ticker list. config.yaml: s21b_entry_days_gated [5, 10, 20] (5 as described; 10/20 added
+for "different days"), s21b_entry_days_curve [1, 2, 3, 5, 10, 15, 20] (reported only), s21b_exit_after_days 2,
+s21b_no_report_exit_days 15 (as described), s21b_8k_window_days 60, s21b_prior_tol_days 20, s21b_fy_max_age_days 456
+(proposed); gate study21b_min_trades 100. Family: Study 21 pilot + k5/k10/k20 = 4 of 4 gated variants.
+Synthetic dry runs: planted +5% pre-announcement drift -> ADVANCE at all three k; no drift -> 1 false advance in 15
+variant-runs (each variant uses a one-sided 90% bound, so ~10% per variant by construction; the pilot only decides a
+data purchase).

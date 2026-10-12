@@ -84,3 +84,23 @@ ADVANCE iff (a) STRONG - ALL after costs: mean > 0 and one-sided 90% block-boots
 are not judged. Expected: thin; a pass is possible because survivorship works against the strong-vs-all gap.
 Dry runs: a planted ~10%/yr edge -> ADVANCE; no edge -> 0/12 seeds ADVANCE at 80% or 90% (one other seed at 80%
 did advance, hence 90%).
+
+## Pilot result (2026-10-12): NO ADVANCE
+
+Strong - all after costs -0.3%/yr (90% lb -8%/yr); strong - weak gross -11%/yr; 13 strong names held on average.
+
+## Study 21b: strong low-coverage microcaps bought before earnings (APPROVED 2026-10-12, survivors-only pilot)
+
+Matteo: "build as described and test different days before". Earnings date = the earlier of the 8-K earnings release
+(item 2.02, filed after the period end and within 60 days before the 10-Q/10-K) and the 10-Q/10-K filing. Expected
+date = period end + last year's same-quarter lag (+/- 20 days), known in advance. Buy at the close k trading days
+before the expected date, only if the company has not reported by then; sell at the close 2 trading days after the
+actual announcement, or 15 trading days after the expected date. Strong/weak and the universe (non-financial, float
+$5M-300M, positive book, >= 7 signals; NO cheapness filter) from the latest 10-K filed strictly before the entry day,
+<= 456 days old. Same $1 / $50k / 3-2-1% cost rules. Announcements 2013-2018, no price after 2019-12-31.
+Gated variants (with the Study 21 pilot: 4 of 4 in the family): k = 5, 10, 20. Curve k = 1, 2, 3, 15 reported only.
+ADVANCE for a variant iff: strong trades' monthly-average net return > 0 with one-sided 90% block-bootstrap lb > 0;
+strong beats all universe trades (monthly mean difference > 0); >= 100 strong trades. Expected outcome stated in
+advance: positive before costs, fails after costs (needs > ~2% per window against ~0.5-1.5% published premiums).
+Dry runs: planted +5% pre-announcement drift -> ADVANCE at k = 5/10/20 (+3.8% / +5.3% / +5.3% gross per trade);
+no drift -> 1 advance in 15 variant-runs (k20 once).

@@ -143,14 +143,15 @@ def _candidates(cfg) -> pd.DataFrame:
     return U
 
 
-def fetch_prices(cfg, batch: int = 50) -> dict:
-    """yfinance daily (split/dividend adjusted) for every cheap-universe survivor; cached per ticker, resumable."""
+def fetch_prices(cfg, batch: int = 50, tickers: list[str] | None = None) -> dict:
+    """yfinance daily (split/dividend adjusted) for every cheap-universe survivor (or the given tickers); cached per
+    ticker, resumable."""
     try:
         import yfinance as yf
     except ImportError:
         raise SystemExit("pip install yfinance")
     U = _candidates(cfg)
-    tick = sorted(set(U.loc[U["cheap"] & U["ticker"].notna(), "ticker"]))
+    tick = tickers if tickers is not None else sorted(set(U.loc[U["cheap"] & U["ticker"].notna(), "ticker"]))
     root = data_path(cfg, "raw", "yf_prices")
     root.mkdir(parents=True, exist_ok=True)
     missing_file = root / "_no_data.json"
