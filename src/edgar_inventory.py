@@ -11,7 +11,10 @@ Dead companies stay in (companyfacts covers every filer). Firm-years filed on or
 (in_sample). This step reports counts only -- no prices, no returns.
 
   python -m src.edgar_inventory --limit 500     # quick check on the first 500 companies
-  python -m src.edgar_inventory                 # everything (a few GB of downloads, then ~10-30 min)
+  python -m src.edgar_inventory                 # everything (a few GB of downloads once, then ~10-30 min)
+
+Progress is printed; each 200-company chunk is saved under data/derived/edgar_chunks_v2/, so a stopped run resumes.
+`pip install orjson` makes parsing 2-3x faster (optional).
 """
 from __future__ import annotations
 
@@ -19,8 +22,9 @@ import argparse
 import json
 import logging
 import os
+import time
 import zipfile
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
@@ -53,6 +57,9 @@ CONCEPTS = {
 FLOWS = {"ni", "cfo", "rev", "gp", "cogs", "shares"}            # duration facts (one fiscal year)
 DUR = (330, 380)                                                # days: an annual duration, 52/53-week years included
 TOL = pd.Timedelta(days=20)                                     # period-end matching tolerance
+CHUNK = 200                                                     # companies per cached work unit (resume after a stop)
+CACHE = "edgar_chunks_v2"                                       # bump when firm_years() changes, so old chunks are not reused
+NEEDED = [t.encode() for tags in CONCEPTS.values() for t in tags]
 SIGNALS = ["s_roa", "s_cfo", "s_droa", "s_accrual", "s_dlever", "s_dliquid", "s_eq", "s_dmargin", "s_dturn"]
 DAY = 86_400 * 10**9
 
@@ -69,7 +76,7 @@ def _facts(cf: dict) -> dict[str, dict[str, np.ndarray]]:
                 for x in unit_rows:
                     if not str(x.get("form", "")).startswith("10-K") or x.get("val") is None:
                         continue
-                    rows.append((rank, x.get("start"), x["end"], x["filed"], float(x["val"]), x["accn"]))
+                    rows.append((rank, x.get("start"), x["end"], x["filed"], float(x["val"]), x["accn"], x["form"]))
         if not rows:
             continue
         r = list(zip(*rows))
@@ -79,7 +86,7 @@ def _facts(cf: dict) -> dict[str, dict[str, np.ndarray]]:
                     "has_start": start.notna().to_numpy(),
                     "end": pd.to_datetime(pd.Series(r[2])).to_numpy("datetime64[ns]").astype("int64"),
                     "filed": pd.to_datetime(pd.Series(r[3])).to_numpy("datetime64[ns]").astype("int64"),
-                    "val": np.array(r[4]), "accn": np.array(r[5])}
+                    "val": np.array(r[4]), "accn": np.array(r[5]), "form": np.array(r[6])}
     return out
 
 
@@ -122,8 +129,7 @@ def firm_years(cf: dict, cik: int | None = None) -> pd.DataFrame:
     for f in F.values():
         for a, fl in zip(f["accn"], f["filed"]):
             filings[a] = min(filings.get(a, fl), fl)
-    gaap = cf.get("facts", {}).get("us-gaap", {})
-    forms = {x["accn"]: x["form"] for t in gaap.values() for u in t.get("units", {}).values() for x in u}
+    forms = {a: fm for f in F.values() for a, fm in zip(f["accn"], f["form"])}
     out = []
     for accn, filed_ns in filings.items():
         if forms.get(accn, "").endswith("/A"):
@@ -230,19 +236,52 @@ def download(name: str, root: Path, refresh: bool = False) -> Path:
     return dest
 
 
-def _cf_chunk(args) -> tuple[pd.DataFrame, list[str]]:
+def _loads(raw: bytes) -> dict:
+    try:
+        import orjson                                               # optional, ~2-3x faster parsing
+        return orjson.loads(raw)
+    except ImportError:
+        return json.loads(raw)
+
+
+def relevant(raw: bytes) -> bool:
+    """Cheap byte test before parsing: a company with no 10-K, or none of our tags, cannot produce a firm-year."""
+    return b'"10-K' in raw and any(t in raw for t in NEEDED)
+
+
+def _cf_chunk(args) -> tuple[pd.DataFrame, list[str], int]:
     path, names = args
-    parts, skipped = [], []
+    parts, skipped, parsed = [], [], 0
     with zipfile.ZipFile(path) as z:
         for n in names:
+            raw = z.read(n)
+            if not relevant(raw):
+                continue
+            parsed += 1
             try:
-                d = firm_years(json.loads(z.read(n)), cik=int(n[3:13]))
+                d = firm_years(_loads(raw), cik=int(n[3:13]))
             except Exception as e:                                  # malformed company file: count, don't stop
                 skipped.append(f"{n}: {type(e).__name__}: {e}")
                 continue
             if len(d):
                 parts.append(d)
-    return (pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()), skipped
+    return (pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()), skipped, parsed
+
+
+def _cached_chunk(args) -> tuple[pd.DataFrame, list[str], int]:
+    """Run one fixed chunk, or reuse its saved result (so a stopped run resumes where it left off)."""
+    path, names, cache = args
+    pq, meta = cache.with_suffix(".parquet"), cache.with_suffix(".json")
+    key = [len(names), names[0], names[-1]]                         # a --limit run's partial chunk is not reused
+    if meta.exists() and (m := json.loads(meta.read_text())).get("key") == key:
+        return (pd.read_parquet(pq) if pq.exists() else pd.DataFrame()), m["skipped"], m["parsed"]
+    d, sk, parsed = _cf_chunk((path, names))
+    if len(d):
+        d.to_parquet(pq, index=False)
+    if pq.exists() and not len(d):
+        pq.unlink()
+    meta.write_text(json.dumps({"skipped": sk, "parsed": parsed, "key": key}))
+    return d, sk, parsed
 
 
 def _sic_chunk(args) -> list[tuple]:
@@ -270,16 +309,27 @@ def run(cfg, limit: int | None, jobs: int, sic: bool, refresh: bool) -> dict:
     with zipfile.ZipFile(cf_zip) as z:
         names = sorted(n for n in z.namelist() if n.endswith(".json"))
     names = names[:limit] if limit else names
+    cache = data_path(cfg, "derived", CACHE)
+    cache.mkdir(parents=True, exist_ok=True)
+    work = [(cf_zip, names[i:i + CHUNK], cache / f"chunk_{i // CHUNK:05d}") for i in range(0, len(names), CHUNK)]
+    res, t0 = [], time.time()
     with ProcessPoolExecutor(jobs) as ex:
-        res = list(ex.map(_cf_chunk, [(cf_zip, c) for c in _chunks(names, jobs)]))
-    skipped = [x for _, sk in res for x in sk]
-    fy = pd.concat([p for p, _ in res if len(p)], ignore_index=True)
+        futs = [ex.submit(_cached_chunk, w) for w in work]
+        for k, fu in enumerate(as_completed(futs), 1):
+            res.append(fu.result())
+            if k % max(1, len(work) // 40) == 0 or k == len(work):
+                el = time.time() - t0
+                print(f"  companies {min(k * CHUNK, len(names)):>6}/{len(names)}  {el / 60:5.1f} min  "
+                      f"eta {el / k * (len(work) - k) / 60:5.1f} min", flush=True)
+    skipped = [x for _, sk, _ in res for x in sk]
+    fy = pd.concat([p for p, _, _ in res if len(p)], ignore_index=True)
     fy = fy[in_sample(fy["filed"], cfg)].reset_index(drop=True)          # seal: nothing filed on/after holdout_start
     if sic:
         sub_zip = download("submissions.zip", root, refresh)
         with zipfile.ZipFile(sub_zip) as z:
             ciks = {f"CIK{int(c):010d}.json" for c in fy["cik"].unique()}
             snames = [n for n in z.namelist() if n in ciks]
+        print(f"  industry codes for {len(snames)} companies ...", flush=True)
         with ProcessPoolExecutor(jobs) as ex:
             rows = [r for part in ex.map(_sic_chunk, [(sub_zip, c) for c in _chunks(snames, jobs)]) for r in part]
         meta = pd.DataFrame(rows, columns=["cik", "sic", "tickers_now", "exchanges_now"])
@@ -289,6 +339,7 @@ def run(cfg, limit: int | None, jobs: int, sic: bool, refresh: bool) -> dict:
     fy.to_parquet(out / "edgar_firm_years.parquet", index=False)
     s = summarize(fy, last_filed_cut=pd.Timestamp("2024-01-01"), buckets=[50e6, 300e6, 2e9])
     s["companies"]["files_read"] = len(names)
+    s["companies"]["files_parsed"] = int(sum(p for _, _, p in res))
     s["companies"]["files_skipped"] = len(skipped)
     s["companies"]["skipped_examples"] = skipped[:5]
     s["sealed_from"] = str(holdout_start(cfg))

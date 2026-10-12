@@ -2658,3 +2658,11 @@ current ticker. Non-financial firm-years with all 9 signals 145-186 a year 2013-
 (float < $300M) with all 9: 25-52 a year from 2013; F >= 8 microcaps 0-3 a year. Coverage: gross margin 63%, others
 81-99%. The first 500 CIKs are the oldest registrants (larger, older firms), so microcap counts here understate the full
 set. Full run in progress.
+
+## 2026-10-12 -- Study 21 step 0: full run stopped by Matteo (no output); speed-ups (no analysis change)
+Full `edgar_inventory` printed nothing for a long time and was interrupted (KeyboardInterrupt; nothing saved). Changes,
+same output: (1) byte pre-filter skips files with no 10-K or none of our tags before parsing (20-F/40-F filers, funds);
+(2) forms read from our tags only, not every fact; (3) optional orjson parser; (4) progress line with ETA; (5) each
+200-company chunk saved under data/derived/edgar_chunks_v2/ so a stopped run resumes (a --limit run's partial chunk is
+not reused). Profiling a 23 MB synthetic filer: JSON parsing ~3x the scoring time. Dry run: limit, full, and resumed
+runs give identical counts; resumed run 0.1 s. 8 tests in the file pass.

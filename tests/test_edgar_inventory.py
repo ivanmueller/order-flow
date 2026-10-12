@@ -132,3 +132,11 @@ def test_cik_comes_from_the_file_name_when_the_json_has_none():
     c = company()
     del c["cik"]
     assert (ei.firm_years(c, cik=42)["cik"] == 42).all()
+
+
+def test_byte_prefilter_only_drops_files_that_cannot_score():
+    import json as _j
+    raw = _j.dumps(company()).encode()
+    assert ei.relevant(raw)
+    no10k = raw.replace(b'"10-K', b'"20-F')
+    assert not ei.relevant(no10k) and len(ei.firm_years(_j.loads(no10k))) == 0
